@@ -9,6 +9,7 @@ import { EMPTY_SCENES, type EmptySceneId } from '../../core/office/visual.js'
 import type { World } from '../../core/types.js'
 import { emptyWorld } from '../../core/world.js'
 import { FrameLoop, browserHost, type LoopHost } from './loop.js'
+import { OfficeOverlay } from './overlay.js'
 import { OfficeRenderer, type Scene } from './renderer.js'
 
 export interface OfficeEnv {
@@ -36,6 +37,7 @@ export class OfficeView {
   readonly stage: HTMLDivElement
   readonly canvas: HTMLCanvasElement
   private readonly renderer: OfficeRenderer
+  private readonly overlay: OfficeOverlay
   private readonly loop: FrameLoop
   private readonly reducedQuery: MediaQueryList
   private readonly observer: ResizeObserver | undefined
@@ -64,6 +66,7 @@ export class OfficeView {
     this.canvas.setAttribute('aria-hidden', 'true')
     this.stage.appendChild(this.canvas)
     this.renderer = new OfficeRenderer(this.canvas)
+    this.overlay = new OfficeOverlay(this.stage, { onFocus: (agentId) => this.setFocused(agentId) })
 
     this.reducedQuery = env.matchMedia(REDUCED_MOTION)
     this.reduced = this.reducedQuery.matches
@@ -126,12 +129,15 @@ export class OfficeView {
   destroy(): void {
     this.loop.stop()
     this.observer?.disconnect()
+    this.overlay.destroy()
     this.reducedQuery.removeEventListener('change', this.onReducedChange)
   }
 
   private resize(): void {
+    const before = this.renderer.scale
     this.renderer.resize(this.container.clientWidth, this.env.devicePixelRatio())
     this.canvas.dataset.scale = String(this.renderer.scale)
+    if (this.renderer.scale !== before && this.previousLayout) this.overlay.setScale(this.renderer.scale, this.previousLayout.placements)
     this.loop.requestDraw()
   }
 
@@ -180,6 +186,8 @@ export class OfficeView {
     if (this.world && this.world.sources.transcripts.status !== 'starting') this.seeded = true
 
     this.renderer.setScene(scene)
+    if (this.empty) this.overlay.clear()
+    else this.overlay.update(world, scene.layout, this.renderer.scale)
     this.canvas.dataset.rows = String(scene.layout.rows)
     this.canvas.dataset.scene = this.empty ?? 'office'
     this.loop.requestDraw()
@@ -188,6 +196,7 @@ export class OfficeView {
   private drawFrame(): void {
     const nowMs = this.env.now()
     const stats = this.renderer.draw(nowMs, this.focusedId)
+    this.overlay.syncWalkers(stats.walkers)
     this.drawnAgents = stats.drawn
     this.canvas.dataset.frames = String(this.loop.frames + 1)
     this.canvas.dataset.actors = String(this.drawnAgents)

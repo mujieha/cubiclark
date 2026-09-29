@@ -42,6 +42,8 @@ export interface Scene {
 export interface DrawStats {
   /** Agents drawn this frame, as a character or a board tag. */
   drawn: number
+  /** Agents drawn walking this frame, with the px box they are in: their overlay buttons follow them. */
+  walkers: { agentId: string; box: Rect }[]
 }
 
 const MAX_SCALE = 4
@@ -175,7 +177,7 @@ export class OfficeRenderer {
     const ctx = this.context
     ctx.setTransform(this.backing, 0, 0, this.backing, 0, 0)
     ctx.imageSmoothingEnabled = false
-    const stats: DrawStats = { drawn: 0 }
+    const stats: DrawStats = { drawn: 0, walkers: [] }
     if (!this.scene || !this.staticLayer) return stats
     ctx.drawImage(this.staticLayer, 0, 0)
     const scene = this.scene
@@ -202,6 +204,7 @@ export class OfficeRenderer {
       if (onBoard) {
         items.push({ sortY: placement.seat.y, draw: () => this.drawTag(ctx, agent, placement) })
       } else if (where.walking) {
+        stats.walkers.push({ agentId: agent.id, box: { x: where.point.x - 8, y: where.point.y - 24, w: 16, h: 24 } })
         items.push({ sortY: where.point.y, draw: () => this.drawWalker(ctx, agent, where.point, where.facing, nowMs) })
       } else {
         items.push({ sortY: placement.seat.y, draw: () => this.drawSeated(ctx, agent, placement, nowMs) })

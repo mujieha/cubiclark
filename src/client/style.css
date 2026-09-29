@@ -95,6 +95,47 @@ body {
   font-size: 12px;
 }
 
+/* One transparent button per agent, laid over the canvas. Positions are set from script. */
+.office-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.office-agent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: auto;
+  cursor: default;
+}
+
+.office-agent:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+#office-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  max-width: 340px;
+  padding: 4px 8px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .title {
   font-weight: 700;
   letter-spacing: 0.02em;
