@@ -24,7 +24,8 @@ function trimSlashes(path: string): string {
 
 const START_KINDS: ReadonlySet<TaskTimelineEntry['kind']> = new Set(['dispatched', 'resumed', 'forked'])
 
-function phaseAfterCut(kept: readonly TaskTimelineEntry[], planModel: string | undefined): Task['phase'] {
+/** The phase the newest of `kept` implies (used by replay's cut, and by the HUD to place a block). */
+export function phaseAfterCut(kept: readonly TaskTimelineEntry[], planModel: string | undefined): Task['phase'] {
   const last = kept[kept.length - 1]
   if (!last) return undefined
   switch (last.kind) {

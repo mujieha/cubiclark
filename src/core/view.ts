@@ -194,7 +194,7 @@ export function sourcesLine(world: World): string {
   return `transcripts: ${transcriptsText} · hooks: ${hooksText}`
 }
 
-const BUSY_STATES: ReadonlySet<AgentState> = new Set([
+export const BUSY_STATES: ReadonlySet<AgentState> = new Set([
   'starting',
   'thinking',
   'reading',
