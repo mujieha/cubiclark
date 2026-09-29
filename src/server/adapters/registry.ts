@@ -11,6 +11,17 @@ import { TaskFoldersAdapter } from './task-folders.js'
 export const ADAPTER_IDS = ['task-folders', 'quota-samples', 'claude-agents'] as const
 export type AdapterId = (typeof ADAPTER_IDS)[number]
 
+const MISSING_REASON: Record<string, string> = {
+  'task-folders': 'no readable tasks root',
+  'quota-samples': 'no samples file found',
+  'claude-agents': 'claude could not be run',
+}
+
+/** Why an adapter whose detect() said false is `missing`. */
+export function missingReason(id: string): string {
+  return MISSING_REASON[id] ?? 'source not found'
+}
+
 export interface AdapterDeps {
   /** How `claude-agents` runs its program; tests inject a counting or failing one. */
   run?: CommandRunner

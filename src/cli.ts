@@ -34,11 +34,14 @@ Usage:
   cubiclark hooks off [--purge]   Remove it (byte-identical when settings.json is unchanged since)
   cubiclark hooks status          Show what is installed and whether it is paused
   cubiclark hooks pause|resume    Soft-off: create or remove <state dir>/off
-  cubiclark doctor                Report the Claude Code version, sources and diagnostics
+  cubiclark doctor [--adapters]   Report the Claude Code version, sources and diagnostics;
+                                  --adapters also reads each configured adapter
   cubiclark hook                  The collector itself; Claude Code runs it, not people
 
   --config-dir <dir>   Claude config directory (default CLAUDE_CONFIG_DIR or ~/.claude)
   --state-dir <dir>    Cubiclark state directory (default CUBICLARK_HOME or ~/.cubiclark)
+  --config <file>      Adapter configuration (default <state dir>/config.json; none is read
+                       from a --fixture-home without --state-dir)
   --claude-bin <path>  doctor only: the claude executable (default claude)
   --port <n>           Port to listen on (0 picks a free one). Default 4789.
   --since-hours <n>    How far back to read transcripts. Default 12. Ignored with
@@ -279,6 +282,9 @@ async function runDoctorCommand(cmd: DoctorCommand): Promise<void> {
   // As in serve: a fixture home never reaches for the real state directory by accident.
   const stateDir = cmd.stateDir ?? (resolved.fixtureMode ? undefined : resolveStateDir(undefined, process.env, home))
 
+  // --adapters reads the adapter configuration: --config, else <state dir>/config.json (never
+  // the real one from a fixture home without --state-dir).
+  const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
   const report = await runDoctor({
     root: resolved.root,
     configDir: cmd.configDir ?? resolved.root,
@@ -287,6 +293,7 @@ async function runDoctorCommand(cmd: DoctorCommand): Promise<void> {
     sinceHours: cmd.sinceHours,
     claudeBin: cmd.claudeBin,
     nowMs: Date.now,
+    adapters: cmd.adapters ? { configPath, home } : undefined,
   })
   console.log(formatDoctorReport(report))
   process.exitCode = doctorExitCode(report)

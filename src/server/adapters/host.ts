@@ -5,7 +5,7 @@
 
 import { mergeSnapshots, type AdapterEnv, type AdapterSnapshot, type OrchestrationAdapter } from '../../core/adapters/types.js'
 import type { AdapterStatus } from '../../core/types.js'
-import { ADAPTER_IDS } from './registry.js'
+import { ADAPTER_IDS, missingReason } from './registry.js'
 
 type TimerHandle = unknown
 
@@ -30,12 +30,6 @@ interface Entry {
   unwatch?: () => void
   running: boolean
   again: boolean
-}
-
-const MISSING_REASON: Record<string, string> = {
-  'task-folders': 'no readable tasks root',
-  'quota-samples': 'no samples file found',
-  'claude-agents': 'claude could not be run',
 }
 
 function message(err: unknown): string {
@@ -136,7 +130,7 @@ export class AdapterHost {
       .catch(() => false)
     if (this.stopped) return
     if (!found) {
-      entry.status = { id: entry.adapter.id, status: 'missing', detail: MISSING_REASON[entry.adapter.id] ?? 'source not found' }
+      entry.status = { id: entry.adapter.id, status: 'missing', detail: missingReason(entry.adapter.id) }
       entry.part = undefined
       entry.timer = this.setTimer(() => {
         entry.timer = undefined

@@ -11,9 +11,12 @@ import { gateTranscriptEvent } from '../core/merge.js'
 import { reduce } from '../core/reducer.js'
 import { classifyHooks, classifyTranscripts, type SourceCheck } from '../core/hooks/status.js'
 import { HOOK_EVENTS_VERIFIED_ON, HOOK_EVENT_NAMES } from '../core/hooks/whitelist.js'
-import type { UnparsedBreakdown } from '../core/types.js'
+import { quotaAt } from '../core/adapters/quota.js'
+import type { AdapterStatus, Task, UnparsedBreakdown, World } from '../core/types.js'
 import { unparsedReasonTotals, unparsedTypeCounts } from '../core/view.js'
 import { emptyWorld } from '../core/world.js'
+import { ADAPTER_IDS, createAdapters, missingReason } from './adapters/registry.js'
+import { loadConfig } from './config-file.js'
 import { HookSource } from './hook-source.js'
 import { inspectHooks } from './hooks-install.js'
 import { TranscriptSource } from './transcript-source.js'
@@ -33,6 +36,14 @@ export interface DoctorReport {
     versions: string[]
     sourceErrors: string[]
   }
+  /** Only with `doctor --adapters`: what each adapter found, and what was wrong with the config. */
+  adapters?: { warnings: string[]; entries: AdapterStatus[] }
+}
+
+export interface DoctorAdaptersOptions {
+  /** The adapter configuration file; undefined means none is read. */
+  configPath: string | undefined
+  home: string
 }
 
 export interface DoctorOptions {
@@ -46,6 +57,8 @@ export interface DoctorOptions {
   sinceHours: number
   claudeBin: string
   nowMs: () => number
+  /** Set by --adapters: also detect and read each configured adapter. */
+  adapters?: DoctorAdaptersOptions
 }
 
 const ONE_SHOT_POLL_MS = 60 * 60 * 1000 // never fires: both sources are stopped right after start()
@@ -59,6 +72,64 @@ async function claudeVersion(bin: string): Promise<DoctorReport['claude']> {
   } catch (err) {
     return { verified: false, error: err instanceof Error ? err.message : String(err) }
   }
+}
+
+function newestActivityMs(world: World): number | undefined {
+  let max: number | undefined
+  for (const agent of Object.values(world.agents)) {
+    const ms = Date.parse(agent.lastActivity)
+    if (!Number.isNaN(ms) && (max === undefined || ms > max)) max = ms
+  }
+  return max
+}
+
+function phaseBreakdown(tasks: readonly Task[]): string {
+  const counts = new Map<string, number>()
+  for (const task of tasks) counts.set(task.phase ?? 'no phase', (counts.get(task.phase ?? 'no phase') ?? 0) + 1)
+  const order = ['planning', 'building', 'review', 'blocked', 'done', 'no phase']
+  return order.filter((phase) => counts.has(phase)).map((phase) => `${counts.get(phase)} ${phase}`).join(', ')
+}
+
+/** Detects and reads each configured adapter once, and says what it found. Nothing here throws. */
+async function checkAdapters(o: DoctorOptions, adapterOptions: DoctorAdaptersOptions, nowMs: number): Promise<NonNullable<DoctorReport['adapters']>> {
+  const loaded =
+    adapterOptions.configPath === undefined
+      ? { config: {}, warnings: [] as string[] }
+      : await loadConfig(adapterOptions.configPath, { home: adapterOptions.home, fixtureMode: o.fixtureMode })
+  const env = { nowMs: () => nowMs, home: adapterOptions.home }
+  const adapters = new Map(createAdapters(loaded.config, env).map((adapter) => [adapter.id, adapter]))
+
+  const entries: AdapterStatus[] = []
+  for (const id of ADAPTER_IDS) {
+    const adapter = adapters.get(id)
+    if (!adapter) {
+      entries.push({ id, status: 'off', detail: 'not configured' })
+      continue
+    }
+    try {
+      if (!(await adapter.detect(env))) {
+        entries.push({ id, status: 'missing', detail: missingReason(id) })
+        continue
+      }
+      const snapshot = await adapter.snapshot()
+      const description = adapter.describe?.(nowMs)
+      let detail = description?.detail ?? 'read'
+      if (id === 'task-folders' && snapshot.tasks) {
+        const roots = loaded.config.taskFolders?.roots.length ?? 1
+        const unparsed = snapshot.diagnostics.unparsed
+        detail = `${snapshot.tasks.length} tasks${snapshot.tasks.length > 0 ? ` (${phaseBreakdown(snapshot.tasks)})` : ''} in ${roots} root${roots === 1 ? '' : 's'} · ${unparsed} unparsed log line${unparsed === 1 ? '' : 's'}`
+      } else if (id === 'quota-samples' && snapshot.quotaSamples) {
+        const quota = quotaAt(snapshot.quotaSamples, nowMs)
+        const newest = snapshot.quotaSamples[snapshot.quotaSamples.length - 1]
+        detail = quota ? `5h ${quota.p5h}% · 7d ${quota.p7d}% · newest sample ${newest?.ts ?? 'none'}` : 'no samples yet'
+      }
+      if (snapshot.diagnostics.errors.length > 0) detail += ` · errors: ${snapshot.diagnostics.errors.slice(0, 2).join('; ')}`
+      entries.push({ id, status: description?.failing ? 'failing' : 'live', detail })
+    } catch (err) {
+      entries.push({ id, status: 'failing', detail: (err instanceof Error ? err.message : String(err)).slice(0, 120) })
+    }
+  }
+  return { warnings: loaded.warnings, entries }
 }
 
 export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
@@ -110,6 +181,10 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
   }
 
   const d = world.diagnostics
+  // In a fixture home the adapters are read against the newest record, as the running app does.
+  const adapters = o.adapters
+    ? await checkAdapters(o, o.adapters, o.fixtureMode ? (newestActivityMs(world) ?? o.nowMs()) : o.nowMs())
+    : undefined
   return {
     claude: await claudeVersion(o.claudeBin),
     hookEvents: { verifiedOn: HOOK_EVENTS_VERIFIED_ON, events: HOOK_EVENT_NAMES },
@@ -123,6 +198,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
       versions: d.versions,
       sourceErrors: d.sourceErrors,
     },
+    ...(adapters ? { adapters } : {}),
   }
 }
 
@@ -147,14 +223,19 @@ export function formatDoctorReport(r: DoctorReport): string {
   ]
   if (d.sourceErrors.length > 0) parts.push(`${d.sourceErrors.length} source errors (first: ${d.sourceErrors[0]})`)
 
-  return [
+  const lines = [
     `${'Claude Code'.padEnd(14)}${claudeLine(r.claude)}`,
     `${'Hook events'.padEnd(14)}${r.hookEvents.events.join(', ')}`,
     sourceLine('transcripts', r.transcripts),
     sourceLine('hooks', r.hooks),
     `${'diagnostics'.padEnd(14)}${parts.join(', ')}`,
     `${'unparsed by'.padEnd(14)}${unparsedByText(d.unparsedBy)}`,
-  ].join('\n')
+  ]
+  if (r.adapters) {
+    for (const warning of r.adapters.warnings) lines.push(`${'config'.padEnd(14)}${warning}`)
+    for (const entry of r.adapters.entries) lines.push(`${entry.id.padEnd(14)}${entry.status.padEnd(10)}${entry.detail}`)
+  }
+  return lines.join('\n')
 }
 
 /** "no_timestamp 9000 (mode 4000, user 3000), unknown_type 5 (x 5)", or "none". Names and counts
