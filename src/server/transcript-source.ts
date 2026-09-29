@@ -7,6 +7,7 @@
 import { watch as fsWatch } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
+import { bump } from '../core/keys.js'
 import type { AgentEvent, TranscriptSourceStatus, UnparsedBreakdown } from '../core/types.js'
 import { parseSubagentMeta } from '../core/transcript/meta.js'
 import { classifyPath } from '../core/transcript/paths.js'
@@ -28,6 +29,16 @@ export interface TranscriptSourceOptions {
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
+
+/** The errno code (`EACCES`) when there is one, else 'error': never a message, which names paths. */
+function errorCode(err: unknown): string {
+  const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
+  return typeof code === 'string' ? code : 'error'
+}
+
+const MAX_META_BYTES = 64 * 1024
+/** A file is read at most this many pieces (8 MiB each) per poll, so one huge file cannot starve the others. */
+const MAX_ROUNDS_PER_POLL = 16
 
 function toPosixRelative(root: string, absPath: string): string {
   return relative(root, absPath).split(sep).join('/')
@@ -70,7 +81,11 @@ export class TranscriptSource {
   }
 
   async start(): Promise<void> {
-    await this.scan()
+    try {
+      await this.scan()
+    } catch (err) {
+      this.report(`transcript scan: unexpected error: ${errorCode(err)}`)
+    }
     if (this.opts.watch) this.setupWatch()
     this.pollTimer = setInterval(() => {
       void this.pollAll()
@@ -160,7 +175,14 @@ export class TranscriptSource {
 
     let mtimeMs: number
     try {
-      mtimeMs = (await stat(absPath)).mtimeMs
+      const info = await stat(absPath)
+      if (!info.isFile()) {
+        // A symlink to a directory, a FIFO, a device: never opened (S1-5), said once.
+        this.excluded.add(absPath)
+        this.emitDiagnostic(`${this.label(absPath)}: not a regular file, skipped`)
+        return
+      }
+      mtimeMs = info.mtimeMs
     } catch {
       return // raced with a delete; the next scan simply will not see it either
     }
@@ -185,14 +207,19 @@ export class TranscriptSource {
   private async readMeta(absPath: string, parentId: string, agentId: string): Promise<void> {
     let text: string
     try {
+      const info = await stat(absPath)
+      if (!info.isFile() || info.size > MAX_META_BYTES) {
+        this.emitDiagnostic(`${this.label(absPath)}: not a small regular file, skipped`)
+        return
+      }
       text = await readFile(absPath, 'utf8')
     } catch (err) {
-      this.emitDiagnostic(`cannot read ${absPath}: ${errorMessage(err)}`)
+      this.emitDiagnostic(`cannot read ${this.label(absPath)}: ${errorCode(err)}`)
       return
     }
     const result = parseSubagentMeta(text)
     if (!result.ok) {
-      this.emitDiagnostic(`invalid subagent meta at ${absPath}: ${result.error}`)
+      this.emitDiagnostic(`invalid subagent meta ${this.label(absPath)}: ${result.error}`)
       return
     }
     this.opts.onEvents([
@@ -208,30 +235,41 @@ export class TranscriptSource {
     ])
   }
 
+  /** Reads what a file has, in bounded pieces: each piece is parsed and handed on before the next
+   * is read. Never throws (S1-5): a failure becomes a source error and the other files carry on. */
   private async pollOne(absPath: string): Promise<void> {
+    try {
+      for (let rounds = 0; rounds < MAX_ROUNDS_PER_POLL; rounds++) {
+        if (this.stopped || !(await this.pollPiece(absPath))) return
+      }
+    } catch (err) {
+      this.report(`${this.label(absPath)}: unexpected error: ${errorCode(err)}`)
+    }
+  }
+
+  /** One bounded read of one file. True when the file has more to read right now. */
+  private async pollPiece(absPath: string): Promise<boolean> {
     const entry = this.tailers.get(absPath)
-    if (!entry) return
+    if (!entry) return false
 
     const result = await entry.tailer.poll()
-    if (result.error) this.emitDiagnostic(`${absPath}: ${result.error}`)
-    if (result.lines.length === 0) return
+    if (result.error) this.emitDiagnostic(`${this.label(absPath)}: ${result.error}`)
+    if (result.lines.length === 0 && result.tooLong === 0) return result.more
 
     const events: AgentEvent[] = []
-    let unparsed = 0
+    let unparsed = result.tooLong
     const unknownTypes: Record<string, number> = {}
     const unparsedBy: UnparsedBreakdown = {}
+    if (result.tooLong > 0) bump((unparsedBy.too_long ??= {}), '(none)', result.tooLong)
     for (const line of result.lines) {
       const parsed = parseLine(line, entry.ctx, entry.state)
       entry.state = parsed.state
       events.push(...parsed.events)
       if (parsed.unparsed) {
         unparsed += 1
-        if (parsed.unknownType !== undefined) {
-          unknownTypes[parsed.unknownType] = (unknownTypes[parsed.unknownType] ?? 0) + 1
-        }
+        if (parsed.unknownType !== undefined) bump(unknownTypes, parsed.unknownType)
         if (parsed.reason !== undefined && parsed.recordType !== undefined) {
-          const byType = (unparsedBy[parsed.reason] ??= {})
-          byType[parsed.recordType] = (byType[parsed.recordType] ?? 0) + 1
+          bump((unparsedBy[parsed.reason] ??= {}), parsed.recordType)
         }
       }
     }
@@ -245,15 +283,38 @@ export class TranscriptSource {
       events.push({ t: 'diagnostics', ts: this.nowIso(), unparsed, unknownTypes, unparsedBy, versions: [] })
     }
     if (events.length > 0) this.opts.onEvents(events)
+    return result.more
   }
 
+  /** Never throws: it runs from timers and watch callbacks, where nothing would catch it. */
   private async pollAll(): Promise<void> {
     if (this.stopped) return
-    await this.scan() // discovers new files; a no-op for ones already registered or excluded
-    for (const absPath of this.tailers.keys()) {
-      if (this.stopped) return
-      await this.pollOne(absPath)
+    try {
+      await this.scan() // discovers new files; a no-op for ones already registered or excluded
+      for (const absPath of this.tailers.keys()) {
+        if (this.stopped) return
+        await this.pollOne(absPath)
+      }
+    } catch (err) {
+      this.report(`transcript scan: unexpected error: ${errorCode(err)}`)
     }
+  }
+
+  /** A source error that cannot itself throw: the consumer of the events may be what failed. */
+  private report(message: string): void {
+    try {
+      this.emitDiagnostic(message)
+    } catch {
+      // nothing more can be done from here
+    }
+  }
+
+  /** `<project>/<file>` for messages: never the absolute path, whose directory names the cwd. */
+  private label(absPath: string): string {
+    const parts = toPosixRelative(this.opts.root, absPath).split('/')
+    const project = (parts[1] ?? '').split('-').filter((part) => part !== '').pop()
+    const file = parts[parts.length - 1] ?? ''
+    return project ? `${project}/${file}` : file
   }
 
   private setupWatch(): void {

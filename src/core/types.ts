@@ -178,6 +178,8 @@ export const UNPARSED_REASONS = [
   'unknown_type',
   'unknown_subtype',
   'handler_rejected',
+  /** NEW in phase 5: a line longer than the tailer's cap, dropped without being parsed. */
+  'too_long',
 ] as const
 
 export type UnparsedReason = (typeof UNPARSED_REASONS)[number]

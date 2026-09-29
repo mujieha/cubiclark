@@ -8,7 +8,7 @@ import { gateTranscriptEvent } from '../core/merge.js'
 import { reduce } from '../core/reducer.js'
 import { tick } from '../core/tick.js'
 import type { AgentEvent, ReplayInfo, SourcesStatus, World } from '../core/types.js'
-import { emptyWorld } from '../core/world.js'
+import { emptyWorld, pushSourceError } from '../core/world.js'
 
 export interface StoreOptions {
   nowMs: () => number
@@ -51,9 +51,19 @@ export class Store {
   applyEvents(events: AgentEvent[]): void {
     if (events.length === 0) return
     let next = this.world
-    for (const event of events) next = reduce(next, event)
+    for (const event of events) next = this.guarded(next, () => reduce(next, event))
     this.world = next
     this.scheduleNotify()
+  }
+
+  /** One event that makes the reducer throw is dropped and counted as a source error (S1-5): the
+   * server carries on with the next one. */
+  private guarded(world: World, run: () => World): World {
+    try {
+      return run()
+    } catch {
+      return pushSourceError(world, 'an event could not be applied and was skipped')
+    }
   }
 
   /** Events from the transcript source: each one first goes through the merge gate, judged
@@ -63,8 +73,10 @@ export class Store {
     if (events.length === 0) return
     let next = this.world
     for (const event of events) {
-      const gated = gateTranscriptEvent(next, event)
-      if (gated) next = reduce(next, gated)
+      next = this.guarded(next, () => {
+        const gated = gateTranscriptEvent(next, event)
+        return gated ? reduce(next, gated) : next
+      })
     }
     this.world = next
     this.scheduleNotify()
@@ -100,12 +112,17 @@ export class Store {
 
   tickNow(): void {
     const nowMs = this.opts.nowMs()
-    const ticked = tick(this.world, nowMs, {
-      stuckAfterMs: this.opts.stuckAfterMs,
-      permissionAfterMs: this.opts.permissionAfterMs,
-    })
-    const applied = applyAdapters(ticked, this.adapterSnapshot, nowMs, { replay: this.replayMode })
-    this.world = { ...applied, clock: new Date(nowMs).toISOString() }
+    try {
+      const ticked = tick(this.world, nowMs, {
+        stuckAfterMs: this.opts.stuckAfterMs,
+        permissionAfterMs: this.opts.permissionAfterMs,
+      })
+      const applied = applyAdapters(ticked, this.adapterSnapshot, nowMs, { replay: this.replayMode })
+      this.world = { ...applied, clock: new Date(nowMs).toISOString() }
+    } catch {
+      // The timer that calls this has no catch (S1-5): the World stays as it was, with a note.
+      this.world = { ...pushSourceError(this.world, 'a clock tick failed and was skipped'), clock: new Date(nowMs).toISOString() }
+    }
     this.scheduleNotify()
   }
 
@@ -138,6 +155,13 @@ export class Store {
 
   private notifySubscribers(): void {
     this.lastNotifyMs = Date.now()
-    for (const fn of this.subscribers) fn(this.world)
+    for (const fn of [...this.subscribers]) {
+      try {
+        fn(this.world)
+      } catch {
+        // One client that fails to be written to must not stop the others, or the timer (S1-5).
+        this.subscribers.delete(fn)
+      }
+    }
   }
 }

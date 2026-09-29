@@ -346,6 +346,16 @@ async function runDoctorCommand(cmd: DoctorCommand): Promise<void> {
   process.exitCode = doctorExitCode(report)
 }
 
+/** The last resort of S1-5: whatever a timer or a callback still rejects with is logged to stderr
+ * (its name only, never a message that could hold a path) and the page keeps being served. */
+function keepServing(): void {
+  const say = (kind: string, reason: unknown): void => {
+    const name = reason instanceof Error ? reason.name : typeof reason
+    console.error(`cubiclark: ${kind} (${name}); still serving`)
+  }
+  process.on('unhandledRejection', (reason) => say('an unhandled error in a background task', reason))
+}
+
 async function runServe(cmd: ServeCommand): Promise<void> {
   const { root, fixtureMode } = resolveRoot(cmd.fixtureHome, process.env, homedir())
 
@@ -373,6 +383,7 @@ async function runServe(cmd: ServeCommand): Promise<void> {
   // Exactly one machine-readable line to stdout; everything else goes to stderr.
   console.log(`cubiclark listening ${app.url}`)
   console.error(`cubiclark: ${fixtureMode ? 'reading fixture data from' : 'reading transcripts from'} ${root}`)
+  keepServing()
 
   const shutdown = (): void => {
     void app.close().then(() => process.exit(0))
@@ -416,6 +427,7 @@ async function runReplay(cmd: ReplayCommand): Promise<void> {
 
   console.log(`cubiclark listening ${replay.url}`)
   console.error(`cubiclark: replaying the last ${cmd.since} of ${resolved.root} at ${cmd.speed}×`)
+  keepServing()
 
   const shutdown = (): void => {
     void replay.close().then(() => process.exit(0))

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -216,5 +216,78 @@ describe('TranscriptSource', () => {
     fixtureSource.stop()
     expect(fixtureMode.events.some((e) => e.t === 'prompt')).toBe(true)
     expect(fixtureSource.getStatus()).toMatchObject({ files: 1, inWindow: 1, windowHours: null })
+  })
+})
+
+// S1-5: nothing a file system or a consumer does may take the source down.
+describe('TranscriptSource survives what it is given', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const OTHER = '00000000-0000-4000-8000-000000000002'
+
+  function source(onEvents: (events: AgentEvent[]) => void, pollMs = 10_000): TranscriptSource {
+    return new TranscriptSource({ root: dir, sinceMs: null, windowHours: null, watch: false, pollMs, onEvents, nowMs: () => Date.now() })
+  }
+
+  test('a *.jsonl symlink to a directory is reported once and its sibling is still read', async () => {
+    const project = join(dir, 'projects', '-tmp-demo')
+    await mkdir(project, { recursive: true })
+    await mkdir(join(dir, 'a-directory'))
+    await symlink(join(dir, 'a-directory'), join(project, `${SID}.jsonl`))
+    await writeFile(join(project, `${OTHER}.jsonl`), promptLine(OTHER, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n', 'utf8')
+
+    const { events, onEvents } = collector()
+    const s = source(onEvents, 30)
+    await s.start()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    s.stop()
+
+    expect(events.some((e) => e.t === 'prompt' && e.agentId === OTHER)).toBe(true)
+    const errors = events.flatMap((e) => (e.t === 'diagnostics' && e.sourceError ? [e.sourceError] : []))
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('not a regular file')
+    expect(errors[0]).not.toContain(dir)
+  })
+
+  test('a consumer that throws is a source error, and the next poll still runs', async () => {
+    const project = join(dir, 'projects', '-tmp-demo')
+    await mkdir(project, { recursive: true })
+    await writeFile(join(project, `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n', 'utf8')
+
+    const seen: AgentEvent[] = []
+    let failures = 1
+    const s = source((batch) => {
+      if (failures > 0 && batch.some((e) => e.t === 'prompt')) {
+        failures -= 1
+        throw new Error('reducer bug')
+      }
+      seen.push(...batch)
+    })
+    await s.start()
+    s.stop()
+    const errors = seen.flatMap((e) => (e.t === 'diagnostics' && e.sourceError ? [e.sourceError] : []))
+    expect(errors.some((message) => message.includes('unexpected error'))).toBe(true)
+  })
+
+  test('a line over the cap is counted as too_long and the rest of the file is read', async () => {
+    const project = join(dir, 'projects', '-tmp-demo')
+    await mkdir(project, { recursive: true })
+    const big = `${'x'.repeat(5 * 1024 * 1024)}\n`
+    await writeFile(join(project, `${SID}.jsonl`), `${big}${promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z')}\n`, 'utf8')
+    const { events, onEvents } = collector()
+    const s = source(onEvents)
+    await s.start()
+    s.stop()
+    expect(events.some((e) => e.t === 'prompt')).toBe(true)
+    const diagnostics = events.filter((e) => e.t === 'diagnostics')
+    const tooLong = diagnostics.flatMap((e) => (e.t === 'diagnostics' ? [e.unparsedBy?.too_long?.['(none)'] ?? 0] : []))
+    expect(tooLong.reduce((a, b) => a + b, 0)).toBe(1)
+  })
+
+  test('a file that is not there any more is not fatal', async () => {
+    const { events, onEvents } = collector()
+    const s = source(onEvents)
+    await s.start() // the root has no projects at all
+    s.stop()
+    expect(events).toEqual([])
   })
 })
