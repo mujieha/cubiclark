@@ -52,6 +52,24 @@ export default tseslint.config(
     },
   },
   {
+    // src/core is pure (design §3.7): no DOM, no clock, no animation frames. Flat config replaces a
+    // rule's options per block, so the HTML-sink entries are repeated here rather than lost.
+    files: ['src/core/**/*.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...['window', 'document', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'localStorage', 'navigator'].map(
+          (name) => ({ name, message: 'src/core is pure: pass the value in instead of reading it from the environment.' })
+        ),
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...htmlSinkBan['no-restricted-properties'].slice(1),
+        { object: 'Date', property: 'now', message: 'src/core is pure: the clock is always passed in.' },
+      ],
+    },
+  },
+  {
     // The collector must never write to stdout or stderr (PLAN.md phase 2 §1.2): stdout on some
     // events becomes context for Claude, and any output is a token cost.
     files: ['src/hook/**/*.ts', 'src/core/hooks/**/*.ts'],
