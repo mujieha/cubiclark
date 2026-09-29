@@ -209,7 +209,8 @@ export class Hud {
     for (const entry of view.entries) {
       const item = el('li')
       item.dataset.kind = entry.kind
-      item.append(el('time', { text: stampOf(entry.ts) }), el('span', { className: 'entry-kind', text: entry.kind }), el('span', { className: 'entry-text', text: entry.text }))
+      // The text already says what happened ("forked after 1 compaction"); the kind is data-kind.
+      item.append(el('time', { text: stampOf(entry.ts) }), el('span', { className: 'entry-text', text: entry.text }))
       if (entry.modelChange) item.appendChild(el('span', { className: 'model-change', text: entry.modelChange }))
       entries.appendChild(item)
     }

@@ -125,7 +125,10 @@ function agentText(agent: Agent | undefined, agentId: string, world: World): str
 export function logRows(world: World, filter: LogFilter, limit = 200): LogRow[] {
   const filtering = filter.project !== undefined || filter.taskId !== undefined
   const rows: LogRow[] = []
-  for (const line of world.log) {
+  // Lines arrive per source and per file, so the log is in arrival order: the panel shows it by
+  // time (a stable sort: lines of one moment keep their order).
+  const ordered = [...world.log].sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
+  for (const line of ordered) {
     const agent = world.agents[line.agentId]
     if (filtering) {
       if (!agent) continue

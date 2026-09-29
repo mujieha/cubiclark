@@ -161,6 +161,21 @@ describe('the session log', () => {
     ])
   })
 
+  test('rows are in time order whatever order the lines arrived in, and lines of one moment keep theirs', () => {
+    const w0 = logged()
+    const w = {
+      ...w0,
+      log: [
+        { ts: '2026-01-16T10:00:09.000Z', agentId: A1, kind: 'turn', text: 'late' },
+        { ts: '2026-01-16T10:00:01.000Z', agentId: A1, kind: 'prompt', text: 'first' },
+        { ts: '2026-01-16T10:00:05.000Z', agentId: A2, kind: 'tool', text: 'b' },
+        { ts: '2026-01-16T10:00:05.000Z', agentId: A1, kind: 'tool', text: 'c' },
+      ],
+    }
+    expect(logRows(w, {}).map((r) => r.result)).toEqual(['first', 'b', 'c', 'late'])
+    expect(logRows(w, {}, 2).map((r) => r.result)).toEqual(['c', 'late'])
+  })
+
   test('the limit keeps the newest rows', () => {
     expect(logRows(logged(), {}, 2).map((r) => r.result)).toEqual(['prompt', 'turn done'])
   })
@@ -175,7 +190,7 @@ describe('the session log', () => {
   })
 
   test('a line whose agent has left the World stays unfiltered and goes when filtering', () => {
-    const w = { ...logged(), log: [...logged().log, { ts: T0, agentId: 'gone', kind: 'tool', text: 'Read x · ok' }] }
+    const w = { ...logged(), log: [...logged().log, { ts: '2026-01-16T10:00:10.000Z', agentId: 'gone', kind: 'tool', text: 'Read x · ok' }] }
     expect(logRows(w, {}).at(-1)).toMatchObject({ agentId: 'gone', agent: 'gone' })
     expect(logRows(w, { project: 'demo' }).some((r) => r.agentId === 'gone')).toBe(false)
   })
