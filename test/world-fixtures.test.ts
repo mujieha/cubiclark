@@ -51,6 +51,15 @@ describe('the big worlds', () => {
     expect(Object.keys(fixture('crowd-50').agents)).toHaveLength(50)
   })
 
+  test('crowd-100 has 100 agents: 60 live sessions, 30 subagents under 20 of them, 10 that left', () => {
+    const agents = Object.values(fixture('crowd-100').agents)
+    expect(agents).toHaveLength(100)
+    expect(agents.filter((agent) => agent.kind === 'subagent')).toHaveLength(30)
+    expect(agents.filter((agent) => agent.state === 'finished' || agent.state === 'ended')).toHaveLength(10)
+    expect(new Set(agents.filter((agent) => agent.kind === 'subagent').map((agent) => agent.parentId)).size).toBe(20)
+    expect(new Set(agents.map((agent) => agent.project)).size).toBeGreaterThanOrEqual(8)
+  })
+
   test('every subagent has its parent in the world, except the rooms world orphan', () => {
     for (const [name, build] of Object.entries(WORLD_FIXTURES)) {
       const world = build()
