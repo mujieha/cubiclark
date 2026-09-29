@@ -173,17 +173,13 @@ const seated = (head: readonly string[], torsoRows: readonly string[]): Built =>
 
 const standing = (head: readonly string[], body: readonly string[]): Built => ({ rows: [BLANK, ...head, ...body], headTop: 1 })
 
-// A waving arm rises on the right: a hand (K) at the top, a sleeve (S) down to the shoulder.
-const waving = (handX: number, armX: number): Built => {
+// A waving arm rises on the right, two pixels wide so it reads at a glance: a hand (K) three rows
+// tall at the top, a sleeve (S) down to the shoulder. `left` is the arm's left column.
+const waving = (left: number): Built => {
   const base = standing(HEAD_FRONT, standingBody('KKSSSSSSSSSS', legsStanding))
-  const arm = [
-    ...[8, 7, 6, 5, 4, 3].map((y) => [armX, y, 'S'] as const),
-    [handX, 1, 'K'] as const,
-    [handX + 1, 1, 'K'] as const,
-    [handX, 2, 'K'] as const,
-    [handX + 1, 2, 'K'] as const,
-  ]
-  return { ...base, rows: paint(base.rows, arm) }
+  const column = (x: number, rows: readonly number[], char: string): (readonly [number, number, string])[] => rows.map((y) => [x, y, char] as const)
+  const pixels = [left, left + 1].flatMap((x) => [...column(x, [3, 4, 5, 6, 7, 8], 'S'), ...column(x, [0, 1, 2], 'K')])
+  return { ...base, rows: paint(base.rows, pixels) }
 }
 
 const walking = (head: readonly string[], arms: string, legs: readonly string[]): Built => standing(head, standingBody(arms, legs))
@@ -224,8 +220,8 @@ export const CHARACTER_FRAMES: Record<string, SpriteDef> = {
   }),
   // Standing: at the desk, waving for attention.
   stand: frameOf(standing(HEAD_FRONT, standingBody('KKSSSSSSSSKK', legsStanding))),
-  stand_wave_a: frameOf(waving(14, 15)),
-  stand_wave_b: frameOf(waving(13, 14)),
+  stand_wave_a: frameOf(waving(14)),
+  stand_wave_b: frameOf(waving(13)),
   // Walking, seen from the front, from behind and from the side (facing right; left is a mirror).
   walk_down_a: frameOf(walking(HEAD_FRONT, 'KKSSSSSSSSSS', legsStride)),
   walk_down_b: frameOf(walking(HEAD_FRONT, 'SSSSSSSSSSKK', legsStanding)),

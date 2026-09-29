@@ -100,6 +100,7 @@ export const PROPS = {
   monitor_off: monitor(() => '4'),
   monitor_on: monitor((x, y) => (y % 2 === 0 && x > 1 && x < 6 ? '1' : 'd')),
   monitor_flicker: monitor((x, y) => ((x + y) % 2 === 0 ? '1' : 'd')),
+  monitor_error: monitor((x, y) => ((x + y) % 3 === 0 ? '0' : 'a')),
   lamp_off: lamp('3'),
   lamp_red: lamp('a'),
   lamp_amber: lamp('b'),

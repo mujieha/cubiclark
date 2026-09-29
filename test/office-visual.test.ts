@@ -86,6 +86,25 @@ describe('the state table (design §6)', () => {
     expect(STATE_VISUALS.failed.bubble?.style).toBe('alert')
   })
 
+  test('the monitor says something too: dark when off or booting, red for a failure, flickering for a command', () => {
+    for (const state of AGENT_STATES) {
+      const expected =
+        state === 'failed'
+          ? 'error'
+          : state === 'running'
+            ? 'flicker'
+            : ['starting', 'rate_limited', 'finished', 'ended'].includes(state)
+              ? 'off'
+              : 'on'
+      expect(STATE_VISUALS[state].screen, state).toBe(expected)
+    }
+  })
+
+  test('a failed agent is told from a rate-limited one by more than the bubble: their screens differ', () => {
+    expect(STATE_VISUALS.failed.screen).not.toBe(STATE_VISUALS.rate_limited.screen)
+    expect(STATE_VISUALS.starting.screen).not.toBe(STATE_VISUALS.thinking.screen)
+  })
+
   test('lampFor reads the same table', () => {
     const world = allStatesWorld()
     for (const state of AGENT_STATES) {
@@ -118,6 +137,13 @@ describe('frames', () => {
 
   test('frozen never moves, even with motion on', () => {
     for (const t of [0, 250, 800, 5000]) expect(frameAt('frozen', t, false)).toEqual(POSE_FRAMES.frozen.frames[0])
+  })
+
+  test('a waiting agent stands two pixels taller than anyone sitting, in both frames of the wave', () => {
+    for (const ref of POSE_FRAMES.stand_wave.frames) expect(ref.dy).toBe(-2)
+    for (const pose of ['type', 'lean_fwd', 'lean_back', 'sleep', 'slump'] as const) {
+      for (const ref of POSE_FRAMES[pose].frames) expect(ref.dy, pose).toBeGreaterThanOrEqual(0)
+    }
   })
 
   test('a negative time does not throw or index out of range', () => {

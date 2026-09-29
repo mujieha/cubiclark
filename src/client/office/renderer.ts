@@ -165,10 +165,12 @@ export class OfficeRenderer {
     const floor = layout.rooms.find((room) => room.id === 'floor')
     const manager = layout.rooms.find((room) => room.id === 'manager')
     if (!prop || !floor || !manager) return
-    const draw = (def: SpriteDef, key: string, x: number, y: number): void => ctx.drawImage(this.cache.get(key, def, {}, variant), x, y)
-    if (prop === 'clock') draw(PROPS.wall_clock, 'prop:wall_clock', (manager.rect.x + 4) * TILE, TILE + 3)
-    if (prop === 'plug') draw(PROPS.sign_unplugged, 'prop:sign_unplugged', (floor.rect.x + 10) * TILE, (floor.rect.y + 2) * TILE)
-    if (prop === 'cabinet') draw(PROPS.cabinet_locked, 'prop:cabinet_locked', (floor.rect.x + 10) * TILE, (floor.rect.y + 1) * TILE)
+    // Twice their size: an empty office has nothing else to look at, so its one prop has to say why.
+    const draw = (def: SpriteDef, key: string, x: number, y: number): void =>
+      ctx.drawImage(this.cache.get(key, def, {}, variant), x, y, def.w * 2, def.h * 2)
+    if (prop === 'clock') draw(PROPS.wall_clock, 'prop:wall_clock', (manager.rect.x + 6) * TILE, TILE + 6)
+    if (prop === 'plug') draw(PROPS.sign_unplugged, 'prop:sign_unplugged', (floor.rect.x + 12) * TILE, (floor.rect.y + 1) * TILE + 8)
+    if (prop === 'cabinet') draw(PROPS.cabinet_locked, 'prop:cabinet_locked', (floor.rect.x + 12) * TILE, (floor.rect.y + 1) * TILE)
   }
 
   // --- Each frame ---------------------------------------------------------------------------
@@ -281,7 +283,15 @@ export class OfficeRenderer {
     const visual = STATE_VISUALS[agent.state]
     const screen = visual.screen === 'flicker' && scene.reducedMotion ? 'on' : visual.screen
     const monitor =
-      screen === 'off' ? PROPS.monitor_off : screen === 'on' ? PROPS.monitor_on : Math.floor(nowMs / 100) % 2 === 0 ? PROPS.monitor_flicker : PROPS.monitor_on
+      screen === 'off'
+        ? PROPS.monitor_off
+        : screen === 'error'
+          ? PROPS.monitor_error
+          : screen === 'on'
+            ? PROPS.monitor_on
+            : Math.floor(nowMs / 100) % 2 === 0
+              ? PROPS.monitor_flicker
+              : PROPS.monitor_on
     const lamp = lampFor(agent)
     const lampSprite = lamp === 'red' ? PROPS.lamp_red : lamp === 'amber' ? PROPS.lamp_amber : PROPS.lamp_off
     const top = (cell.y + 2) * TILE

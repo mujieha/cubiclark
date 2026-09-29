@@ -39,7 +39,8 @@ export type BubbleIcon =
 export type BubbleStyle = 'plain' | 'alert' | 'muted'
 export type BubbleText = 'none' | 'target' | 'verb' | 'child' | 'quiet' | 'reset'
 export type Lamp = 'off' | 'red' | 'amber'
-export type Screen = 'off' | 'on' | 'flicker'
+/** A monitor: dark (off, or still booting), lit, flickering while a command runs, or showing an error. */
+export type Screen = 'off' | 'on' | 'flicker' | 'error'
 export type Tag = 'check' | 'exit'
 export type Direction = 'left' | 'right' | 'up' | 'down'
 
@@ -56,7 +57,8 @@ export interface StateVisual {
 const plain = (icon: BubbleIcon, text: BubbleText = 'none'): StateVisual['bubble'] => ({ icon, style: 'plain', pulse: false, text })
 
 export const STATE_VISUALS: Record<AgentState, StateVisual> = {
-  starting: { pose: 'settle', bubble: plain('spark'), lamp: 'off', screen: 'on', dim: false },
+  // The screen is still dark: the agent has only just sat down.
+  starting: { pose: 'settle', bubble: plain('spark'), lamp: 'off', screen: 'off', dim: false },
   thinking: { pose: 'type_slow', bubble: plain('dots'), lamp: 'off', screen: 'on', dim: false },
   reading: { pose: 'lean_fwd', bubble: plain('book', 'target'), lamp: 'off', screen: 'on', dim: false },
   searching: { pose: 'lean_fwd', bubble: plain('magnifier', 'target'), lamp: 'off', screen: 'on', dim: false },
@@ -85,7 +87,8 @@ export const STATE_VISUALS: Record<AgentState, StateVisual> = {
     pose: 'slump',
     bubble: { icon: 'cross', style: 'alert', pulse: false, text: 'none' },
     lamp: 'off',
-    screen: 'off',
+    // Red, not dark: the one thing that tells a failed agent from a rate-limited one at a glance.
+    screen: 'error',
     dim: false,
   },
   finished: { pose: 'walk_out', lamp: 'off', screen: 'off', dim: false, tag: 'check' },
@@ -111,7 +114,8 @@ export const POSE_FRAMES: Record<Pose, { frames: FrameRef[]; periodMs: number }>
   type_fast: { frames: [frame('sit_type_a'), frame('sit_type_b')], periodMs: 300 },
   lean_fwd: { frames: [frame('sit_lean_fwd_a'), frame('sit_lean_fwd_b')], periodMs: 1400 },
   side: { frames: [frame('sit_side'), frame('sit_side', 1)], periodMs: 1600 },
-  stand_wave: { frames: [frame('stand_wave_a'), frame('stand_wave_b')], periodMs: 500 },
+  // Standing up: two px taller than anyone sitting, so a waiting agent stands out in a row of desks.
+  stand_wave: { frames: [frame('stand_wave_a', -2), frame('stand_wave_b', -2)], periodMs: 500 },
   lean_back: { frames: [frame('sit_lean_back'), frame('sit_lean_back', 1)], periodMs: 2400 },
   shuffle: { frames: [frame('sit_shuffle_a'), frame('sit_shuffle_b')], periodMs: 700 },
   frozen: { frames: [frame('sit_type_a')], periodMs: 1000 },

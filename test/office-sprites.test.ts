@@ -195,6 +195,17 @@ describe('the character frames', () => {
     }
   })
 
+  test('the waving arm is two pixels wide and its hand three rows tall, in both frames', () => {
+    for (const name of ['stand_wave_a', 'stand_wave_b']) {
+      const rows = frame(name).rows
+      const hand = rows.slice(0, 3).map((row) => (row.match(/K/g) ?? []).length)
+      expect(hand, name).toEqual([2, 2, 2])
+      const sleeve = rows.slice(3, 9).map((row) => row.slice(13).replace(/\./g, ''))
+      for (const cells of sleeve) expect(cells.length, name).toBeGreaterThanOrEqual(2)
+    }
+    expect(frame('stand_wave_a').rows).not.toEqual(frame('stand_wave_b').rows)
+  })
+
   test('asleep and slumped differ from each other and from typing', () => {
     expect(frame('sit_sleep').rows).not.toEqual(frame('sit_slump').rows)
     expect(frame('sit_sleep').rows).not.toEqual(frame('sit_type_a').rows)
@@ -275,7 +286,7 @@ describe('tiles and props', () => {
 
   test('every prop validates, and the monitor and the lamp differ by state', () => {
     for (const [name, def] of Object.entries(PROPS)) expect(validateSprite(def, name, false), name).toEqual([])
-    expect(new Set([PROPS.monitor_off, PROPS.monitor_on, PROPS.monitor_flicker].map((d) => d.rows.join('/'))).size).toBe(3)
+    expect(new Set([PROPS.monitor_off, PROPS.monitor_on, PROPS.monitor_flicker, PROPS.monitor_error].map((d) => d.rows.join('/'))).size).toBe(4)
     expect(new Set([PROPS.lamp_off, PROPS.lamp_red, PROPS.lamp_amber].map((d) => d.rows.join('/'))).size).toBe(3)
   })
 })
