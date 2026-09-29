@@ -1,0 +1,115 @@
+// Maps a tool_use block to the AgentState it implies and a reduced target: only ever a file
+// basename, a command verb, a URL host or a subagent type — the same reduction rule design §5
+// specifies for what the collector is allowed to keep, applied here to transcripts too. Pattern
+// arguments (Grep/Glob), search queries (WebSearch) and full paths are never returned.
+
+const READING_TOOLS = new Set(['Read', 'NotebookRead', 'LS'])
+const EDITING_TOOLS = new Set(['Edit', 'MultiEdit', 'Write', 'NotebookEdit'])
+const RUNNING_TOOLS = new Set(['Bash', 'BashOutput', 'KillShell', 'PowerShell'])
+const SEARCHING_TOOLS = new Set(['Grep', 'Glob', 'ToolSearch'])
+const DELEGATING_TOOLS = new Set(['Agent', 'Task'])
+
+/** Tools that never prompt for permission on their own, so tick()'s inferred-permission-wait
+ * rule (PLAN.md §1.6) must never fire while one of these is the newest open tool. */
+export const PERMISSION_EXEMPT = new Set([
+  'Read',
+  'NotebookRead',
+  'LS',
+  'Grep',
+  'Glob',
+  'ToolSearch',
+  'TodoWrite',
+  'Agent',
+  'Task',
+  'BashOutput',
+])
+
+/** `acceptEdits` mode additionally exempts the editing tools. */
+export function isPermissionExempt(name: string, permissionMode: string | undefined): boolean {
+  if (PERMISSION_EXEMPT.has(name)) return true
+  if (permissionMode === 'acceptEdits' && EDITING_TOOLS.has(name)) return true
+  return false
+}
+
+export type ToolState = 'reading' | 'editing' | 'running' | 'searching' | 'browsing' | 'delegating'
+
+export interface ToolActivity {
+  state: ToolState
+  target?: string
+}
+
+function basename(path: string): string {
+  const trimmed = path.replace(/\/+$/, '')
+  const idx = trimmed.lastIndexOf('/')
+  return idx === -1 ? trimmed : trimmed.slice(idx + 1)
+}
+
+function bashTarget(command: string): string | undefined {
+  const tokens = command.trim().split(/\s+/).filter(Boolean)
+  for (const token of tokens) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(token)) continue // skip VAR=value assignments
+    return basename(token)
+  }
+  return undefined
+}
+
+function urlHost(url: string): string | undefined {
+  try {
+    return new URL(url).host || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function isBrowsingMcp(name: string): boolean {
+  return /^mcp__.*(chrome|playwright|browser)/i.test(name)
+}
+
+function stringInput(input: Record<string, unknown>, key: string): string | undefined {
+  const value = input[key]
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
+/** The state bucket a tool name alone implies, with no input needed. The reducer's tool_start
+ * handler uses this directly (PLAN.md §1.6's "state from table"), so it never has to duplicate
+ * this classification or import a whole tool_use block just to re-derive a state it can get from
+ * the name it already has. */
+export function toolStateForName(name: string): ToolState {
+  if (READING_TOOLS.has(name)) return 'reading'
+  if (EDITING_TOOLS.has(name)) return 'editing'
+  if (RUNNING_TOOLS.has(name)) return 'running'
+  if (SEARCHING_TOOLS.has(name)) return 'searching'
+  if (name === 'WebFetch' || name === 'WebSearch' || isBrowsingMcp(name)) return 'browsing'
+  if (DELEGATING_TOOLS.has(name)) return 'delegating'
+  return 'running'
+}
+
+export function toolActivity(name: string, input: Record<string, unknown>): ToolActivity {
+  const state = toolStateForName(name)
+  switch (state) {
+    case 'reading': {
+      const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path') ?? stringInput(input, 'path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'editing': {
+      const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'running': {
+      const command = stringInput(input, 'command')
+      return { state, target: command ? bashTarget(command) : undefined }
+    }
+    case 'searching': {
+      // Grep/Glob patterns are never returned; only an explicit `path` argument is.
+      const path = stringInput(input, 'path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'browsing': {
+      if (name !== 'WebFetch') return { state } // WebSearch's query and MCP browsing are content, never shown
+      const url = stringInput(input, 'url')
+      return { state, target: url ? urlHost(url) : undefined }
+    }
+    case 'delegating':
+      return { state, target: stringInput(input, 'subagent_type') }
+  }
+}
