@@ -2,10 +2,12 @@
 // injected clock, and notifies subscribers (the SSE layer) on a throttle — so a burst of
 // transcript lines produces at most one push every `throttleMs`, not one per line.
 
+import { applyAdapters } from '../core/adapters/apply.js'
+import type { AdapterSnapshot } from '../core/adapters/types.js'
 import { gateTranscriptEvent } from '../core/merge.js'
 import { reduce } from '../core/reducer.js'
 import { tick } from '../core/tick.js'
-import type { AgentEvent, SourcesStatus, World } from '../core/types.js'
+import type { AgentEvent, ReplayInfo, SourcesStatus, World } from '../core/types.js'
 import { emptyWorld } from '../core/world.js'
 
 export interface StoreOptions {
@@ -28,6 +30,8 @@ export class Store {
   private notifyTimer: ReturnType<typeof setTimeout> | undefined
   private lastNotifyMs = -Infinity
   private notifyPending = false
+  private adapterSnapshot: AdapterSnapshot | undefined
+  private replayMode = false
 
   constructor(private readonly opts: StoreOptions) {
     this.world = emptyWorld(new Date(opts.nowMs()).toISOString(), opts.transcriptsRoot)
@@ -73,13 +77,35 @@ export class Store {
     this.scheduleNotify()
   }
 
+  /** The latest combined snapshot of the orchestration adapters. It is re-applied on every tick,
+   * so quota resets and replay's time cut follow the clock without another snapshot. */
+  setAdapterSnapshot(snapshot: AdapterSnapshot): void {
+    this.adapterSnapshot = snapshot
+    this.tickNow()
+  }
+
+  /** In replay, tasks are cut to the store's clock (`nowMs`). */
+  setReplayMode(on: boolean): void {
+    this.replayMode = on
+  }
+
+  /** Replay progress, shown in the status bar. Observed, not event-sourced. */
+  setReplay(replay: ReplayInfo | undefined): void {
+    const next = { ...this.world }
+    if (replay) next.replay = replay
+    else delete next.replay
+    this.world = next
+    this.scheduleNotify()
+  }
+
   tickNow(): void {
     const nowMs = this.opts.nowMs()
     const ticked = tick(this.world, nowMs, {
       stuckAfterMs: this.opts.stuckAfterMs,
       permissionAfterMs: this.opts.permissionAfterMs,
     })
-    this.world = { ...ticked, clock: new Date(nowMs).toISOString() }
+    const applied = applyAdapters(ticked, this.adapterSnapshot, nowMs, { replay: this.replayMode })
+    this.world = { ...applied, clock: new Date(nowMs).toISOString() }
     this.scheduleNotify()
   }
 
