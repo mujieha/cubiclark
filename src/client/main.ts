@@ -3,7 +3,8 @@ import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusL
 import { THEMES, nextThemeChoice, resolveThemeId, themeButtonText, type Theme, type ThemeChoice } from '../core/theme/index.js'
 import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
-import { applyPageTheme, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
+import { assetsText, type PublicAssets } from '../core/assets/status.js'
+import { applyPageTheme, fetchCustomAssets, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
 import { OfficeView, browserEnv } from './office/office-view.js'
 import './style.css'
 
@@ -69,13 +70,17 @@ class App {
   private readonly officeSection = el('section', { id: 'office-view' })
   private readonly officeStatus = el('p', { className: 'office-status' })
   private readonly listSection = el('section', { id: 'list-view' })
+  private readonly assetErrorsEl = el('section', { className: 'asset-errors', id: 'asset-errors' })
   private readonly emptyEl = el('div', { className: 'empty' })
   private readonly sourcesEl = el('p', { className: 'sources' })
   private readonly diagnosticsEl = el('p', { className: 'diagnostics' })
   private readonly office: OfficeView
   private readonly hud: Hud
 
-  constructor(private readonly root: HTMLElement) {
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly custom: PublicAssets
+  ) {
     const header = el('header', { className: 'header' })
     header.appendChild(el('span', { className: 'title', text: 'Cubiclark' }))
     // Tab order is DOM order: the theme toggle comes first, then the panel toggle, so that after the
@@ -105,7 +110,9 @@ class App {
     this.officeSection.appendChild(officeHost)
     this.officeSection.appendChild(this.officeStatus)
 
-    this.main.append(this.emptyEl, this.officeSection, this.listSection, this.sourcesEl, this.diagnosticsEl)
+    this.assetErrorsEl.setAttribute('role', 'status')
+    this.assetErrorsEl.setAttribute('aria-label', 'Problems in the custom-assets manifest')
+    this.main.append(this.assetErrorsEl, this.emptyEl, this.officeSection, this.listSection, this.sourcesEl, this.diagnosticsEl)
     this.hud = new Hud({
       onSelectTask: (taskId) => {
         this.chosenTaskId = taskId
@@ -123,8 +130,8 @@ class App {
 
     const theme = this.currentTheme()
     applyPageTheme(document.documentElement, theme)
-    this.hud.setPalette(theme.palette)
-    this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme))
+    this.hud.setPalette(lookFor(theme, this.custom).palette)
+    this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme, this.custom))
     this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
     this.root.dataset.themeChoice = this.themeChoice
     // `auto` follows the operating system while the page is open.
@@ -156,8 +163,8 @@ class App {
   private applyTheme(): void {
     const theme = this.currentTheme()
     applyPageTheme(document.documentElement, theme)
-    this.hud.setPalette(theme.palette)
-    this.office.setLook(lookFor(theme))
+    this.hud.setPalette(lookFor(theme, this.custom).palette)
+    this.office.setLook(lookFor(theme, this.custom))
     this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
     this.root.dataset.themeChoice = this.themeChoice
   }
@@ -200,6 +207,7 @@ class App {
     const taskId = chosen ?? (this.world ? defaultTaskId(this.world, this.selectedAgentId) : undefined)
 
     const screenId = emptyScreen(this.world)
+    this.renderAssetErrors(this.world)
     this.renderEmpty(screenId)
     // The whiteboard shows the same task as the timeline.
     this.office.setSelectedTask(taskId === undefined ? undefined : this.world?.tasks[taskId])
@@ -218,6 +226,25 @@ class App {
     this.applyHud()
 
     this.hud.update(this.world, { selectedAgentId: this.selectedAgentId, taskId, taskChosen: chosen !== undefined, filter: this.filter })
+  }
+
+  /** The problems in a custom-assets manifest, above everything else (also on the empty screens): the
+   * pack was not applied, and the person who wrote it needs to see why. Text only. */
+  private renderAssetErrors(world: World | undefined): void {
+    const status = world?.sources.assets
+    const invalid = status !== undefined && status.status === 'invalid'
+    this.assetErrorsEl.hidden = !invalid
+    // Rebuilt only when the text changes, so a screen reader is not read the same list again.
+    const key = invalid ? `${status.file ?? ''}|${status.errorCount}|${status.errors.join('\n')}` : ''
+    if (this.assetErrorsEl.dataset.key === key) return
+    this.assetErrorsEl.dataset.key = key
+    this.assetErrorsEl.textContent = ''
+    if (!invalid) return
+    this.assetErrorsEl.appendChild(el('p', { className: 'asset-errors-title', text: `Custom assets not applied: ${assetsText(status)}${status.file ? ` (${status.file})` : ''}` }))
+    const list = el('ul', { className: 'asset-errors-list' })
+    for (const error of status.errors) list.appendChild(el('li', { text: error }))
+    if (status.errorCount > status.errors.length) list.appendChild(el('li', { text: `…and ${status.errorCount - status.errors.length} more` }))
+    this.assetErrorsEl.appendChild(list)
   }
 
   private renderEmpty(screenId: EmptyScreenId | null): void {
@@ -283,7 +310,8 @@ function viewFromHash(): ViewName {
 
 const appRoot = document.getElementById('app')
 if (appRoot) {
-  const app = new App(appRoot)
+  // The valid pack, fetched before the first frame so the office is never drawn in art it is about to replace.
+  const app = new App(appRoot, await fetchCustomAssets())
 
   const source = new EventSource('./events')
   source.addEventListener('open', () => app.setConnection('live'))

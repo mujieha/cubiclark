@@ -3,7 +3,8 @@
 // (`style.setProperty`), which the CSP allows; there is no <style> element and no style attribute.
 
 import { mergePalette, parseThemeChoice, type PageTokens, type Palette, type Theme, type ThemeChoice } from '../core/theme/theme.js'
-import { BUILT_IN_ART, type ArtSet } from './office/art/art-set.js'
+import { NO_ASSETS, type PublicAssets } from '../core/assets/status.js'
+import { artWithOverrides, type ArtSet } from './office/art/art-set.js'
 import type { Look } from './office/renderer.js'
 
 export const THEME_STORAGE_KEY = 'cubiclark.theme'
@@ -48,9 +49,28 @@ export function applyPageTheme(root: HTMLElement, theme: Theme): void {
 }
 
 /** What the office is drawn from in a theme: its palette (with a pack's colours for that theme
- * merged in), its ring colour and the art. */
-export function lookFor(theme: Theme, paletteOverride?: Partial<Record<string, string>>, art: ArtSet = BUILT_IN_ART): Look {
-  return { palette: mergePalette(theme.palette, paletteOverride), ring: theme.ring, art }
+ * merged in), its ring colour and the art (with a pack's sprites on top). */
+export function lookFor(theme: Theme, custom: PublicAssets = NO_ASSETS): Look {
+  const art: ArtSet = artWithOverrides(custom.sprites)
+  return { palette: mergePalette(theme.palette, custom.palettes[theme.id]), ring: theme.ring, art }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** The valid pack the server holds, or none. A failed request or an answer of the wrong shape means
+ * no pack: the office is then drawn in the built-in art. */
+export async function fetchCustomAssets(): Promise<PublicAssets> {
+  try {
+    const response = await fetch('./custom-assets.json')
+    if (!response.ok) return NO_ASSETS
+    const value: unknown = await response.json()
+    if (!isRecord(value) || !isRecord(value.palettes) || !isRecord(value.sprites)) return NO_ASSETS
+    return { palettes: value.palettes as PublicAssets['palettes'], sprites: value.sprites as PublicAssets['sprites'] }
+  } catch {
+    return NO_ASSETS
+  }
 }
 
 export type { Palette }
