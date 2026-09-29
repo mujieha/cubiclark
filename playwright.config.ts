@@ -20,6 +20,9 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
     viewport: { width: 1600, height: 1024 },
     deviceScaleFactor: 1,
+    // Pinned: `auto` follows the operating system, and every baseline is the day theme unless a spec
+    // chooses another.
+    colorScheme: 'light',
     timezoneId: 'UTC',
     locale: 'en-US',
   },

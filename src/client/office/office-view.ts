@@ -10,7 +10,12 @@ import type { Task, World } from '../../core/types.js'
 import { emptyWorld } from '../../core/world.js'
 import { FrameLoop, browserHost, type LoopHost } from './loop.js'
 import { OfficeOverlay } from './overlay.js'
-import { OfficeRenderer, type Scene } from './renderer.js'
+import { BUILT_IN_ART } from './art/art-set.js'
+import { OfficeRenderer, type Look, type Scene } from './renderer.js'
+import { DAY } from '../../core/theme/day.js'
+
+/** The day theme with the built-in art: what the office is drawn in until a theme is chosen. */
+export const DEFAULT_LOOK: Look = { palette: DAY.palette, ring: DAY.ring, art: BUILT_IN_ART }
 
 export interface OfficeEnv {
   host: LoopHost
@@ -57,7 +62,8 @@ export class OfficeView {
   constructor(
     private readonly container: HTMLElement,
     private readonly env: OfficeEnv,
-    private readonly handlers: { onSelect?: (agentId: string) => void } = {}
+    private readonly handlers: { onSelect?: (agentId: string) => void } = {},
+    look: Look = DEFAULT_LOOK
   ) {
     container.classList.add('office')
     this.stage = document.createElement('div')
@@ -68,7 +74,7 @@ export class OfficeView {
     // The overlay's buttons are the accessible picture of the office; the canvas is decoration.
     this.canvas.setAttribute('aria-hidden', 'true')
     this.stage.appendChild(this.canvas)
-    this.renderer = new OfficeRenderer(this.canvas)
+    this.renderer = new OfficeRenderer(this.canvas, look)
     this.overlay = new OfficeOverlay(this.stage, {
       onFocus: (agentId) => this.setFocused(agentId),
       onSelect: (agentId) => this.handlers.onSelect?.(agentId),
@@ -101,6 +107,12 @@ export class OfficeView {
     this.world = world
     this.empty = empty
     this.apply()
+  }
+
+  /** A new theme, or a custom pack: the office is drawn again in it. */
+  setLook(look: Look): void {
+    this.renderer.setLook(look)
+    this.loop.requestDraw()
   }
 
   /** Shown while the list view is off: the loop runs only while the office is on screen. */

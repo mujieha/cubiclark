@@ -1,7 +1,9 @@
 import { defaultTaskId, type LogFilter } from '../core/hud.js'
 import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusLine, sourcesLine, type EmptyScreenId } from '../core/view.js'
+import { THEMES, nextThemeChoice, resolveThemeId, themeButtonText, type Theme, type ThemeChoice } from '../core/theme/index.js'
 import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
+import { applyPageTheme, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
 import { OfficeView, browserEnv } from './office/office-view.js'
 import './style.css'
 
@@ -57,6 +59,9 @@ class App {
   private filter: LogFilter = {}
   private hudCollapsed = readHudCollapsed()
 
+  private themeChoice: ThemeChoice = readThemeChoice()
+  private readonly darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
+  private readonly themeToggle = el('button', { id: 'theme-toggle' })
   private readonly connectionEl = el('span', { className: 'connection' })
   private readonly toggle = el('button', { id: 'view-toggle' })
   private readonly hudToggle = el('button', { id: 'hud-toggle' })
@@ -73,7 +78,15 @@ class App {
   constructor(private readonly root: HTMLElement) {
     const header = el('header', { className: 'header' })
     header.appendChild(el('span', { className: 'title', text: 'Cubiclark' }))
-    // Tab order: the panel toggle first, so that after the view toggle the next stop is the office.
+    // Tab order is DOM order: the theme toggle comes first, then the panel toggle, so that after the
+    // view toggle the next stop is the office.
+    this.themeToggle.type = 'button'
+    this.themeToggle.addEventListener('click', () => {
+      this.themeChoice = nextThemeChoice(this.themeChoice)
+      writeThemeChoice(this.themeChoice)
+      this.applyTheme()
+    })
+    header.appendChild(this.themeToggle)
     this.hudToggle.type = 'button'
     this.hudToggle.setAttribute('aria-controls', 'hud')
     this.hudToggle.addEventListener('click', () => {
@@ -108,7 +121,16 @@ class App {
 
     root.append(header, this.main, this.hud.element)
 
-    this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) })
+    const theme = this.currentTheme()
+    applyPageTheme(document.documentElement, theme)
+    this.hud.setPalette(theme.palette)
+    this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme))
+    this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
+    this.root.dataset.themeChoice = this.themeChoice
+    // `auto` follows the operating system while the page is open.
+    this.darkQuery.addEventListener('change', () => {
+      if (this.themeChoice === 'auto') this.applyTheme()
+    })
     window.addEventListener('hashchange', () => {
       this.view = viewFromHash()
       this.applyView()
@@ -124,6 +146,20 @@ class App {
   setConnection(state: ConnectionState): void {
     this.connection = state
     this.render()
+  }
+
+  private currentTheme(): Theme {
+    return THEMES[resolveThemeId(this.themeChoice, this.darkQuery.matches)]
+  }
+
+  /** The page's colours, the office's palette and the toggle's text, for the theme now in force. */
+  private applyTheme(): void {
+    const theme = this.currentTheme()
+    applyPageTheme(document.documentElement, theme)
+    this.hud.setPalette(theme.palette)
+    this.office.setLook(lookFor(theme))
+    this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
+    this.root.dataset.themeChoice = this.themeChoice
   }
 
   /** Clicking the selected agent again clears the selection. */

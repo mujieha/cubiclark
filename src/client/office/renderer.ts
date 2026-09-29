@@ -22,12 +22,11 @@ import {
   type ResolvedBubble,
 } from '../../core/office/visual.js'
 import type { Agent, Task, World } from '../../core/types.js'
-import { ACCESSORIES } from './art/accessories.js'
-import { CHARACTER_FRAMES } from './art/characters.js'
+import type { ArtSet } from './art/art-set.js'
 import { ICONS, TAGS } from './art/icons.js'
-import { PROPS, TILES } from './art/tiles.js'
+import { PROPS } from './art/tiles.js'
 import { SpriteCache } from './bake.js'
-import { PALETTE, shirtKey, variantFor, type Variant } from './palette.js'
+import { shirtKey, variantFor, type Palette, type Variant } from './palette.js'
 import { rotate90, type SpriteDef } from './sprite.js'
 
 export interface Scene {
@@ -52,11 +51,16 @@ export interface DrawStats {
 const MAX_SCALE = 4
 const FONT = "6px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const SIGN_FONT = "bold 7px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
-const ACCENT = '#6fd6a8'
 const BUBBLE_H = 13
 const PULSE_MS = 350
 
-const colour = (key: string): string => PALETTE[key] as string
+/** What the office is drawn from: the palette (a theme's, with any custom colours merged in), the
+ * colour of the focus ring, and the sprites for characters, accessories and floors. */
+export interface Look {
+  palette: Palette
+  ring: string
+  art: ArtSet
+}
 
 /** The ink, accent, fill and edge a bubble style is drawn in. */
 const BUBBLE_STYLES = {
@@ -66,7 +70,7 @@ const BUBBLE_STYLES = {
 } as const
 
 export class OfficeRenderer {
-  private readonly cache = new SpriteCache()
+  private cache: SpriteCache
   private readonly context: CanvasRenderingContext2D
   private staticLayer: HTMLCanvasElement | undefined
   private scene: Scene | undefined
@@ -74,10 +78,26 @@ export class OfficeRenderer {
   private backing = 1
   private arrows: Record<Direction, SpriteDef> | undefined
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    private look: Look
+  ) {
     const context = canvas.getContext('2d')
     if (!context) throw new Error('2D canvas is not available')
     this.context = context
+    this.cache = new SpriteCache(look.palette)
+  }
+
+  private colour(key: string): string {
+    return this.look.palette[key] as string
+  }
+
+  /** A new theme or a new pack: every sprite is baked again with the new palette and art, and the
+   * static picture is redrawn, on the same scene. */
+  setLook(look: Look): void {
+    this.look = look
+    this.cache = new SpriteCache(look.palette)
+    if (this.scene) this.staticLayer = this.bakeStatic(this.scene)
   }
 
   get scale(): number {
@@ -112,7 +132,7 @@ export class OfficeRenderer {
   // --- The static layer ---------------------------------------------------------------------
 
   private tileCanvas(id: TileId, variant: Variant): HTMLCanvasElement {
-    return this.cache.get(`tile:${id}`, TILES[id], {}, variant)
+    return this.cache.get(`tile:${id}`, this.look.art.tiles[id], {}, variant)
   }
 
   private bakeStatic(scene: Scene): HTMLCanvasElement {
@@ -131,7 +151,7 @@ export class OfficeRenderer {
     for (const object of tilemap.objects) ctx.drawImage(this.tileCanvas(object.tile, variant), object.x * TILE, object.y * TILE)
 
     ctx.textBaseline = 'middle'
-    ctx.fillStyle = colour(variant === 'dark' ? '2' : '1')
+    ctx.fillStyle = this.colour(variant === 'dark' ? '2' : '1')
     ctx.font = SIGN_FONT
     for (const room of layout.rooms) {
       if (room.id === 'manager' || room.id === 'planning' || room.id === 'review') {
@@ -157,7 +177,7 @@ export class OfficeRenderer {
     if (!planning || !model) return
     const x = (planning.rect.x + 4) * TILE
     const y = TILE
-    ctx.fillStyle = colour('0')
+    ctx.fillStyle = this.colour('0')
     ctx.font = FONT
     ctx.textBaseline = 'alphabetic'
     ctx.fillText(model.label, x + 2, y + 7, 20)
@@ -166,16 +186,16 @@ export class OfficeRenderer {
       const bx = x + 2 + index * 7
       const by = y + 9
       if (state === 'future') {
-        ctx.fillStyle = colour('2')
+        ctx.fillStyle = this.colour('2')
         ctx.fillRect(bx, by, 5, 1)
         ctx.fillRect(bx, by + 2, 5, 1)
         ctx.fillRect(bx, by + 1, 1, 1)
         ctx.fillRect(bx + 4, by + 1, 1, 1)
         return
       }
-      ctx.fillStyle = colour(state === 'past' ? 'c' : state === 'current' ? 'b' : 'a')
+      ctx.fillStyle = this.colour(state === 'past' ? 'c' : state === 'current' ? 'b' : 'a')
       ctx.fillRect(bx, by, 5, 3)
-      ctx.fillStyle = colour('0')
+      ctx.fillStyle = this.colour('0')
       if (state === 'current') ctx.fillRect(bx + 1, by - 1, 3, 1)
       if (state === 'blocked') {
         ctx.fillRect(bx, by, 1, 1)
@@ -186,7 +206,7 @@ export class OfficeRenderer {
       }
     })
 
-    ctx.fillStyle = colour('e')
+    ctx.fillStyle = this.colour('e')
     for (let dot = 0; dot < model.modelChanges; dot++) ctx.fillRect(x + 23 + dot * 2, y + 3, 1, 1)
   }
 
@@ -200,13 +220,13 @@ export class OfficeRenderer {
     const limited = Object.values(world.agents).some((agent) => agent.state === 'rate_limited')
     const bar = (percent: number, top: number, height: number): void => {
       const fraction = Math.max(0, Math.min(1, percent / 100))
-      ctx.fillStyle = colour(fraction >= 0.9 ? 'a' : fraction >= 0.7 ? 'b' : 'c')
+      ctx.fillStyle = this.colour(fraction >= 0.9 ? 'a' : fraction >= 0.7 ? 'b' : 'c')
       ctx.fillRect(x + 2, y + top, fraction > 0 ? Math.max(1, Math.round(12 * fraction)) : 0, height)
     }
     bar(world.quota.p5h, 2, 3)
     bar(world.quota.p7d, 6, 2)
     if (limited) {
-      ctx.strokeStyle = colour('a')
+      ctx.strokeStyle = this.colour('a')
       ctx.lineWidth = 1
       ctx.strokeRect(x + 0.5, y + 0.5, 15, 11)
     }
@@ -283,14 +303,14 @@ export class OfficeRenderer {
 
   private characterFrame(agent: Agent, frame: FrameRef, dim: boolean): HTMLCanvasElement {
     const { K, H } = variantFor(agent.id)
-    const def = CHARACTER_FRAMES[frame.name] as SpriteDef
+    const def = this.look.art.characters[frame.name] as SpriteDef
     return this.cache.get(`frame:${frame.name}`, def, { S: shirtKey(modelFamily(agent.model)), K, H }, dim ? 'dim' : 'normal')
   }
 
   /** A character with the accessory of its effective role, top-left at (x, y); a mirrored frame
    * flips both together. */
   private drawCharacter(ctx: CanvasRenderingContext2D, agent: Agent, frame: FrameRef, x: number, y: number, dim: boolean): void {
-    const def = CHARACTER_FRAMES[frame.name] as SpriteDef
+    const def = this.look.art.characters[frame.name] as SpriteDef
     ctx.save()
     if (frame.mirror) {
       ctx.translate(x + def.w, y)
@@ -301,9 +321,9 @@ export class OfficeRenderer {
     ctx.drawImage(this.characterFrame(agent, frame, dim), 0, 0)
     const accessory = accessoryFor(effectiveRole(agent, (this.scene as Scene).world))
     if (accessory !== 'none') {
-      const art = ACCESSORIES[accessory]
-      const anchor = def.anchors?.[art.anchor]
-      if (anchor) {
+      const art = this.look.art.accessories[accessory]
+      const anchor = art ? def.anchors?.[art.anchor] : undefined
+      if (art && anchor) {
         ctx.drawImage(this.cache.get(`acc:${accessory}`, art.sprite, {}, dim ? 'dim' : 'normal'), anchor.x + art.dx, anchor.y + art.dy)
       }
     }
@@ -362,7 +382,7 @@ export class OfficeRenderer {
     const tag = STATE_VISUALS[agent.state].tag
     if (!tag) return
     ctx.drawImage(this.cache.get(`tag:${tag}`, TAGS[tag]), placement.seat.x - 7, placement.seat.y - 8)
-    ctx.fillStyle = colour(shirtKey(modelFamily(agent.model)))
+    ctx.fillStyle = this.colour(shirtKey(modelFamily(agent.model)))
     ctx.fillRect(placement.seat.x - 5, placement.seat.y + 6, 10, 2)
   }
 
@@ -391,7 +411,7 @@ export class OfficeRenderer {
     ctx.save()
     ctx.globalAlpha = dimmed ? 0.55 : 1
     const rect = (rx: number, ry: number, rw: number, rh: number, key: string): void => {
-      ctx.fillStyle = colour(key)
+      ctx.fillStyle = this.colour(key)
       ctx.fillRect(rx, ry, rw, rh)
     }
     rect(x + 1, y, width - 2, BUBBLE_H, style.fill)
@@ -425,7 +445,7 @@ export class OfficeRenderer {
     // The cache key already includes the ink and accent, so the same icon on another bubble is another canvas.
     ctx.drawImage(this.cache.get(`icon:${bubble.icon}:${bubble.direction ?? ''}`, def, { S: style.ink, K: style.accent }), x + 4, y + 2)
     if (withText) {
-      ctx.fillStyle = colour(style.text)
+      ctx.fillStyle = this.colour(style.text)
       ctx.textBaseline = 'middle'
       ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5)
     }
@@ -433,7 +453,7 @@ export class OfficeRenderer {
   }
 
   private drawRing(ctx: CanvasRenderingContext2D, box: Rect): void {
-    ctx.strokeStyle = ACCENT
+    ctx.strokeStyle = this.look.ring
     ctx.lineWidth = 1
     ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1)
   }

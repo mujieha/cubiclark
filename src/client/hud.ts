@@ -5,7 +5,8 @@
 
 import { agentCard, LEGEND, logFilterOptions, logRows, statusBar, timelineView, type LogFilter, type StageState } from '../core/hud.js'
 import type { Task, World } from '../core/types.js'
-import { PALETTE, shirtKey } from './office/palette.js'
+import type { ModelFamily } from '../core/office/roles.js'
+import { PALETTE, shirtKey, type Palette } from './office/palette.js'
 
 export interface HudHandlers {
   /** A task chosen in the timeline's select, or undefined for "auto". */
@@ -77,6 +78,7 @@ export class Hud {
   private readonly taskSelect = el('select', { id: 'hud-timeline-task' })
   private readonly timelineBody = el('div', { className: 'hud-timeline-body' })
   private readonly statusEl = el('footer', { className: 'hud-status', id: 'hud-status' })
+  private readonly swatches = new Map<ModelFamily, HTMLElement>()
   private logKey = ''
   private filter: LogFilter = {}
 
@@ -89,10 +91,11 @@ export class Hud {
     for (const { family, label } of LEGEND.models) {
       const item = el('span', { className: 'legend-item', text: label })
       const swatch = el('span', { className: `legend-swatch legend-${family}` })
-      swatch.style.backgroundColor = PALETTE[shirtKey(family)] ?? '#5b6470'
       item.prepend(swatch)
       legend.appendChild(item)
+      this.swatches.set(family, swatch)
     }
+    this.setPalette(PALETTE)
     for (const { role, accessory } of LEGEND.roles) legend.appendChild(el('span', { className: 'legend-item legend-role', text: `${role}: ${accessory}` }))
     title.appendChild(legend)
 
@@ -124,6 +127,11 @@ export class Hud {
 
     this.element.append(title, this.cardEl, this.logSection, this.timelineSection, this.statusEl)
     this.update(undefined, { selectedAgentId: undefined, taskId: undefined, taskChosen: false, filter: {} })
+  }
+
+  /** The legend's shirt swatches in the colours of the theme in use. */
+  setPalette(palette: Palette): void {
+    for (const [family, swatch] of this.swatches) swatch.style.backgroundColor = palette[shirtKey(family)] ?? '#5b6470'
   }
 
   update(world: World | undefined, state: HudState): void {

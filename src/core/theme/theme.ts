@@ -53,6 +53,12 @@ export function nextThemeChoice(choice: ThemeChoice): ThemeChoice {
   return choice === 'auto' ? 'day' : choice === 'day' ? 'night' : 'auto'
 }
 
+/** The toggle's text: what is chosen, and for `auto` what that means right now. */
+export function themeButtonText(choice: ThemeChoice, resolved: ThemeId): string {
+  const name = (id: ThemeId): string => (id === 'day' ? 'Day' : 'Night')
+  return choice === 'auto' ? `Theme: Auto (${resolved})` : `Theme: ${name(choice)}`
+}
+
 /** `base` with the entries of `override` on top; the keys `override` does not name are unchanged. */
 export function mergePalette(base: Palette, override: Partial<Record<string, string>> | undefined): Palette {
   if (!override) return base
