@@ -71,13 +71,18 @@ describe('HookSource', () => {
     await waitFor(() => prompts(events) === 2)
   })
 
-  test('lines appended after start also arrive with fs.watch on', async () => {
+  test('with fs.watch on as well as the poll, an appended line is delivered exactly once', async () => {
+    // fs.watch is only ever a speed-up (the poll always runs beneath it), and it is not
+    // deterministic: macOS FSEvents can miss a change made just after the watcher is created, and
+    // under a parallel test run it can lag. So this does not assert that the watch alone is fast;
+    // it asserts that having both running never drops or duplicates a line.
     await writeFile(eventsFile, prompt(1))
-    const { source, events } = makeSource({ watch: true, pollMs: 5000 })
+    const { source, events } = makeSource({ watch: true, pollMs: 100 })
     await source.start()
     await appendFile(eventsFile, prompt(2))
-    // Just under the 5 s poll: only fs.watch can have delivered this line in time.
-    await waitFor(() => prompts(events) === 2, 4500)
+    await waitFor(() => prompts(events) === 2)
+    await new Promise((resolve) => setTimeout(resolve, 400)) // several more polls and watch events
+    expect(prompts(events)).toBe(2)
   })
 
   test('a partial trailing line is held back until its newline arrives', async () => {
