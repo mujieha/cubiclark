@@ -6,7 +6,7 @@ import { layout as computeLayout, type OfficeLayout } from '../../core/office/la
 import { reconcileActors, type Actor } from '../../core/office/motion.js'
 import { buildTileMap } from '../../core/office/tilemap.js'
 import { EMPTY_SCENES, type EmptySceneId } from '../../core/office/visual.js'
-import type { World } from '../../core/types.js'
+import type { Task, World } from '../../core/types.js'
 import { emptyWorld } from '../../core/world.js'
 import { FrameLoop, browserHost, type LoopHost } from './loop.js'
 import { OfficeOverlay } from './overlay.js'
@@ -50,6 +50,7 @@ export class OfficeView {
   private reduced: boolean
   private focusedId: string | undefined
   private selectedId: string | undefined
+  private task: Task | undefined
   private drawnAgents = 0
   private statsAtMs = Number.NEGATIVE_INFINITY
 
@@ -117,6 +118,11 @@ export class OfficeView {
   setFocused(agentId: string | undefined): void {
     this.focusedId = agentId
     this.loop.requestDraw()
+  }
+
+  /** The task the whiteboard shows. Takes effect with the next setWorld, which redraws the walls. */
+  setSelectedTask(task: Task | undefined): void {
+    this.task = task
   }
 
   /** The agent the page has selected (its card is in the HUD): ringed until the focus moves elsewhere. */
@@ -192,6 +198,7 @@ export class OfficeView {
         tilemap: buildTileMap(officeLayout, { quota: world.quota !== undefined }),
         actors: this.actors,
         reducedMotion: this.reduced,
+        ...(this.task ? { task: this.task } : {}),
       }
     }
     // A world still "starting" is not a first snapshot: the agents that appear a moment later are

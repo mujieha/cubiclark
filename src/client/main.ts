@@ -159,8 +159,14 @@ class App {
     // A selection that points at an agent that has left the World is dropped.
     if (this.selectedAgentId !== undefined && this.world && !this.world.agents[this.selectedAgentId]) this.selectedAgentId = undefined
 
+    // The timeline shows the chosen task, else the selected agent's, else the newest one that is live.
+    const chosen = this.chosenTaskId !== undefined && this.world?.tasks[this.chosenTaskId] ? this.chosenTaskId : undefined
+    const taskId = chosen ?? (this.world ? defaultTaskId(this.world, this.selectedAgentId) : undefined)
+
     const screenId = emptyScreen(this.world)
     this.renderEmpty(screenId)
+    // The whiteboard shows the same task as the timeline.
+    this.office.setSelectedTask(taskId === undefined ? undefined : this.world?.tasks[taskId])
     this.office.setWorld(this.world, screenId)
     this.office.setSelected(this.selectedAgentId)
 
@@ -175,9 +181,6 @@ class App {
     this.applyView()
     this.applyHud()
 
-    // The timeline shows the chosen task, else the selected agent's, else the newest one that is live.
-    const chosen = this.chosenTaskId !== undefined && this.world?.tasks[this.chosenTaskId] ? this.chosenTaskId : undefined
-    const taskId = chosen ?? (this.world ? defaultTaskId(this.world, this.selectedAgentId) : undefined)
     this.hud.update(this.world, { selectedAgentId: this.selectedAgentId, taskId, taskChosen: chosen !== undefined, filter: this.filter })
   }
 

@@ -9,6 +9,7 @@ import type { OfficeLayout, Placement } from '../../core/office/layout.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
 import { deskObjects, type TileId, type TileMap } from '../../core/office/tilemap.js'
+import { whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
   STATE_VISUALS,
@@ -20,7 +21,7 @@ import {
   type FrameRef,
   type ResolvedBubble,
 } from '../../core/office/visual.js'
-import type { Agent, World } from '../../core/types.js'
+import type { Agent, Task, World } from '../../core/types.js'
 import { ACCESSORIES } from './art/accessories.js'
 import { CHARACTER_FRAMES } from './art/characters.js'
 import { ICONS, TAGS } from './art/icons.js'
@@ -37,6 +38,8 @@ export interface Scene {
   reducedMotion: boolean
   /** When set, this is one of the four empty screens: the office is drawn empty, in that scene. */
   empty?: EmptySceneId
+  /** The task the whiteboard shows (chosen in the HUD, or the selected agent's). */
+  task?: Task
 }
 
 export interface DrawStats {
@@ -139,20 +142,69 @@ export class OfficeRenderer {
       ctx.fillText(cluster.project, cluster.signRect.x * TILE + 4, cluster.signRect.y * TILE + 8, cluster.signRect.w * TILE - 8)
     }
     if (world.quota) this.drawMeter(ctx, layout, world)
+    if (scene.task && !scene.empty) this.drawWhiteboard(ctx, layout, scene.task)
     if (scene.empty) this.drawEmptyProps(ctx, layout, scene.empty, variant)
     return layer
   }
 
-  /** The wall meter: a bar for the 5-hour window, highlighted red while any agent is rate limited. */
+  /** The whiteboard (two tiles wide, in the planning room): the task's short id, its four stages
+   * (past filled, current filled with a mark above it, future hollow, blocked red with a cross) and
+   * a dot for each change of model. The interior is 30 px wide and rows 2 to 11 of the tiles: the
+   * label sits on row 7, the stage boxes on rows 9 to 11, the dots at the top right. */
+  private drawWhiteboard(ctx: CanvasRenderingContext2D, layout: OfficeLayout, task: Task): void {
+    const planning = layout.rooms.find((room) => room.id === 'planning')
+    const model = whiteboardModel(task)
+    if (!planning || !model) return
+    const x = (planning.rect.x + 4) * TILE
+    const y = TILE
+    ctx.fillStyle = colour('0')
+    ctx.font = FONT
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(model.label, x + 2, y + 7, 20)
+
+    model.stages.forEach((state, index) => {
+      const bx = x + 2 + index * 7
+      const by = y + 9
+      if (state === 'future') {
+        ctx.fillStyle = colour('2')
+        ctx.fillRect(bx, by, 5, 1)
+        ctx.fillRect(bx, by + 2, 5, 1)
+        ctx.fillRect(bx, by + 1, 1, 1)
+        ctx.fillRect(bx + 4, by + 1, 1, 1)
+        return
+      }
+      ctx.fillStyle = colour(state === 'past' ? 'c' : state === 'current' ? 'b' : 'a')
+      ctx.fillRect(bx, by, 5, 3)
+      ctx.fillStyle = colour('0')
+      if (state === 'current') ctx.fillRect(bx + 1, by - 1, 3, 1)
+      if (state === 'blocked') {
+        ctx.fillRect(bx, by, 1, 1)
+        ctx.fillRect(bx + 4, by, 1, 1)
+        ctx.fillRect(bx + 2, by + 1, 1, 1)
+        ctx.fillRect(bx, by + 2, 1, 1)
+        ctx.fillRect(bx + 4, by + 2, 1, 1)
+      }
+    })
+
+    ctx.fillStyle = colour('e')
+    for (let dot = 0; dot < model.modelChanges; dot++) ctx.fillRect(x + 23 + dot * 2, y + 3, 1, 1)
+  }
+
+  /** The wall meter: a bar for the 5-hour window over one for the 7-day window, each green, amber
+   * from 70% and red from 90%; the frame is ringed red while any agent is rate limited. */
   private drawMeter(ctx: CanvasRenderingContext2D, layout: OfficeLayout, world: World): void {
     const manager = layout.rooms.find((room) => room.id === 'manager')
     if (!manager || !world.quota) return
     const x = (manager.rect.x + 7) * TILE
     const y = TILE + 2
-    const fraction = Math.max(0, Math.min(1, world.quota.p5h / 100))
     const limited = Object.values(world.agents).some((agent) => agent.state === 'rate_limited')
-    ctx.fillStyle = colour(fraction >= 0.9 ? 'a' : fraction >= 0.7 ? 'b' : 'c')
-    ctx.fillRect(x + 2, y + 3, Math.round(12 * fraction), 6)
+    const bar = (percent: number, top: number, height: number): void => {
+      const fraction = Math.max(0, Math.min(1, percent / 100))
+      ctx.fillStyle = colour(fraction >= 0.9 ? 'a' : fraction >= 0.7 ? 'b' : 'c')
+      ctx.fillRect(x + 2, y + top, fraction > 0 ? Math.max(1, Math.round(12 * fraction)) : 0, height)
+    }
+    bar(world.quota.p5h, 2, 3)
+    bar(world.quota.p7d, 6, 2)
     if (limited) {
       ctx.strokeStyle = colour('a')
       ctx.lineWidth = 1
