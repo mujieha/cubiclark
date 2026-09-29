@@ -25,6 +25,7 @@ import {
   permissionWaitLines,
   rateLimitLines,
   recordTypes2185Lines,
+  bookkeepingTypesLines,
   sessionId,
   subagentId,
   toolUseId,
@@ -298,19 +299,20 @@ describe('parseTranscript over the standalone scenario fixtures', () => {
     ])
   })
 
-  test('record-types-2.1.285: bookkeeping records without a timestamp parse, one line before any time does not', () => {
+  test('record-types-2.1.285: bookkeeping records without a timestamp parse, and one before any time waits for it', () => {
     const start = START + 10 * HOUR
     const sid = sessionId('b')
     const at = (step: number) => ts(start, step)
     const result = parseTranscript(toText(recordTypes2185Lines(start, sid, DEMO_CWD)), { agentId: sid, kind: 'session' })
 
-    // the only unparsed line: a permission-mode record when the file has shown no time yet
-    expect(result.unparsed).toBe(1)
-    expect(result.unparsedBy).toEqual({ no_timestamp: { 'permission-mode': 1 } })
+    // nothing is unparsed: the permission-mode record before the file had shown any time waits for it
+    expect(result.unparsed).toBe(0)
+    expect(result.unparsedBy).toEqual({})
     expect(result.unknownTypes).toEqual({})
     expect(result.events).toEqual([
-      // `mode` (no time) and the unparsed permission-mode came first: agent_meta waits for a real time
+      // `mode` (no time) came first and is ignored; agent_meta waits for a real time, then the held record
       { t: 'agent_meta', ts: at(0), agentId: sid, kind: 'session', cwd: DEMO_CWD, version: FIXTURE_VERSION },
+      { t: 'permission_mode', ts: at(0), agentId: sid, mode: 'default' },
       { t: 'prompt', ts: at(0), agentId: sid },
       // last-prompt, atis-latch, ai-title and cost-state: ignored; permission-mode borrows step 0
       { t: 'permission_mode', ts: at(0), agentId: sid, mode: 'acceptEdits' },
@@ -320,6 +322,25 @@ describe('parseTranscript over the standalone scenario fixtures', () => {
       // the numeric epoch-millisecond timestamp comes out as the same ISO string
       { t: 'assistant', ts: at(8), agentId: sid, model: 'claude-sonnet-5', tokensOut: 8, thinking: false, text: true },
       { t: 'turn_end', ts: at(8), agentId: sid },
+    ])
+  })
+
+  test('bookkeeping-types: what a real home showed; the held records come out with the first timestamp, in order', () => {
+    const start = START + 11 * HOUR
+    const sid = sessionId('d')
+    const at = (step: number) => ts(start, step)
+    const result = parseTranscript(toText(bookkeepingTypesLines(start, sid, DEMO_CWD)), { agentId: sid, kind: 'session' })
+    expect(result.unparsed).toBe(0)
+    expect(result.unparsedBy).toEqual({})
+    expect(result.unknownTypes).toEqual({})
+    expect(result.deferred).toBe(0)
+    expect(result.events).toEqual([
+      { t: 'agent_meta', ts: at(0), agentId: sid, kind: 'session', cwd: DEMO_CWD, version: FIXTURE_VERSION },
+      { t: 'permission_mode', ts: at(0), agentId: sid, mode: 'plan' },
+      { t: 'agent_meta', ts: at(0), agentId: sid, label: 'fx-agent' },
+      { t: 'prompt', ts: at(0), agentId: sid },
+      { t: 'assistant', ts: at(1), agentId: sid, model: 'claude-sonnet-5', tokensOut: 5, thinking: false, text: true },
+      { t: 'turn_end', ts: at(1), agentId: sid },
     ])
   })
 

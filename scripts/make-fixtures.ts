@@ -32,6 +32,7 @@ import {
   permissionWaitLines,
   rateLimitLines,
   recordTypes2185Lines,
+  bookkeepingTypesLines,
   resetFixtureSequence,
   sessionId,
   subagentId,
@@ -184,6 +185,8 @@ function buildFixtures(): {
 
   // The fixture day (phase 4), built after everything else for the same reason.
   const day = dayFixture()
+  // After the day, for the same reason: it draws record uuids from the shared counter.
+  transcripts.set('bookkeeping-types.jsonl', jsonlText(bookkeepingTypesLines(START + 11 * HOUR, sessionId('d'), DEMO_CWD)))
 
   return { transcripts, home, state, worlds, tasks, quota, bin, dayHome: day.home, dayState: day.state, dayTasks: day.tasks }
 }

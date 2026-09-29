@@ -115,6 +115,49 @@ describe('the reducer merges breakdowns', () => {
   })
 })
 
+// Records that come before the file has shown any time wait for the first one.
+describe('records before the first timestamp', () => {
+  const held = (mode: string): string => JSON.stringify({ type: 'permission-mode', permissionMode: mode })
+  const prompt = JSON.stringify({ type: 'user', timestamp: TS, cwd: '/a/demo', message: { role: 'user', content: 'x' } })
+
+  test('the 17th such record is no_timestamp, as before; the first 16 wait', () => {
+    const lines = Array.from({ length: 17 }, (_, i) => held(i % 2 === 0 ? 'plan' : 'default'))
+    const result = parseTranscript([...lines, prompt].join('\n'), ctx)
+    expect(result.unparsed).toBe(1)
+    expect(result.unparsedBy).toEqual({ no_timestamp: { 'permission-mode': 1 } })
+    expect(result.events.filter((event) => event.t === 'permission_mode')).toHaveLength(16)
+  })
+
+  test('a permission-mode without a mode is handler_rejected, not held', () => {
+    const result = parseTranscript(`{"type":"permission-mode"}\n${prompt}`, ctx)
+    expect(result.unparsedBy).toEqual({ handler_rejected: { 'permission-mode': 1 } })
+  })
+
+  test('a file that never gets a timestamp keeps them pending, uncounted', () => {
+    const result = parseTranscript(`${held('plan')}\n${held('default')}`, ctx)
+    expect(result.unparsed).toBe(0)
+    expect(result.deferred).toBe(2)
+    expect(result.events).toEqual([])
+  })
+
+  test('the held events come out in file order, all with the first timestamp, after the record\'s agent_meta', () => {
+    const result = parseTranscript(`${held('plan')}\n${held('acceptEdits')}\n${prompt}`, ctx)
+    expect(result.events.map((event) => [event.t, event.ts, 'mode' in event ? event.mode : undefined])).toEqual([
+      ['agent_meta', TS, undefined],
+      ['permission_mode', TS, 'plan'],
+      ['permission_mode', TS, 'acceptEdits'],
+      ['prompt', TS, undefined],
+    ])
+  })
+
+  test('the three types from a real home are known and ignored', () => {
+    for (const type of ['bridge-session', 'artifact-autoreact-ledger', 'artifact-comment-monitor']) {
+      expect(one(JSON.stringify({ type })), type).toMatchObject({ unparsed: false })
+      expect(one(JSON.stringify({ type, timestamp: TS })), type).toMatchObject({ unparsed: false })
+    }
+  })
+})
+
 // S1-3: what a transcript says is never printed raw and never grows the World without bound.
 describe('escape sequences and unbounded names in a transcript', () => {
   const ESC = '\u001b'

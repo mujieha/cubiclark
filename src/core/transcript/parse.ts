@@ -23,7 +23,13 @@ export interface ParseState {
   /** The newest record timestamp seen in this file (ISO); bookkeeping records that carry none
    * borrow it. */
   lastTs?: string
+  /** Events of records that came before the file's first timestamp (at most MAX_PENDING), with
+   * an empty `ts`, waiting for it. */
+  pending?: AgentEvent[]
 }
+
+/** Most records held for the first timestamp; a further one is `no_timestamp` as before. */
+export const MAX_PENDING = 16
 
 export function initialParseState(): ParseState {
   return { seenFirst: false }
@@ -38,6 +44,8 @@ export interface ParseLineResult {
   unknownType?: string
   /** Set whenever unparsed is true: which rule rejected the line. */
   reason?: UnparsedReason
+  /** True when the record was held for the file's first timestamp: no events yet, not unparsed. */
+  deferred?: true
   /** Set whenever unparsed is true: the record's type name, `type:subtype` for system records,
    * '(invalid)' for a type that is not a plain name, '(none)' when there is no string type. */
   recordType?: string
@@ -105,6 +113,15 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   const ts = own ?? state.lastTs
   if (!ts) {
     if (IGNORED_TYPES.has(type)) return { events: [], state, unparsed: false }
+    // A permission mode or an agent name that comes before the file has shown any time is kept
+    // until the first timestamp arrives (the file's mtime would be the last write, later than the
+    // events that follow), then emitted with it, in file order.
+    const held = state.pending ?? []
+    if ((type === 'permission-mode' || type === 'agent-name') && held.length < MAX_PENDING) {
+      const early = type === 'permission-mode' ? fromPermissionMode(record, { agentId: ctx.agentId }, '') : fromAgentName(record, { agentId: ctx.agentId }, '')
+      if (early.rejected) return unparsedLine([], state, 'handler_rejected', recordTypeName(type))
+      return { events: [], state: { ...state, pending: [...held, ...early.events] }, unparsed: false, deferred: true }
+    }
     return unparsedLine([], state, 'no_timestamp', recordTypeName(type, record.subtype))
   }
 
@@ -138,8 +155,15 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
     }
   }
 
+  // The records that waited for a time come out now, right after the agent_meta of the record
+  // that gave it, and before that record's own events.
+  if (own !== undefined && state.pending !== undefined && state.pending.length > 0) {
+    for (const held of state.pending) events.push({ ...held, ts })
+    nextState = { ...nextState, pending: [] }
+  }
+
   const handlerCtx = { agentId: ctx.agentId }
-  const rejected = (): ParseLineResult => unparsedLine(events, nextState, 'handler_rejected', recordTypeName(type))
+  const rejected =(): ParseLineResult => unparsedLine(events, nextState, 'handler_rejected', recordTypeName(type))
 
   switch (type) {
     case 'user': {
@@ -188,6 +212,8 @@ export interface TranscriptParseResult {
   unknownTypes: Record<string, number>
   unparsedBy: UnparsedBreakdown
   versions: string[]
+  /** Held records that never got a timestamp (a file with none shows no agent anyway); not unparsed. */
+  deferred: number
 }
 
 /** Parses a whole transcript file's text in one call, for tests and the initial-scan path.
@@ -221,5 +247,5 @@ export function parseTranscript(text: string, ctx: ParseCtx): TranscriptParseRes
     if (event.t === 'agent_meta' && event.version) versions.add(event.version)
   }
 
-  return { events, unparsed, unknownTypes, unparsedBy, versions: [...versions] }
+  return { events, unparsed, unknownTypes, unparsedBy, versions: [...versions], deferred: state.pending?.length ?? 0 }
 }

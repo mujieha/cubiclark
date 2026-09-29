@@ -7,6 +7,9 @@
 // `ai-title`, `permission-mode`, `cost-state`, ...) may have no top-level `timestamp`, and the
 // parser lends them the file's newest one; `continued-in` carries `continuedInSessionId`;
 // `pr-link`, `warning`, `update` and the system subtype `bridge_status` change no agent state.
+// Seen on a real home (2026-09-30): `bridge-session`, `artifact-autoreact-ledger` and
+// `artifact-comment-monitor` (ignored), and `permission-mode` / `agent-name` records before the
+// file's first timestamp, which wait for it (parse.ts, MAX_PENDING).
 
 import type { ErrorKind } from '../types.js'
 

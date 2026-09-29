@@ -41,6 +41,10 @@ export const IGNORED_TYPES = new Set([
   'update', // a version-update notice
   'continued-in', // "this session continues in another" (`continuedInSessionId`)
   'pr-link', // a pull request the session opened
+  // Seen on a real home after phase 4 (2026-09-30); bookkeeping with no bearing on agent state:
+  'bridge-session', // remote-control bridge bookkeeping
+  'artifact-autoreact-ledger', // the artifact auto-react ledger
+  'artifact-comment-monitor', // the artifact comment monitor's state
 ])
 
 /** system.subtype values that are known and deliberately ignored, alongside the three that

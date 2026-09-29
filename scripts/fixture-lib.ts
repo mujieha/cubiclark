@@ -602,6 +602,27 @@ export function recordTypes2185Lines(startAt: number, sid: string, cwd: string):
   return lines
 }
 
+/** What a real home showed after phase 4 (2026-09-30): `permission-mode` and `agent-name` records
+ * before the file has shown any timestamp, and three bookkeeping types with no timestamp at all
+ * (`bridge-session`, `artifact-autoreact-ledger`, `artifact-comment-monitor`). Nothing here is
+ * unparsed: the first two wait for the first timestamp and are emitted with it. */
+export function bookkeepingTypesLines(startAt: number, sid: string, cwd: string): Line[] {
+  const chain = new RecordChain({ sessionId: sid, cwd })
+  const lines: Line[] = []
+  let i = 0
+  const at = (): string => ts(startAt, i++)
+
+  lines.push(chain.recNoTs({ type: 'permission-mode', permissionMode: 'plan' }))
+  lines.push(chain.recNoTs({ type: 'agent-name', agentName: 'fx-agent' }))
+  lines.push(chain.recNoTs({ type: 'bridge-session', bridge: true }))
+  lines.push(chain.recNoTs({ type: 'artifact-autoreact-ledger', entries: 0 }))
+  lines.push(chain.recNoTs({ type: 'artifact-comment-monitor', watching: false }))
+  lines.push(userPromptRecord(chain, at(), lorem(4)))
+  lines.push(assistantRecord(chain, at(), [textBlock(lorem(3))], { stopReason: 'end_turn', outputTokens: 5 }))
+
+  return lines
+}
+
 /** Valid lines interleaved with three unparseable ones: a truncated JSON line, a line with an
  * unknown top-level `type`, and a `system` record with an unknown `subtype`. Each of the three
  * must increment the diagnostics counter instead of throwing. */
