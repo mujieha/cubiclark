@@ -2,8 +2,8 @@
 
 Cubiclark runs entirely on your own machine. It never calls a model and never sends anything
 off the machine. This file describes the threat model for what exists today (design §9: the
-transcript source, the hooks collector, and the commands that install and remove it) and what the
-code does about each threat.
+transcript source, the hooks collector, the commands that install and remove it, the optional
+adapters, the panel and replay) and what the code does about each threat.
 
 ## Threat model
 
@@ -140,6 +140,52 @@ fixture settings files in temp directories; no test ever touches the real `~/.cl
 `~/.cubiclark/events.jsonl` is read like a transcript: any line that is not valid, or not a shape
 this build knows, is counted (`unparsed`, `unknown hook shapes`) and never reaches the page as
 content, and the page still renders every string with `textContent`.
+
+### A configuration file that makes Cubiclark run a program
+
+Only the `claude-agents` adapter runs anything, and only the program its configuration section
+names. So:
+
+- It does not exist unless `~/.cubiclark/config.json` says `"enabled": true`; a half-written section
+  does not run anything.
+- **A config file that group or others can write keeps its other sections but loses `claude-agents`**,
+  with a warning (`src/server/config-file.ts`, tested against a `0666` file), because whoever can edit
+  it could otherwise choose the program.
+- The program is started with `execFile` and a fixed argument list (`--version`, or `agents --json`),
+  never through a shell, with a timeout and a cap on the size of its output. The adapter asks at most
+  once every 15 seconds. A fixture home never reads the real configuration.
+- What it prints is not trusted: `parseAgentsJson` keeps a fixed set of fields, each cut to 40
+  characters, a session id only if it is a UUID, and a state only from the five documented values.
+  The session's working directory stays on the server.
+- Tests only ever run the stand-in `test/fixtures/bin/claude`.
+
+### Task folders, quota files and `claude agents` output as untrusted input
+
+Everything an adapter reads can be written by someone else, so the adapters are read-only and the
+text they produce is treated like a transcript line:
+
+- Text from `LOG.md`, `TASK.md` and `STATUS.md` has every path-looking token reduced to its last
+  segment, extra whitespace collapsed and the length capped (160 characters) before it reaches the
+  World; a session id is accepted only if it is a UUID. An unknown or unparseable line is counted
+  (`doctor --adapters` shows the count) and never shown as content.
+- The panel prints all of it with `textContent`, the whiteboard with `fillText`, and the legend's
+  swatch colours through the CSSOM, so a hostile task title or log line cannot become markup.
+- An adapter's error names a task and a file (`beta-build/LOG.md: EACCES`), never an absolute path.
+- The quota reader takes at most the last 256 KiB of a file and 2000 samples; a task folder's files
+  are re-read only when their modification time or size changes.
+
+### The unparsed-lines breakdown leaking content
+
+`doctor`'s `unparsed by` line and the page's diagnostics count lines by reason and by record `type`
+(`system:<subtype>` for system records) and never print a value from a line. A type that is not a
+plain name of at most 40 characters (letters, digits, `_ . : ( ) -`) is counted as `(invalid)`, and at
+most 50 distinct names are kept per reason.
+
+### Replay
+
+`cubiclark replay` reads the same transcripts, hook events and adapter files as the live page,
+through the same parsers, and writes nothing. It serves the same page on `127.0.0.1` under the same
+token, Host and CSP rules. `--since` is capped at 14 days and `--speed` at 1000.
 
 ## Reporting a vulnerability
 

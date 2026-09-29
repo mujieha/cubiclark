@@ -191,7 +191,13 @@ export function sourcesLine(world: World): string {
     const last = hooks.lastEventTs ? `, last ${relativeSince(hooks.lastEventTs, Date.parse(world.clock))}` : ''
     hooksText = `live (${hooks.events} events${last})`
   }
-  return `transcripts: ${transcriptsText} · hooks: ${hooksText}`
+  // Each adapter that is on says how it is doing. One that is off is left out, unless a problem
+  // with the configuration file is being reported beside it.
+  const adapters = (world.sources.adapters ?? [])
+    .filter((adapter) => adapter.status !== 'off' || adapter.detail.includes('config:'))
+    .map((adapter) => ` · ${adapter.id}: ${adapter.status === 'live' ? '' : `${adapter.status} — `}${adapter.detail}`)
+    .join('')
+  return `transcripts: ${transcriptsText} · hooks: ${hooksText}${adapters}`
 }
 
 export const BUSY_STATES: ReadonlySet<AgentState> = new Set([
