@@ -23,6 +23,7 @@
     "fixtures:check": "tsx scripts/make-fixtures.ts --check",
     "test:e2e": "npm run build && playwright test",
     "test:hooks": "npm run build && vitest run --config vitest.hooks.config.ts",
+    "bench:hook": "npm run build && tsx scripts/bench-hook.ts",
     "start": "node dist/cli.js"
   },
   "devDependencies": {
