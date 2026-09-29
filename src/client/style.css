@@ -92,10 +92,15 @@ th {
   color: var(--warn);
 }
 
+.sources,
 .diagnostics {
-  margin-top: 16px;
+  margin: 4px 0 0;
   color: var(--dim);
   font-size: 12px;
+}
+
+.sources {
+  margin-top: 16px;
 }
 
 @media (max-width: 480px) {

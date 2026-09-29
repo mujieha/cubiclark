@@ -4,11 +4,15 @@
 
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { hooksSourceStatus } from './core/hooks/status.js'
+import { HookSource } from './server/hook-source.js'
+import { inspectHooks } from './server/hooks-install.js'
 import { Store } from './server/store.js'
 import { TranscriptSource } from './server/transcript-source.js'
 import { createHttpServer } from './server/http.js'
-import type { World } from './core/types.js'
+import type { HooksSourceStatus, World } from './core/types.js'
 
 export interface AppOptions {
   root: string
@@ -17,6 +21,9 @@ export interface AppOptions {
   port: number
   sinceHours: number
   open: boolean
+  /** Where the collector writes events.jsonl. Undefined means no hook source at all: the page
+   * then says the collector is not installed. */
+  stateDir?: string
 }
 
 export interface RunningApp {
@@ -53,9 +60,12 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
 
   const store = new Store({ nowMs, transcriptsRoot: options.root })
 
+  // The same age window for both sources; fixture mode reads everything under its root.
+  const sinceMs = options.fixtureMode ? null : Date.now() - options.sinceHours * 60 * 60 * 1000
+
   const source = new TranscriptSource({
     root: options.root,
-    sinceMs: options.fixtureMode ? null : Date.now() - options.sinceHours * 60 * 60 * 1000,
+    sinceMs,
     windowHours: options.fixtureMode ? null : options.sinceHours,
     watch: true,
     pollMs: options.fixtureMode ? 200 : 2000,
@@ -63,12 +73,45 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     nowMs,
   })
 
-  const mergeSourceStatus = (): void => {
-    store.mergeSources({ transcripts: source.getStatus(), hooks: { status: 'not_installed', events: 0 } })
+  const hookSource =
+    options.stateDir === undefined
+      ? undefined
+      : new HookSource({
+          eventsFile: join(options.stateDir, 'events.jsonl'),
+          sinceMs,
+          watch: true,
+          pollMs: options.fixtureMode ? 200 : 1000,
+          onEvents: (events) => store.applyEvents(events),
+          nowMs,
+        })
+
+  const hooksStatus = async (): Promise<HooksSourceStatus> => {
+    if (!hookSource || options.stateDir === undefined) return { status: 'not_installed', events: 0 }
+    const stats = hookSource.getStats()
+    if (options.fixtureMode) {
+      // A fixture home has no settings.json to inspect: the events file alone decides.
+      return {
+        status: stats.events > 0 ? 'live' : 'not_installed',
+        events: stats.events,
+        lastEventTs: stats.lastEventTs,
+        eventsFile: join(options.stateDir, 'events.jsonl'),
+      }
+    }
+    return hooksSourceStatus(await inspectHooks(options.root, options.stateDir), stats, nowMs())
   }
 
+  const mergeSourceStatus = async (): Promise<void> => {
+    try {
+      store.mergeSources({ transcripts: source.getStatus(), hooks: await hooksStatus() })
+    } catch {
+      // A status refresh must never take the server down; the next tick tries again.
+    }
+  }
+
+  // The transcripts' history goes in first, the hooks' after it: hooks win on timing from there.
   await source.start()
-  mergeSourceStatus()
+  await hookSource?.start()
+  await mergeSourceStatus()
 
   if (options.fixtureMode) {
     frozenClockMs = newestActivityMs(store.getWorld()) ?? Date.now()
@@ -79,7 +122,9 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   const clientDir = fileURLToPath(new URL('./client/', import.meta.url))
   const http = await createHttpServer({ token, port: options.port, clientDir, store })
 
-  const statusTimer = setInterval(mergeSourceStatus, 2000)
+  const statusTimer = setInterval(() => {
+    void mergeSourceStatus()
+  }, 2000)
 
   if (options.open) openBrowser(http.url)
 
@@ -90,6 +135,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
       clearInterval(statusTimer)
       store.stop()
       source.stop()
+      hookSource?.stop()
       await http.close()
     },
   }

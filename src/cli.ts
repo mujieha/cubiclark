@@ -259,9 +259,13 @@ async function runHooks(cmd: HooksCommand): Promise<void> {
 async function runServe(cmd: ServeCommand): Promise<void> {
   const { root, fixtureMode } = resolveRoot(cmd.fixtureHome, process.env, homedir())
 
+  // Fixture mode has no hook source unless --state-dir names one: it must never read the real
+  // ~/.cubiclark by accident.
+  const stateDir = cmd.stateDir ?? (fixtureMode ? undefined : resolveStateDir(undefined, process.env, homedir()))
+
   let app: Awaited<ReturnType<typeof startApp>>
   try {
-    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open })
+    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {

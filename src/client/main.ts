@@ -1,4 +1,4 @@
-import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText } from '../core/view.js'
+import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, sourcesLine } from '../core/view.js'
 import type { World } from '../core/types.js'
 import './style.css'
 
@@ -54,6 +54,7 @@ class App {
     if (!world) return // unreachable: emptyScreen(undefined) always returns 'no-data'
 
     this.root.appendChild(this.renderTable(world))
+    this.root.appendChild(el('p', { className: 'sources', text: sourcesLine(world) }))
     this.root.appendChild(el('p', { className: 'diagnostics', text: diagnosticsLine(world) }))
   }
 
