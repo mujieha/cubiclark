@@ -297,7 +297,10 @@ export function mainSessionLines(startAt: number, sid: string, cwd: string): Lin
 
 /** A background worker: sessionKind 'bg', an agent-name label, a prompt, and an open Bash with
  * no result yet (the worker is still running when the transcript is tailed). Ends in `running`
- * with the tool target 'npm'. */
+ * with the tool target 'npm'. Runs under `bypassPermissions`: there is no interactive user to
+ * answer a permission prompt for a background session, so real ones do too — and it keeps
+ * tick()'s inferred-permission-wait rule from misreading an ordinary long-running command as a
+ * stuck permission prompt. */
 export function backgroundWorkerLines(startAt: number, sid: string, cwd: string): Line[] {
   const chain = new RecordChain({ sessionId: sid, cwd, sessionKind: 'bg' })
   const lines: Line[] = []
@@ -305,6 +308,7 @@ export function backgroundWorkerLines(startAt: number, sid: string, cwd: string)
   const at = (): string => ts(startAt, i++)
 
   lines.push(chain.rec(at(), { type: 'agent-name', agentName: 'demo-worker' }))
+  lines.push(chain.rec(at(), { type: 'permission-mode', permissionMode: 'bypassPermissions' }))
   lines.push(userPromptRecord(chain, at(), lorem(5)))
   const bashId = toolUseId(1)
   lines.push(

@@ -88,9 +88,10 @@ describe('parseTranscript over the standalone scenario fixtures', () => {
     expect(result.events).toEqual([
       { t: 'agent_meta', ts: at(0), agentId: sid, kind: 'background', cwd: DEMO_CWD, version: FIXTURE_VERSION },
       { t: 'agent_meta', ts: at(0), agentId: sid, label: 'demo-worker' },
-      { t: 'prompt', ts: at(1), agentId: sid },
-      { t: 'tool_start', ts: at(2), agentId: sid, toolUseId: toolUseId(1), name: 'Bash', target: 'npm' },
-      { t: 'assistant', ts: at(2), agentId: sid, model: 'claude-sonnet-5', tokensOut: 10, thinking: false, text: false },
+      { t: 'permission_mode', ts: at(1), agentId: sid, mode: 'bypassPermissions' },
+      { t: 'prompt', ts: at(2), agentId: sid },
+      { t: 'tool_start', ts: at(3), agentId: sid, toolUseId: toolUseId(1), name: 'Bash', target: 'npm' },
+      { t: 'assistant', ts: at(3), agentId: sid, model: 'claude-sonnet-5', tokensOut: 10, thinking: false, text: false },
     ])
   })
 

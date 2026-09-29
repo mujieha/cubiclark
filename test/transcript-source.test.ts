@@ -124,6 +124,42 @@ describe('TranscriptSource', () => {
     expect(events.some((e) => e.t === 'prompt' && e.agentId === aid)).toBe(true)
   })
 
+  test('a sidecar meta file gets its ts from content already seen, never a raw nowMs() call', async () => {
+    // Regression: readMeta() used to stamp subagent_link with `nowMs()` directly. In fixture
+    // mode nowMs() is real wall time until the caller freezes its own clock from the World's
+    // content — but that freeze happens only after start() resolves, so a raw nowMs() call
+    // here would leak today's real time into an otherwise-fictional timeline and corrupt it.
+    const parentSid = '00000000-0000-4000-8000-000000000006'
+    const aid = 'fx000000000000e2'
+    const contentTs = '2026-01-15T10:00:00.000Z' // deliberately far from real wall time
+    const parentFile = join(dir, 'projects', '-tmp-demo', `${parentSid}.jsonl`)
+    const subagentsDir = join(dir, 'projects', '-tmp-demo', parentSid, 'subagents')
+    await mkdir(subagentsDir, { recursive: true })
+    await writeFile(parentFile, promptLine(parentSid, '/tmp/demo', contentTs) + '\n', 'utf8')
+    await writeFile(join(subagentsDir, `agent-${aid}.jsonl`), promptLine(aid, '/tmp/demo', contentTs) + '\n', 'utf8')
+    await writeFile(
+      join(subagentsDir, `agent-${aid}.meta.json`),
+      JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000002' }),
+      'utf8'
+    )
+
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: false,
+      pollMs: 10_000, // large: everything here is discovered by the initial scan alone
+      onEvents,
+      nowMs: () => Date.now(), // real wall time, deliberately never matching contentTs
+    })
+    await source.start()
+    source.stop()
+
+    const link = events.find((e) => e.t === 'subagent_link')
+    expect(link?.ts).toBe(contentTs)
+  })
+
   test('a missing root reports unreadable with its error', async () => {
     const { onEvents } = collector()
     const source = new TranscriptSource({

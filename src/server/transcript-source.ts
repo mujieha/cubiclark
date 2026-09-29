@@ -50,6 +50,11 @@ export class TranscriptSource {
   private rootError: string | undefined
   private filesFound = 0
   private filesInWindow = 0
+  /** The latest record `ts` actually seen in any transcript line, tracked so a sidecar meta
+   * file or a diagnostic (neither of which carries its own timestamp) gets a plausible one
+   * instead of nowMs() — which, in fixture mode before the caller has frozen its own clock,
+   * would otherwise inject today's real wall time into an otherwise-fictional timeline. */
+  private latestContentTsMs: number | undefined
 
   constructor(private readonly opts: TranscriptSourceOptions) {}
 
@@ -79,10 +84,12 @@ export class TranscriptSource {
     this.watchers.length = 0
   }
 
+  private nowIso(): string {
+    return new Date(this.latestContentTsMs ?? this.opts.nowMs()).toISOString()
+  }
+
   private emitDiagnostic(sourceError: string): void {
-    this.opts.onEvents([
-      { t: 'diagnostics', ts: new Date(this.opts.nowMs()).toISOString(), unparsed: 0, unknownTypes: {}, versions: [], sourceError },
-    ])
+    this.opts.onEvents([{ t: 'diagnostics', ts: this.nowIso(), unparsed: 0, unknownTypes: {}, versions: [], sourceError }])
   }
 
   private async scan(): Promise<void> {
@@ -105,9 +112,20 @@ export class TranscriptSource {
       else files.push(full)
     }
 
+    // Transcript files first, sidecar meta files second: readMeta()'s subagent_link event gets
+    // its timestamp from latestContentTsMs (see nowIso()), which only reflects reality once at
+    // least one transcript file has actually been read — directory listing order does not
+    // otherwise guarantee that happens first.
+    const metaFiles: string[] = []
+    const otherFiles: string[] = []
     for (const absPath of files) {
-      await this.maybeRegister(absPath)
+      const rel = toPosixRelative(this.opts.root, absPath)
+      if (classifyPath(rel).kind === 'subagent-meta') metaFiles.push(absPath)
+      else otherFiles.push(absPath)
     }
+
+    for (const absPath of otherFiles) await this.maybeRegister(absPath)
+    for (const absPath of metaFiles) await this.maybeRegister(absPath)
   }
 
   private async walkTolerant(dir: string): Promise<string[]> {
@@ -180,7 +198,7 @@ export class TranscriptSource {
     this.opts.onEvents([
       {
         t: 'subagent_link',
-        ts: new Date(this.opts.nowMs()).toISOString(),
+        ts: this.nowIso(),
         agentId,
         parentId,
         spawnToolUseId: result.meta.toolUseId,
@@ -212,8 +230,14 @@ export class TranscriptSource {
         }
       }
     }
+    for (const event of events) {
+      const parsed = Date.parse(event.ts)
+      if (!Number.isNaN(parsed) && (this.latestContentTsMs === undefined || parsed > this.latestContentTsMs)) {
+        this.latestContentTsMs = parsed
+      }
+    }
     if (unparsed > 0) {
-      events.push({ t: 'diagnostics', ts: new Date(this.opts.nowMs()).toISOString(), unparsed, unknownTypes, versions: [] })
+      events.push({ t: 'diagnostics', ts: this.nowIso(), unparsed, unknownTypes, versions: [] })
     }
     if (events.length > 0) this.opts.onEvents(events)
   }
