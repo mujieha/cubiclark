@@ -185,6 +185,25 @@ describe('createHttpServer', () => {
     server = await createHttpServer({ token, port: 0, clientDir, store })
   })
 
+  test('custom-assets.json is empty without a pack and holds a valid pack\'s data with one, behind the token', async () => {
+    const none = await request(server.port, `/${token}/custom-assets.json`)
+    expect(none.status).toBe(200)
+    expect(JSON.parse(none.body)).toEqual({ palettes: {}, sprites: {} })
+    expect(none.headers['content-type']).toContain('application/json')
+    expect((await request(server.port, '/custom-assets.json')).status).toBe(403)
+    expect((await request(server.port, `/${token}/custom-assets.json`, { method: 'POST' })).status).toBe(405)
+
+    const customAssets = { palettes: { day: { '7': '#d9a86c' } }, sprites: { 'accessory:cap': { rows: ['..'] } } }
+    const other = await createHttpServer({ token, port: 0, clientDir, store, customAssets })
+    try {
+      const res = await request(other.port, `/${token}/custom-assets.json`)
+      expect(JSON.parse(res.body)).toEqual(customAssets)
+      expect(res.headers['content-security-policy']).toContain("default-src 'none'")
+    } finally {
+      await other.close()
+    }
+  })
+
   // S1-13: the redirect branch compared the token with `===`.
   test('the token redirect works, a near miss is 403, and no plain comparison is left', async () => {
     const redirect = await request(server.port, `/${token}`)

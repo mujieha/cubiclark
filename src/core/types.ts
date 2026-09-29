@@ -2,6 +2,8 @@
 // each marked NEW. Nothing here does I/O: no fs, no http, no Date.now(). Time always arrives as
 // an argument, so every function below stays pure and testable without a clock or a filesystem.
 
+import type { AssetsStatus } from './assets/status.js'
+
 export type AgentKind = 'session' | 'background' | 'subagent' | 'teammate'
 
 // The 16 states from design §6. Not every state is reachable from transcripts alone in this
@@ -255,6 +257,8 @@ export interface SourcesStatus {
   hooks: HooksSourceStatus
   /** NEW in phase 4: one entry per known adapter, once the host has started. */
   adapters?: AdapterStatus[]
+  /** NEW in phase 5: the custom-assets manifest, when there is one. */
+  assets?: AssetsStatus
 }
 
 export interface Quota {

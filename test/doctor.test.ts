@@ -10,6 +10,9 @@ import {
   type DoctorOptions,
   type DoctorReport,
 } from '../src/server/doctor.js'
+import { invalidManifest, sunnyOffice } from '../scripts/assets-fixture-lib.js'
+import { validateManifest } from '../src/core/assets/manifest.js'
+import { assetsStatusOf } from '../src/core/assets/status.js'
 import { COLLECTOR_FILES, hooksOn } from '../src/server/hooks-install.js'
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url))
@@ -74,6 +77,45 @@ describe('formatDoctorReport', () => {
     )
     expect(text).toContain("Claude Code   9.9.9 — not verified; cubiclark's hook events were verified on 2.1.285")
     expect(text).toContain('hooks         failing   the collector copy is missing')
+  })
+
+  test('the assets line: none, ok, and invalid with one line per error', () => {
+    const none = formatDoctorReport(report({ assets: assetsStatusOf(undefined, undefined) }))
+    expect(none.split('\n').at(-1)).toBe('assets        none')
+
+    const ok = formatDoctorReport(report({ assets: assetsStatusOf(validateManifest(sunnyOffice()), '/p/manifest.json') }))
+    expect(ok.split('\n').at(-1)).toBe('assets        ok — sunny-office: 2 palettes, 2 sprites')
+
+    const bad = formatDoctorReport(report({ assets: assetsStatusOf(validateManifest(invalidManifest()), '/p/bad.json') }))
+    const lines = bad.split('\n')
+    const at = lines.indexOf('assets        invalid — 9 errors')
+    expect(at).toBeGreaterThan(0)
+    expect(lines[at + 1]).toBe(`${' '.repeat(14)}/extra: unknown key (allowed: $schema, version, name, description, palettes, sprites)`)
+    expect(lines).toHaveLength(at + 10)
+    expect(lines.slice(at + 1).every((line) => line.startsWith(' '.repeat(14)))).toBe(true)
+  })
+
+  test('more errors than are listed say how many more', () => {
+    const many = Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`nope${i}`, { rows: [] }]))
+    const text = formatDoctorReport(report({ assets: assetsStatusOf(validateManifest({ version: 1, name: 'pack', sprites: many }), 'm.json') }))
+    expect(text.split('\n').at(-1)).toBe(`${' '.repeat(14)}…and 20 more`)
+  })
+
+  test('an invalid manifest is exit code 1, none and ok are not', () => {
+    expect(doctorExitCode(report({ assets: assetsStatusOf(validateManifest(invalidManifest()), 'x.json') }))).toBe(1)
+    expect(doctorExitCode(report({ assets: assetsStatusOf(validateManifest(sunnyOffice()), 'x.json') }))).toBe(0)
+    expect(doctorExitCode(report({ assets: assetsStatusOf(undefined, undefined) }))).toBe(0)
+    expect(doctorExitCode(report())).toBe(0)
+  })
+
+  test('runDoctor reads the manifest it is given: ok for the example pack, invalid for the broken one, none without', async () => {
+    const example = fileURLToPath(new URL('../examples/assets/sunny-office/manifest.json', import.meta.url))
+    const broken = join(FIXTURES, 'assets', 'invalid.json')
+    expect((await runDoctor(options({ assetsPath: example }))).assets?.status).toBe('ok')
+    const invalid = await runDoctor(options({ assetsPath: broken }))
+    expect(invalid.assets).toMatchObject({ status: 'invalid', errorCount: 9 })
+    expect(doctorExitCode(invalid)).toBe(1)
+    expect((await runDoctor(options())).assets?.status).toBe('none')
   })
 
   test('a claude that cannot be run is reported as not found, with the error', () => {

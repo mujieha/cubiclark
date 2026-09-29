@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { NO_ASSETS, type PublicAssets } from '../core/assets/status.js'
 import type { World } from '../core/types.js'
 import { publicWorld } from '../core/view.js'
 import type { Store } from './store.js'
@@ -20,6 +21,8 @@ export interface HttpServerOptions {
   home?: string
   /** A test seam for the slow-client limit; default MAX_CLIENT_BYTES. */
   maxClientBytes?: number
+  /** A valid custom-assets manifest's palettes and sprites, served at `custom-assets.json`. */
+  customAssets?: PublicAssets
 }
 
 export interface RunningHttpServer {
@@ -176,6 +179,15 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
       res.statusCode = 200
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.end(isHead ? undefined : indexHtml)
+      return
+    }
+
+    if (subPath === 'custom-assets.json') {
+      // What a valid custom-assets manifest holds (docs/assets.md), or nothing: only ever data.
+      const body = JSON.stringify(opts.customAssets ?? NO_ASSETS)
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(isHead ? undefined : body)
       return
     }
 

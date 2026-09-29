@@ -12,6 +12,7 @@ import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { startApp } from './app.js'
 import { DEFAULT_REPLAY_SPEED, MAX_REPLAY_SPEED, parseDuration } from './core/replay.js'
+import { defaultAssetsPath } from './server/assets-file.js'
 import { doctorExitCode, formatDoctorReport, runDoctor } from './server/doctor.js'
 import { startReplay } from './server/replay.js'
 import {
@@ -49,6 +50,9 @@ Usage:
   --state-dir <dir>    Cubiclark state directory (default CUBICLARK_HOME or ~/.cubiclark)
   --config <file>      Adapter configuration (default <state dir>/config.json; none is read
                        from a --fixture-home without --state-dir)
+  --assets <file>      Custom-assets manifest (default <state dir>/assets/manifest.json; none is
+                       read from a --fixture-home without --state-dir). doctor checks it and
+                       exits 1 when it is invalid
   --claude-bin <path>  doctor only: the claude executable (default claude)
   --port <n>           Port to listen on (0 picks a free one). Default 4789.
   --since-hours <n>    How far back to read transcripts. Default 12. Ignored with
@@ -71,6 +75,8 @@ export interface ServeCommand {
   stateDir?: string
   /** The adapter configuration file (default `<state dir>/config.json`). */
   config?: string
+  /** The custom-assets manifest (default `<state dir>/assets/manifest.json`). */
+  assets?: string
 }
 
 export interface HooksCommand {
@@ -90,6 +96,8 @@ export interface DoctorCommand {
   sinceHours: number
   claudeBin: string
   config?: string
+  /** The custom-assets manifest to check (default `<state dir>/assets/manifest.json`). */
+  assets?: string
   /** Also detect and read each configured adapter, and say what it found. */
   adapters: boolean
 }
@@ -106,6 +114,7 @@ export interface ReplayCommand {
   configDir?: string
   stateDir?: string
   config?: string
+  assets?: string
 }
 
 export type Command =
@@ -122,10 +131,10 @@ type CommandKind = 'serve' | 'hooks' | 'doctor' | 'replay'
 // Which flags each command accepts. A flag given to a command that ignores it is an error rather
 // than a silent no-op: `cubiclark hooks off --no-tools` should not look like it did something.
 const ALLOWED_FLAGS: Record<CommandKind, readonly string[]> = {
-  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'help', 'version'],
+  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'assets', 'help', 'version'],
   hooks: ['config-dir', 'state-dir', 'no-tools', 'purge', 'help', 'version'],
-  doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'help', 'version'],
-  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'help', 'version'],
+  doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'assets', 'help', 'version'],
+  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'help', 'version'],
 }
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
@@ -157,6 +166,7 @@ export function parseCli(argv: readonly string[]): Command {
         'state-dir': { type: 'string' },
         'claude-bin': { type: 'string' },
         config: { type: 'string' },
+        assets: { type: 'string' },
         adapters: { type: 'boolean' },
         'no-tools': { type: 'boolean' },
         purge: { type: 'boolean' },
@@ -209,6 +219,7 @@ export function parseCli(argv: readonly string[]): Command {
       sinceHours: positiveNumber(str('since-hours'), 12, 'since-hours'),
       claudeBin: str('claude-bin') ?? 'claude',
       config: str('config'),
+      assets: str('assets'),
       adapters: values.adapters === true,
     }
   }
@@ -234,6 +245,7 @@ export function parseCli(argv: readonly string[]): Command {
       configDir: str('config-dir'),
       stateDir: str('state-dir'),
       config: str('config'),
+      assets: str('assets'),
     }
   }
 
@@ -245,6 +257,7 @@ export function parseCli(argv: readonly string[]): Command {
     sinceHours: positiveNumber(str('since-hours'), 12, 'since-hours'),
     stateDir: str('state-dir'),
     config: str('config'),
+    assets: str('assets'),
   }
 }
 
@@ -344,6 +357,7 @@ async function runDoctorCommand(cmd: DoctorCommand): Promise<void> {
     claudeBin: cmd.claudeBin,
     nowMs: Date.now,
     adapters: cmd.adapters ? { configPath, home } : undefined,
+    assetsPath: cmd.assets ?? (stateDir === undefined ? undefined : defaultAssetsPath(stateDir)),
   })
   console.log(formatDoctorReport(report))
   process.exitCode = doctorExitCode(report)
@@ -371,7 +385,8 @@ async function runServe(cmd: ServeCommand): Promise<void> {
     // The adapter configuration lives beside the events file. A fixture home without --state-dir
     // (and without --config) reads none, so the real one is never touched by accident.
     const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
-    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath })
+    const assetsPath = cmd.assets ?? (stateDir === undefined ? undefined : defaultAssetsPath(stateDir))
+    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath, assetsPath })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {
@@ -415,6 +430,7 @@ async function runReplay(cmd: ReplayCommand): Promise<void> {
       fixtureMode: resolved.fixtureMode,
       stateDir,
       configPath,
+      assetsPath: cmd.assets ?? (stateDir === undefined ? undefined : defaultAssetsPath(stateDir)),
       home,
       sinceMs: cmd.sinceMs,
       speed: cmd.speed,

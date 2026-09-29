@@ -4,6 +4,7 @@
 // core/ — the client passes in `world.clock` (or its own idea of "now") rather than this module
 // ever reading a clock itself.
 
+import { assetsText } from './assets/status.js'
 import { projectName } from './transcript/paths.js'
 import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, type UnparsedReason, type World } from './types.js'
 
@@ -221,7 +222,8 @@ export function sourcesLine(world: World): string {
     .filter((adapter) => adapter.status !== 'off' || adapter.detail.includes('config:'))
     .map((adapter) => ` · ${adapter.id}: ${adapter.status === 'live' ? '' : `${adapter.status} — `}${adapter.detail}`)
     .join('')
-  return `transcripts: ${transcriptsText} · hooks: ${hooksText}${adapters}`
+  const assets = world.sources.assets && world.sources.assets.status !== 'none' ? ` · assets: ${assetsText(world.sources.assets)}` : ''
+  return `transcripts: ${transcriptsText} · hooks: ${hooksText}${adapters}${assets}`
 }
 
 export const BUSY_STATES: ReadonlySet<AgentState> = new Set([

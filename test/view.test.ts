@@ -10,6 +10,9 @@ import {
   sourcesLine,
   tildePath,
 } from '../src/core/view.js'
+import { invalidManifest, sunnyOffice } from '../scripts/assets-fixture-lib.js'
+import { validateManifest } from '../src/core/assets/manifest.js'
+import { assetsStatusOf } from '../src/core/assets/status.js'
 import type { Agent, World } from '../src/core/types.js'
 import { emptyWorld, ensureAgent, setState, updateAgent } from '../src/core/world.js'
 
@@ -266,6 +269,21 @@ describe('sourcesLine', () => {
 
     test('no adapters key, no change', () => {
       expect(sourcesLine(withSources({ status: 'live' }, { status: 'not_installed', events: 0 }))).toBe('transcripts: live · hooks: not installed')
+    })
+  })
+
+  describe('with custom assets', () => {
+    const withAssets = (assets: NonNullable<World['sources']['assets']>): World => {
+      const world = withSources({ status: 'live' }, { status: 'not_installed', events: 0 })
+      return { ...world, sources: { ...world.sources, assets } }
+    }
+
+    test('a valid pack is named with its counts; none adds nothing; an invalid one says how many errors', () => {
+      const ok = assetsStatusOf(validateManifest(sunnyOffice()), 'manifest.json')
+      expect(sourcesLine(withAssets(ok))).toBe('transcripts: live · hooks: not installed · assets: ok — sunny-office: 2 palettes, 2 sprites')
+      expect(sourcesLine(withAssets(assetsStatusOf(undefined, undefined)))).toBe('transcripts: live · hooks: not installed')
+      const bad = assetsStatusOf(validateManifest(invalidManifest()), 'bad.json')
+      expect(sourcesLine(withAssets(bad))).toBe('transcripts: live · hooks: not installed · assets: invalid — 9 errors')
     })
   })
 })

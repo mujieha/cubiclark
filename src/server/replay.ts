@@ -17,6 +17,7 @@ import { createAdapters } from './adapters/registry.js'
 import { loadConfig } from './config-file.js'
 import { HookSource } from './hook-source.js'
 import { createHttpServer } from './http.js'
+import { loadAssets } from './assets-file.js'
 import { Store } from './store.js'
 import { TranscriptSource } from './transcript-source.js'
 
@@ -27,6 +28,8 @@ export interface ReplayOptions {
   stateDir?: string
   /** The adapter configuration file. Undefined means no adapters. */
   configPath?: string
+  /** The custom-assets manifest. Undefined means none. */
+  assetsPath?: string
   home: string
   /** How far back the window reaches, in ms. */
   sinceMs: number
@@ -148,7 +151,8 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
 
   const hooks: HooksSourceStatus =
     hookStats.events > 0 ? { status: 'live', events: hookStats.events, lastEventTs: hookStats.lastEventTs } : { status: 'not_installed', events: 0 }
-  const mergeStatus = (): void => store.mergeSources({ transcripts: transcriptStatus, hooks, adapters: adapterHost.statuses() })
+  const assets = await loadAssets(o.assetsPath)
+  const mergeStatus = (): void => store.mergeSources({ transcripts: transcriptStatus, hooks, adapters: adapterHost.statuses(), assets: assets.status })
   mergeStatus()
 
   // 5. Playback.
@@ -180,7 +184,7 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
 
   const token = randomBytes(32).toString('base64url')
   const clientDir = fileURLToPath(new URL('../client/', import.meta.url))
-  const http = await createHttpServer({ token, port: o.port, clientDir, store, home: o.home })
+  const http = await createHttpServer({ token, port: o.port, clientDir, store, home: o.home, customAssets: assets.overrides })
   if (o.open) openBrowser(http.url)
 
   return {

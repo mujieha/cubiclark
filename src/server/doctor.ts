@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { gateTranscriptEvent } from '../core/merge.js'
+import { assetsText, type AssetsStatus } from '../core/assets/status.js'
 import { printableLines } from '../core/printable.js'
 import { reduce } from '../core/reducer.js'
 import { classifyHooks, classifyTranscripts, type SourceCheck } from '../core/hooks/status.js'
@@ -17,6 +18,7 @@ import type { AdapterStatus, Task, UnparsedBreakdown, World } from '../core/type
 import { unparsedReasonTotals, unparsedTypeCounts } from '../core/view.js'
 import { emptyWorld } from '../core/world.js'
 import { ADAPTER_IDS, createAdapters, missingReason } from './adapters/registry.js'
+import { loadAssets } from './assets-file.js'
 import { loadConfig } from './config-file.js'
 import { HookSource } from './hook-source.js'
 import { inspectHooks } from './hooks-install.js'
@@ -39,6 +41,8 @@ export interface DoctorReport {
   }
   /** Only with `doctor --adapters`: what each adapter found, and what was wrong with the config. */
   adapters?: { warnings: string[]; entries: AdapterStatus[] }
+  /** The custom-assets manifest: none, ok, or invalid with its problems. */
+  assets?: AssetsStatus
 }
 
 export interface DoctorAdaptersOptions {
@@ -60,6 +64,8 @@ export interface DoctorOptions {
   nowMs: () => number
   /** Set by --adapters: also detect and read each configured adapter. */
   adapters?: DoctorAdaptersOptions
+  /** The custom-assets manifest to check; undefined means none. */
+  assetsPath?: string
 }
 
 const ONE_SHOT_POLL_MS = 60 * 60 * 1000 // never fires: both sources are stopped right after start()
@@ -182,6 +188,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
   }
 
   const d = world.diagnostics
+  const assets = (await loadAssets(o.assetsPath)).status
   // In a fixture home the adapters are read against the newest record, as the running app does.
   const adapters = o.adapters
     ? await checkAdapters(o, o.adapters, o.fixtureMode ? (newestActivityMs(world) ?? o.nowMs()) : o.nowMs())
@@ -199,6 +206,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
       versions: d.versions,
       sourceErrors: d.sourceErrors,
     },
+    assets,
     ...(adapters ? { adapters } : {}),
   }
 }
@@ -232,6 +240,11 @@ export function formatDoctorReport(r: DoctorReport): string {
     `${'diagnostics'.padEnd(14)}${parts.join(', ')}`,
     `${'unparsed by'.padEnd(14)}${unparsedByText(d.unparsedBy)}`,
   ]
+  if (r.assets) {
+    lines.push(`${'assets'.padEnd(14)}${assetsText(r.assets)}`)
+    for (const error of r.assets.errors) lines.push(`${' '.repeat(14)}${error}`)
+    if (r.assets.errorCount > r.assets.errors.length) lines.push(`${' '.repeat(14)}…and ${r.assets.errorCount - r.assets.errors.length} more`)
+  }
   if (r.adapters) {
     for (const warning of r.adapters.warnings) lines.push(`${'config'.padEnd(14)}${warning}`)
     for (const entry of r.adapters.entries) lines.push(`${entry.id.padEnd(14)}${entry.status.padEnd(10)}${entry.detail}`)
@@ -253,5 +266,6 @@ export function unparsedByText(by: UnparsedBreakdown): string {
 
 /** 1 only when a source is failing. A source that is merely missing is not a failure. */
 export function doctorExitCode(r: DoctorReport): 0 | 1 {
-  return r.transcripts.status === 'failing' || r.hooks.status === 'failing' ? 1 : 0
+  // An invalid custom-assets manifest is a failure too: `doctor --assets <file>` is how a pack is checked.
+  return r.transcripts.status === 'failing' || r.hooks.status === 'failing' || r.assets?.status === 'invalid' ? 1 : 0
 }
