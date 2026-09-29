@@ -99,8 +99,11 @@ export interface AgentRow {
   currentTool?: string
 }
 
+// The *last* 8 characters, not the first: every synthetic id in this codebase (and, in
+// practice, every real Claude Code session id) shares a long common prefix, so a prefix-based
+// "short id" would render identically for every agent. The tail is what actually varies.
 function shortId(id: string): string {
-  return id.length > 8 ? id.slice(0, 8) : id
+  return id.length > 8 ? id.slice(-8) : id
 }
 
 function stateLabelFor(agent: Agent): string {

@@ -209,6 +209,10 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => resolve())
+        // server.close() alone only stops accepting new connections; it waits for every
+        // existing one to end on its own, and an open SSE stream never does that from the
+        // server side. A real Ctrl+C should exit promptly even with a browser tab left open.
+        server.closeAllConnections()
       }),
   }
 }

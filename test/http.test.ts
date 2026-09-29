@@ -163,6 +163,27 @@ describe('createHttpServer', () => {
     req.destroy()
   })
 
+  test('close() resolves promptly even with an open SSE connection left dangling', async () => {
+    // This is exactly what a browser tab left open looks like from the server's side.
+    // server.close() alone waits for every open connection to end on its own, which an SSE
+    // stream never does from the server side — a real Ctrl+C must not hang on that.
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port: server.port,
+      path: `/${token}/events`,
+      headers: { Host: `127.0.0.1:${server.port}` },
+    })
+    req.end()
+    await new Promise<void>((resolve) => req.on('response', () => resolve()))
+
+    const start = Date.now()
+    await server.close()
+    expect(Date.now() - start).toBeLessThan(2000)
+
+    // afterEach also closes `server`; give it a fresh, still-open one to close.
+    server = await createHttpServer({ token, port: 0, clientDir, store })
+  })
+
   test('the socket is bound to 127.0.0.1 specifically, not every interface', async () => {
     // A live network probe of "is 0.0.0.0 reachable" is flaky across sandboxes (interfaces and
     // firewalling vary); the structural guarantee is that the server only ever calls
