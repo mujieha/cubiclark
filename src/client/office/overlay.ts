@@ -12,6 +12,8 @@ import type { World } from '../../core/types.js'
 export interface OverlayHandlers {
   /** The agent the keyboard focus is on, or undefined when it left the office. */
   onFocus: (agentId: string | undefined) => void
+  /** An agent was clicked (or activated from the keyboard): the page selects it. */
+  onSelect?: (agentId: string) => void
 }
 
 export class OfficeOverlay {
@@ -23,6 +25,7 @@ export class OfficeOverlay {
   private world: World | undefined
   private scale = 1
   private tooltipFor: string | undefined
+  private selectedId: string | undefined
 
   constructor(
     stage: HTMLElement,
@@ -57,6 +60,7 @@ export class OfficeOverlay {
       button.dataset.state = agent.state
       button.dataset.room = placement.room
       button.dataset.kind = placement.kind
+      button.setAttribute('aria-pressed', String(agent.id === this.selectedId))
       button.setAttribute('aria-label', ariaLabel(agent, world))
       this.boxes.set(agent.id, placement.boxPx)
       if (!this.walking.has(agent.id)) this.place(button, placement.boxPx)
@@ -75,6 +79,12 @@ export class OfficeOverlay {
       if (this.root.children[index] !== button) this.root.insertBefore(button, this.root.children[index] ?? null)
     })
     if (this.tooltipFor) this.showTooltip(this.tooltipFor)
+  }
+
+  /** The agent the page has selected: its button says so (aria-pressed), the others do not. */
+  setSelected(agentId: string | undefined): void {
+    this.selectedId = agentId
+    for (const [id, button] of this.buttons) button.setAttribute('aria-pressed', String(id === agentId))
   }
 
   /** The canvas scale changed (the window was resized): every button moves with it. */
@@ -127,6 +137,7 @@ export class OfficeOverlay {
     button.addEventListener('pointerleave', () => {
       if (document.activeElement !== button) this.hideTooltip()
     })
+    button.addEventListener('click', () => this.handlers.onSelect?.(agentId))
     button.addEventListener('focus', () => {
       this.showTooltip(agentId)
       this.handlers.onFocus(agentId)

@@ -49,12 +49,14 @@ export class OfficeView {
   private seeded = false
   private reduced: boolean
   private focusedId: string | undefined
+  private selectedId: string | undefined
   private drawnAgents = 0
   private statsAtMs = Number.NEGATIVE_INFINITY
 
   constructor(
     private readonly container: HTMLElement,
-    private readonly env: OfficeEnv
+    private readonly env: OfficeEnv,
+    private readonly handlers: { onSelect?: (agentId: string) => void } = {}
   ) {
     container.classList.add('office')
     this.stage = document.createElement('div')
@@ -66,7 +68,10 @@ export class OfficeView {
     this.canvas.setAttribute('aria-hidden', 'true')
     this.stage.appendChild(this.canvas)
     this.renderer = new OfficeRenderer(this.canvas)
-    this.overlay = new OfficeOverlay(this.stage, { onFocus: (agentId) => this.setFocused(agentId) })
+    this.overlay = new OfficeOverlay(this.stage, {
+      onFocus: (agentId) => this.setFocused(agentId),
+      onSelect: (agentId) => this.handlers.onSelect?.(agentId),
+    })
 
     this.reducedQuery = env.matchMedia(REDUCED_MOTION)
     this.reduced = this.reducedQuery.matches
@@ -111,6 +116,14 @@ export class OfficeView {
   /** The agent the keyboard focus is on, ringed on the canvas. */
   setFocused(agentId: string | undefined): void {
     this.focusedId = agentId
+    this.loop.requestDraw()
+  }
+
+  /** The agent the page has selected (its card is in the HUD): ringed until the focus moves elsewhere. */
+  setSelected(agentId: string | undefined): void {
+    if (this.selectedId === agentId) return
+    this.selectedId = agentId
+    this.overlay.setSelected(agentId)
     this.loop.requestDraw()
   }
 
@@ -195,7 +208,7 @@ export class OfficeView {
 
   private drawFrame(): void {
     const nowMs = this.env.now()
-    const stats = this.renderer.draw(nowMs, this.focusedId)
+    const stats = this.renderer.draw(nowMs, this.focusedId ?? this.selectedId)
     this.overlay.syncWalkers(stats.walkers)
     this.drawnAgents = stats.drawn
     this.canvas.dataset.frames = String(this.loop.frames + 1)
