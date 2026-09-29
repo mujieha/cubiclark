@@ -35,11 +35,17 @@ export const IGNORED_TYPES = new Set([
   'custom-title',
   'queue-operation',
   'progress',
+  // Seen in Claude Code 2.1.285, none of them changes agent state:
+  'warning', // a notice shown to the person (has a `level`)
+  'update', // a version-update notice
+  'continued-in', // "this session continues in another" (`continuedInSessionId`)
+  'pr-link', // a pull request the session opened
 ])
 
 /** system.subtype values that are known and deliberately ignored, alongside the three that
- * carry state (turn_duration, compact_boundary, api_error). */
-const IGNORED_SYSTEM_SUBTYPES = new Set(['stop_hook_summary', 'away_summary', 'local_command', 'informational'])
+ * carry state (turn_duration, compact_boundary, api_error). `bridge_status`: remote-control
+ * status, seen in 2.1.285. */
+const IGNORED_SYSTEM_SUBTYPES = new Set(['stop_hook_summary', 'away_summary', 'local_command', 'informational', 'bridge_status'])
 
 const INTERRUPT_TEXTS = new Set(['[Request interrupted by user]', '[Request interrupted by user for tool use]'])
 

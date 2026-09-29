@@ -24,12 +24,13 @@ import {
   permissionDeniedLines,
   permissionWaitLines,
   rateLimitLines,
+  recordTypes2185Lines,
   sessionId,
   subagentId,
   toolUseId,
   ts,
 } from '../scripts/fixture-lib.js'
-import { parseTranscript } from '../src/core/transcript/parse.js'
+import { parseTranscript, recordTimestamp } from '../src/core/transcript/parse.js'
 
 const START = Date.parse('2026-01-15T10:00:00.000Z')
 const HOUR = 60 * 60 * 1000
@@ -295,6 +296,41 @@ describe('parseTranscript over the standalone scenario fixtures', () => {
       // step 2 ("future-thing") and step 3 (unknown system subtype) are unparsed, no events
       { t: 'turn_end', ts: at(4), agentId: sid },
     ])
+  })
+
+  test('record-types-2.1.285: bookkeeping records without a timestamp parse, one line before any time does not', () => {
+    const start = START + 10 * HOUR
+    const sid = sessionId('b')
+    const at = (step: number) => ts(start, step)
+    const result = parseTranscript(toText(recordTypes2185Lines(start, sid, DEMO_CWD)), { agentId: sid, kind: 'session' })
+
+    // the only unparsed line: a permission-mode record when the file has shown no time yet
+    expect(result.unparsed).toBe(1)
+    expect(result.unparsedBy).toEqual({ no_timestamp: { 'permission-mode': 1 } })
+    expect(result.unknownTypes).toEqual({})
+    expect(result.events).toEqual([
+      // `mode` (no time) and the unparsed permission-mode came first: agent_meta waits for a real time
+      { t: 'agent_meta', ts: at(0), agentId: sid, kind: 'session', cwd: DEMO_CWD, version: FIXTURE_VERSION },
+      { t: 'prompt', ts: at(0), agentId: sid },
+      // last-prompt, atis-latch, ai-title and cost-state: ignored; permission-mode borrows step 0
+      { t: 'permission_mode', ts: at(0), agentId: sid, mode: 'acceptEdits' },
+      // file-history-snapshot, warning, update, continued-in, pr-link, bridge_status: ignored
+      { t: 'assistant', ts: at(7), agentId: sid, model: 'claude-sonnet-5', tokensOut: 12, thinking: false, text: true },
+      { t: 'turn_end', ts: at(7), agentId: sid },
+      // the numeric epoch-millisecond timestamp comes out as the same ISO string
+      { t: 'assistant', ts: at(8), agentId: sid, model: 'claude-sonnet-5', tokensOut: 8, thinking: false, text: true },
+      { t: 'turn_end', ts: at(8), agentId: sid },
+    ])
+  })
+
+  test('epoch-second and epoch-millisecond timestamps, and dates that do not exist', () => {
+    expect(recordTimestamp(1768570200)).toBe('2026-01-16T13:30:00.000Z')
+    expect(recordTimestamp(1768570200000)).toBe('2026-01-16T13:30:00.000Z')
+    expect(recordTimestamp('2026-01-16T13:30:00Z')).toBe('2026-01-16T13:30:00Z')
+    expect(recordTimestamp(Number.NaN)).toBeUndefined()
+    expect(recordTimestamp(1e300)).toBeUndefined()
+    expect(recordTimestamp('')).toBeUndefined()
+    expect(recordTimestamp(null)).toBeUndefined()
   })
 
   test('parseTranscript never throws on any fixture, even the malformed one', () => {

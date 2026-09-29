@@ -52,6 +52,16 @@ export function recordTypeName(type: unknown, subtype?: unknown): string {
   return TYPE_NAME.test(name) ? name : '(invalid)'
 }
 
+/** A record's own timestamp as ISO: a string, or a number (epoch seconds below 1e12, else ms).
+ * Anything else, including a date that does not exist, is "no timestamp". */
+export function recordTimestamp(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.length > 0 ? value : undefined
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  const ms = value >= 1e12 ? value : value * 1000
+  const date = new Date(ms)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
 function unparsedLine(
   events: AgentEvent[],
   state: ParseState,
@@ -80,11 +90,19 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   const type = record.type
   if (typeof type !== 'string') return unparsedLine([], state, 'no_type', '(none)')
 
-  const ts = typeof record.timestamp === 'string' ? record.timestamp : undefined
-  if (!ts) return unparsedLine([], state, 'no_timestamp', recordTypeName(type, record.subtype))
+  // Bookkeeping records (mode, last-prompt, permission-mode, ...) often carry no `timestamp`.
+  // They borrow the newest one seen in this file; only a file that has shown none yet has
+  // nothing to lend, and then only a record that needs a time (not an ignored type) is unparsed.
+  const own = recordTimestamp(record.timestamp)
+  const base: ParseState = own ? { ...state, lastTs: own } : state
+  const ts = own ?? state.lastTs
+  if (!ts) {
+    if (IGNORED_TYPES.has(type)) return { events: [], state, unparsed: false }
+    return unparsedLine([], state, 'no_timestamp', recordTypeName(type, record.subtype))
+  }
 
   const events: AgentEvent[] = []
-  let nextState = state
+  let nextState = base
 
   // A4: emit agent_meta on the first record of a file, and again whenever cwd or version
   // changes — cheap and idempotent for the reducer, and the only way project/version drift
@@ -94,7 +112,8 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   const isBackground = record.sessionKind === TRANSCRIPT_GUESSES.backgroundSessionKind
   const cwdChanged = cwd !== undefined && cwd !== state.lastCwd
   const versionChanged = version !== undefined && version !== state.lastVersion
-  if (!state.seenFirst || cwdChanged || versionChanged) {
+  // A borrowed timestamp never starts a file: agent_meta waits for a record with its own time.
+  if ((!state.seenFirst && own !== undefined) || (state.seenFirst && (cwdChanged || versionChanged))) {
     events.push({
       t: 'agent_meta',
       ts,

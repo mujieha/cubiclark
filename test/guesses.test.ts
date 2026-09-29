@@ -6,7 +6,7 @@ import { fromUser } from '../src/core/transcript/records.js'
 
 describe('TRANSCRIPT_GUESSES', () => {
   test('is pinned to the Claude Code version the key shapes were seen on', () => {
-    expect(TRANSCRIPT_GUESSES.verifiedOn).toBe('2.1.284')
+    expect(TRANSCRIPT_GUESSES.verifiedOn).toBe('2.1.285')
     expect(TRANSCRIPT_GUESSES.backgroundSessionKind).toBe('bg')
   })
 

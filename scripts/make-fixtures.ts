@@ -29,6 +29,7 @@ import {
   permissionDeniedLines,
   permissionWaitLines,
   rateLimitLines,
+  recordTypes2185Lines,
   resetFixtureSequence,
   sessionId,
   subagentId,
@@ -151,6 +152,13 @@ function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap;
 
   // The office's fixture worlds (phase 3): the World value the browser receives, one file each.
   for (const [name, build] of Object.entries(WORLD_FIXTURES)) worlds.set(`${name}.json`, jsonText(build()))
+
+  // Built last: it draws record uuids from the shared counter, and building it earlier would
+  // renumber every file above.
+  transcripts.set(
+    'record-types-2.1.285.jsonl',
+    jsonlText(recordTypes2185Lines(START + 10 * HOUR, sessionId('b'), DEMO_CWD))
+  )
 
   return { transcripts, home, state, worlds }
 }
