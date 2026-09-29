@@ -7,9 +7,11 @@
 //   - `off` restores the backup byte for byte when the file is exactly what `on` wrote, and
 //     otherwise removes only our entries and keeps every other edit.
 
-import { createHash } from 'node:crypto'
-import { copyFile, lstat, mkdir, open, readFile, realpath, rename, rm, stat, unlink, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
+import { constants } from 'node:fs'
+import { copyFile, lstat, mkdir, open, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { dirname, join, resolve, sep } from 'node:path'
 import {
   COLLECTOR_BASENAME,
   SettingsParseError,
@@ -39,6 +41,10 @@ export interface HooksPaths {
   distDir: string
   /** ~/.cubiclark: a state dir equal to this needs no --state-dir argument in the handlers. */
   defaultStateDir: string
+  /** The home directory `--purge` must never remove or contain. Default: the user's. */
+  home?: string
+  /** The user id the state directory must belong to. Default: this process's. */
+  uid?: number
 }
 
 /** The CLI prints the message and exits 1. */
@@ -50,6 +56,8 @@ interface InstallRecord {
   originalAbsent: boolean
   backupPath?: string
   originalSha256?: string
+  /** True when the file already held collector entries at the first install (S1-6). */
+  originalHadCollector?: boolean
   writtenSha256: string
   events: string[]
   tools: boolean
@@ -115,9 +123,10 @@ async function writeAtomic(target: string, data: Buffer | string): Promise<void>
     // a new file: private by default
   }
   await mkdir(dirname(target), { recursive: true })
-  const temp = join(dirname(target), `.settings.json.cubiclark-${process.pid}.tmp`)
+  // A random name and O_EXCL: a symlink planted at a predictable name is never followed (S1-17).
+  const temp = join(dirname(target), `.settings.json.cubiclark-${randomBytes(6).toString('hex')}.tmp`)
   try {
-    await writeFile(temp, data, { mode })
+    await writeFile(temp, data, { mode, flag: 'wx' })
     await rename(temp, target)
   } catch (err) {
     await unlink(temp).catch(() => undefined)
@@ -137,20 +146,69 @@ async function writeInstall(stateDir: string, record: InstallRecord): Promise<vo
   await writeFile(join(stateDir, 'install.json'), JSON.stringify(record, null, 2) + '\n', { mode: 0o600 })
 }
 
+/** A directory that will hold a file Claude Code runs as this user (S1-8): it must be a real
+ * directory (not a symlink), owned by this user, and not writable by group or others. Nothing is
+ * chmod-ed silently: the person is told which directory to fix. */
+async function requirePrivateDir(dir: string, uid: number | undefined): Promise<void> {
+  let info
+  try {
+    info = await lstat(dir)
+  } catch (err) {
+    throw new HooksCommandError(`cannot inspect ${dir}: ${describe(err)}`)
+  }
+  const fix = `; nothing was installed. Use a directory only you can write (chmod 700 ${dir}), or another --state-dir`
+  if (info.isSymbolicLink()) throw new HooksCommandError(`${dir} is a symlink${fix}`)
+  if (!info.isDirectory()) throw new HooksCommandError(`${dir} is not a directory${fix}`)
+  if (uid !== undefined && info.uid !== uid) throw new HooksCommandError(`${dir} is owned by another user${fix}`)
+  if ((info.mode & 0o022) !== 0) throw new HooksCommandError(`${dir} is writable by group or others${fix}`)
+}
+
+/** The user this process runs as, where the platform has one (not Windows). */
+function currentUid(p: HooksPaths): number | undefined {
+  return p.uid ?? (typeof process.getuid === 'function' ? process.getuid() : undefined)
+}
+
+/** Copies through a temp file and a rename, so a symlink already sitting at the destination is
+ * replaced and never followed. */
+async function placeFile(source: string | undefined, destination: string, data?: string): Promise<void> {
+  const temp = `${destination}.${randomBytes(6).toString('hex')}.tmp`
+  try {
+    if (source !== undefined) await copyFile(source, temp, constants.COPYFILE_EXCL)
+    else await writeFile(temp, data ?? '', { flag: 'wx', mode: 0o644 })
+    await rename(temp, destination)
+  } catch (err) {
+    await unlink(temp).catch(() => undefined)
+    throw err
+  }
+}
+
 async function copyCollector(p: HooksPaths): Promise<void> {
   await mkdir(p.stateDir, { recursive: true, mode: 0o700 })
+  const uid = currentUid(p)
+  await requirePrivateDir(p.stateDir, uid)
+  await mkdir(join(p.stateDir, 'bin'), { recursive: true, mode: 0o700 })
+  await requirePrivateDir(join(p.stateDir, 'bin'), uid)
   for (const [from, to] of COLLECTOR_FILES) {
     const destination = join(p.stateDir, 'bin', to)
     await mkdir(dirname(destination), { recursive: true, mode: 0o700 })
+    await requirePrivateDir(dirname(destination), uid)
     try {
-      await copyFile(join(p.distDir, from), destination)
+      await placeFile(join(p.distDir, from), destination)
     } catch (err) {
       throw new HooksCommandError(
         `cannot copy the collector from ${join(p.distDir, from)} (${describe(err)}); run \`npm run build\` first`
       )
     }
   }
-  await writeFile(join(p.stateDir, 'bin', 'package.json'), '{"type":"module"}\n')
+  await placeFile(undefined, join(p.stateDir, 'bin', 'package.json'), '{"type":"module"}\n')
+}
+
+function backupHoldsCollector(bytes: Buffer): boolean {
+  try {
+    return collectorEntries(parseSettings(bytes.toString('utf8'))).length > 0
+  } catch {
+    return false
+  }
 }
 
 function stamp(nowMs: number): string {
@@ -201,6 +259,8 @@ export async function hooksOn(p: HooksPaths, opts: { tools: boolean; nowMs: numb
       events: [],
       tools: opts.tools,
       installedAt: new Date(opts.nowMs).toISOString(),
+      // The install record was lost while entries remained: this is not a clean original.
+      ...(hadOurs ? { originalHadCollector: true } : {}),
     }
   } else {
     backupPath = install.backupPath
@@ -219,6 +279,7 @@ export interface HooksOffResult {
 }
 
 export async function hooksOff(p: HooksPaths, opts: { purge: boolean }): Promise<HooksOffResult> {
+  if (opts.purge) await requirePurgeable(p)
   const settingsPath = join(p.configDir, 'settings.json')
   const target = await resolveTarget(settingsPath)
   const bytes = await readBytes(target)
@@ -233,8 +294,13 @@ export async function hooksOff(p: HooksPaths, opts: { purge: boolean }): Promise
   if (entries.length > 0 && bytes) {
     removed = entries.length
     const untouched = install !== undefined && install.writtenSha256 === sha256(bytes)
-    const backup =
-      untouched && !install.originalAbsent && install.backupPath ? await readBytes(install.backupPath) : undefined
+    let backup =
+      untouched && !install.originalAbsent && !install.originalHadCollector && install.backupPath
+        ? await readBytes(install.backupPath)
+        : undefined
+    // A backup that itself runs the collector is not "the file before Cubiclark" (S1-6): restoring
+    // it would leave Claude Code running a collector that `off` just deleted.
+    if (backup && backupHoldsCollector(backup)) backup = undefined
     if (untouched && install.originalAbsent) {
       await unlink(target)
       restored = 'backup'
@@ -248,13 +314,39 @@ export async function hooksOff(p: HooksPaths, opts: { purge: boolean }): Promise
     }
   }
 
-  if (opts.purge) {
-    await rm(p.stateDir, { recursive: true, force: true })
-  } else {
-    await rm(join(p.stateDir, 'bin'), { recursive: true, force: true })
-    await rm(join(p.stateDir, 'install.json'), { force: true })
-  }
+  await rm(join(p.stateDir, 'bin'), { recursive: true, force: true })
+  await rm(join(p.stateDir, 'install.json'), { force: true })
+  if (opts.purge) await purgeStateDir(p.stateDir)
   return { removed, restored, settingsPath }
+}
+
+/** What `--purge` removes besides `bin/` and `install.json`: the names Cubiclark itself writes.
+ * `config.json`, `assets/` and `backups/` stay (the backup may be the only copy of the settings
+ * from before Cubiclark), and so does anything else that is in the directory (S1-4). */
+export const PURGE_NAMES = ['events.jsonl', 'events.1.jsonl', 'off'] as const
+
+async function purgeStateDir(stateDir: string): Promise<void> {
+  for (const name of PURGE_NAMES) await rm(join(stateDir, name), { force: true })
+  await rmdir(stateDir).catch(() => undefined) // only when nothing else is left in it
+}
+
+async function realpathOrResolve(path: string): Promise<string> {
+  try {
+    return await realpath(path)
+  } catch {
+    return resolve(path)
+  }
+}
+
+/** `--purge` refuses, before anything is changed, a directory that is `/`, the home directory or
+ * one that contains it: a wrong CUBICLARK_HOME must not point it at real data (S1-4). */
+async function requirePurgeable(p: HooksPaths): Promise<void> {
+  const state = await realpathOrResolve(p.stateDir)
+  const home = await realpathOrResolve(p.home ?? homedir())
+  const prefix = state.endsWith(sep) ? state : state + sep
+  if (state === sep || state === home || home.startsWith(prefix)) {
+    throw new HooksCommandError(`refusing to purge ${p.stateDir}: it is your home directory or contains it; nothing was changed`)
+  }
 }
 
 export async function pauseHooks(stateDir: string): Promise<void> {

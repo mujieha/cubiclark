@@ -261,8 +261,9 @@ describe('createHttpServer', () => {
     const text = new WorldText(undefined)
     const stalled = fakeRes(2_000)
     const healthy = fakeRes(10)
-    sendSse({ on: () => undefined }, stalled.res, store, text, 1_000)
-    sendSse({ on: () => undefined }, healthy.res, store, text, 1_000)
+    const req = { on: () => req } as unknown as http.IncomingMessage
+    sendSse(req, stalled.res, store, text, 1_000)
+    sendSse(req, healthy.res, store, text, 1_000)
     expect(stalled.destroyed()).toBe(true)
     expect(stalled.writes).toHaveLength(0)
     expect(healthy.destroyed()).toBe(false)

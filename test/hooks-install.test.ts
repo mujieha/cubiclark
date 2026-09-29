@@ -196,7 +196,7 @@ describe('hooks off', () => {
     expect(JSON.stringify(after.hooks)).toContain('/usr/local/bin/lint.sh')
   })
 
-  test('removes the installed copy and install.json; --purge removes the whole state dir', async () => {
+  test('removes the installed copy and install.json; --purge also removes the events files but keeps the backups', async () => {
     await writeFixture('empty')
     await hooksOn(paths, { tools: true, nowMs: NOW })
     await hooksOff(paths, { purge: false })
@@ -205,8 +205,12 @@ describe('hooks off', () => {
     expect(existsSync(join(paths.stateDir, 'backups'))).toBe(true)
 
     await hooksOn(paths, { tools: true, nowMs: NOW })
+    await writeFile(join(paths.stateDir, 'events.jsonl'), '{}\n')
+    await writeFile(join(paths.stateDir, 'off'), 'x')
     await hooksOff(paths, { purge: true })
-    expect(existsSync(paths.stateDir)).toBe(false)
+    expect(existsSync(join(paths.stateDir, 'events.jsonl'))).toBe(false)
+    expect(existsSync(join(paths.stateDir, 'off'))).toBe(false)
+    expect(existsSync(join(paths.stateDir, 'backups'))).toBe(true) // the only copy of the original settings
   })
 
   test('with nothing installed it does nothing', async () => {
@@ -308,5 +312,169 @@ describe('pause, resume and inspect', () => {
 
     const none = formatHooksStatus(await inspectHooks(join(root, 'nothing'), join(root, 'nothing-state')))
     expect(none).toContain('installed: no')
+  })
+})
+
+// S1-4: --purge removes only what Cubiclark writes, and never the home directory.
+describe('hooks off --purge', () => {
+  test('a directory holding an unrelated file keeps that file', async () => {
+    await writeFixture('empty')
+    await mkdir(paths.stateDir, { recursive: true })
+    await writeFile(join(paths.stateDir, 'important-notes.txt'), 'do not delete')
+    await writeFile(join(paths.stateDir, 'events.jsonl'), '{}\n')
+    await writeFile(join(paths.stateDir, 'events.1.jsonl'), '{}\n')
+    await writeFile(join(paths.stateDir, 'config.json'), '{}')
+    await mkdir(join(paths.stateDir, 'assets'))
+    await hooksOff(paths, { purge: true })
+    expect(await readFile(join(paths.stateDir, 'important-notes.txt'), 'utf8')).toBe('do not delete')
+    expect(existsSync(join(paths.stateDir, 'events.jsonl'))).toBe(false)
+    expect(existsSync(join(paths.stateDir, 'events.1.jsonl'))).toBe(false)
+    expect(existsSync(join(paths.stateDir, 'config.json'))).toBe(true)
+    expect(existsSync(join(paths.stateDir, 'assets'))).toBe(true)
+  })
+
+  test('a state directory with nothing else in it is removed', async () => {
+    await mkdir(paths.stateDir, { recursive: true })
+    await writeFile(join(paths.stateDir, 'events.jsonl'), '{}\n')
+    await hooksOff(paths, { purge: true })
+    expect(existsSync(paths.stateDir)).toBe(false)
+  })
+
+  test('it refuses the home directory, a directory that contains it, and /, and changes nothing', async () => {
+    await writeFixture('empty')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const before = await readSettingsBytes()
+    const home = join(root, 'home')
+    await mkdir(join(home, 'work'), { recursive: true })
+    await writeFile(join(home, 'work', 'precious.txt'), 'x')
+    for (const stateDir of [home, root, '/']) {
+      await expect(hooksOff({ ...paths, stateDir, home }, { purge: true }), stateDir).rejects.toThrow(/refusing to purge/)
+    }
+    expect(await readSettingsBytes()).toEqual(before) // the refusal came before anything changed
+    expect(existsSync(join(home, 'work', 'precious.txt'))).toBe(true)
+  })
+
+  test('it refuses a symlink that leads to the home directory', async () => {
+    const home = join(root, 'home')
+    await mkdir(home, { recursive: true })
+    await symlink(home, paths.stateDir)
+    await expect(hooksOff({ ...paths, home }, { purge: true })).rejects.toThrow(/refusing to purge/)
+  })
+
+  test('a directory beside the home directory, or inside it, is fine', async () => {
+    const home = join(root, 'home')
+    const inside = join(home, '.cubiclark')
+    await mkdir(inside, { recursive: true })
+    await writeFile(join(inside, 'events.jsonl'), '{}\n')
+    await hooksOff({ ...paths, stateDir: inside, home }, { purge: true })
+    expect(existsSync(inside)).toBe(false)
+    expect(existsSync(home)).toBe(true)
+  })
+})
+
+// S1-6: a backup that already runs the collector is never "the original".
+describe('hooks off after the install record was lost', () => {
+  test('on --no-tools then off leaves no collector entry, even though the file began with some', async () => {
+    const stale = {
+      hooks: { Stop: [{ hooks: [{ type: 'command', command: 'node', args: ['/gone/bin/hook/cubiclark-collector.js'], timeout: 5 }] }] },
+      theme: 'dark',
+    }
+    await writeFile(settingsPath, JSON.stringify(stale, null, 2) + '\n')
+    const on = await hooksOn(paths, { tools: false, nowMs: NOW })
+    expect(on.changed).toBe(true)
+    const off = await hooksOff(paths, { purge: false })
+    expect(off.restored).toBe('structural')
+    const after = parseSettings((await readSettingsBytes())?.toString('utf8') ?? '{}')
+    expect(collectorEntries(after)).toEqual([])
+    expect(after.theme).toBe('dark')
+  })
+
+  test('an older install record whose backup holds the collector is not restored either', async () => {
+    await writeFixture('canonical')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const record = JSON.parse(await readFile(join(paths.stateDir, 'install.json'), 'utf8')) as { backupPath: string }
+    await writeFile(record.backupPath, (await readSettingsBytes()) as Buffer) // the backup now holds our entries
+    const off = await hooksOff(paths, { purge: false })
+    expect(off.restored).toBe('structural')
+    expect(await entryCount()).toBe(0)
+  })
+})
+
+// S1-8: an executable goes only into a directory that this user alone can write.
+describe('hooks on and the state directory', () => {
+  test('a state directory that group or others can write is refused, and nothing is installed', async () => {
+    await writeFixture('empty')
+    const before = await readSettingsBytes()
+    await mkdir(paths.stateDir, { recursive: true })
+    await chmod(paths.stateDir, 0o777)
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/writable by group or others/)
+    expect(await readSettingsBytes()).toEqual(before)
+    expect(existsSync(join(paths.stateDir, 'bin'))).toBe(false)
+  })
+
+  test('a state directory owned by another user is refused', async () => {
+    await writeFixture('empty')
+    await mkdir(paths.stateDir, { recursive: true })
+    const other = (process.getuid?.() ?? 1000) + 1
+    await expect(hooksOn({ ...paths, uid: other }, { tools: true, nowMs: NOW })).rejects.toThrow(/owned by another user/)
+  })
+
+  test('a state directory that is a symlink is refused', async () => {
+    await writeFixture('empty')
+    const real = join(root, 'real-state')
+    await mkdir(real, { recursive: true, mode: 0o700 })
+    await symlink(real, paths.stateDir)
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/is a symlink/)
+  })
+
+  test('a bin directory that others can write is refused', async () => {
+    await writeFixture('empty')
+    await mkdir(join(paths.stateDir, 'bin'), { recursive: true, mode: 0o700 })
+    await chmod(join(paths.stateDir, 'bin'), 0o777)
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/writable by group or others/)
+  })
+
+  test('a symlink planted at a collector file is replaced, never followed', async () => {
+    await writeFixture('empty')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const victim = join(root, 'victim.txt')
+    await writeFile(victim, 'untouched')
+    const collector = join(paths.stateDir, 'bin', 'hook', 'cubiclark-collector.js')
+    await rm(collector)
+    await symlink(victim, collector)
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    expect(await readFile(victim, 'utf8')).toBe('untouched')
+    expect((await lstat(collector)).isSymbolicLink()).toBe(false)
+    expect(await readFile(collector, 'utf8')).toContain('stub')
+  })
+})
+
+// S1-17: the settings write, and a settings key called __proto__.
+describe('the settings write', () => {
+  test('a symlink at the old predictable temp name is not followed', async () => {
+    await writeFixture('empty')
+    const victim = join(root, 'victim.txt')
+    await writeFile(victim, 'untouched')
+    await symlink(victim, join(paths.configDir, `.settings.json.cubiclark-${process.pid}.tmp`))
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    expect(await readFile(victim, 'utf8')).toBe('untouched')
+    expect(await entryCount()).toBe(14)
+    expect((await readdir(paths.configDir)).filter((name) => name.endsWith('.tmp') && !name.includes(String(process.pid)))).toEqual([])
+  })
+
+  test('a key called __proto__ survives on, an edit and a structural off', async () => {
+    const text = '{\n  "__proto__": {"a": 1},\n  "hooks": {\n    "__proto__": [{"hooks": [{"type": "command", "command": "keep-me"}]}]\n  }\n}\n'
+    await writeFile(settingsPath, text)
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const edited = (await readFile(settingsPath, 'utf8')).replace('{\n', '{\n  "editor": "vim",\n')
+    await writeFile(settingsPath, edited) // changed since: off must be structural
+    const off = await hooksOff(paths, { purge: false })
+    expect(off.restored).toBe('structural')
+    const after = JSON.parse(await readFile(settingsPath, 'utf8')) as Record<string, unknown>
+    expect(Object.hasOwn(after, '__proto__')).toBe(true)
+    expect(JSON.stringify(after.__proto__)).toBe('{"a":1}')
+    const hooks = after.hooks as Record<string, unknown>
+    expect(Object.hasOwn(hooks, '__proto__')).toBe(true)
+    expect(after.editor).toBe('vim')
   })
 })

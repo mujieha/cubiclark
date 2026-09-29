@@ -33,7 +33,9 @@ Usage:
   cubiclark [--port <n>] [--no-open] [--since-hours <n>] [--fixture-home <dir>] [--state-dir <dir>]
                                   Serve the page on 127.0.0.1 (the default command)
   cubiclark hooks on [--no-tools] Install the collector into Claude Code's user settings.json
-  cubiclark hooks off [--purge]   Remove it (byte-identical when settings.json is unchanged since)
+  cubiclark hooks off [--purge]   Remove it (byte-identical when settings.json is unchanged since).
+                                  --purge also deletes the events files and the soft-off flag; it keeps
+                                  config.json, assets/ and backups/, and refuses your home directory
   cubiclark hooks status          Show what is installed and whether it is paused
   cubiclark hooks pause|resume    Soft-off: create or remove <state dir>/off
   cubiclark doctor [--adapters]   Report the Claude Code version, sources and diagnostics;
@@ -292,6 +294,7 @@ async function runHooks(cmd: HooksCommand): Promise<void> {
     }
     case 'off': {
       const result = await hooksOff(paths, { purge: cmd.purge })
+      if (cmd.purge) console.error(`cubiclark: purged the events files and the soft-off flag; config.json, assets/ and backups/ stay in ${paths.stateDir}`)
       if (result.restored === 'nothing') {
         console.error(`cubiclark: hooks were not installed in ${result.settingsPath}`)
       } else if (result.restored === 'backup') {

@@ -142,7 +142,7 @@ export function withoutCollector(settings: Record<string, unknown>): { settings:
   const keptHooks: Record<string, unknown> = {}
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) {
-      keptHooks[event] = groups
+      setOwn(keptHooks, event, groups)
       continue
     }
     const keptGroups: unknown[] = []
@@ -160,16 +160,22 @@ export function withoutCollector(settings: Record<string, unknown>): { settings:
       removed += dropped
       if (kept.length > 0) keptGroups.push({ ...group, hooks: kept })
     }
-    if (keptGroups.length > 0 || groups.length === 0) keptHooks[event] = keptGroups
+    if (keptGroups.length > 0 || groups.length === 0) setOwn(keptHooks, event, keptGroups)
   }
   if (removed === 0) return { settings, removed: 0 }
 
   const next: Record<string, unknown> = {}
   for (const key of Object.keys(settings)) {
-    if (key !== 'hooks') next[key] = settings[key]
-    else if (Object.keys(keptHooks).length > 0) next[key] = keptHooks
+    if (key !== 'hooks') setOwn(next, key, settings[key])
+    else if (Object.keys(keptHooks).length > 0) setOwn(next, key, keptHooks)
   }
   return { settings: next, removed }
+}
+
+/** `object[key] = value` as an own property, even for the key `__proto__`, which a plain
+ * assignment would turn into a change of prototype and so silently drop from the file (S1-17). */
+function setOwn(object: Record<string, unknown>, key: string, value: unknown): void {
+  Object.defineProperty(object, key, { value, enumerable: true, writable: true, configurable: true })
 }
 
 /** Idempotent: when our entries already equal `desired`, returns the same object with
