@@ -125,9 +125,12 @@ move it, `--config <file>` names another). **A missing file means no adapters.**
 `~` and `~/…` expand to the home directory; a relative path resolves against the folder the config
 file is in. A problem with the file (not JSON, an unknown key or adapter, a section missing what it
 needs) is a warning shown by `cubiclark doctor --adapters` and on the sources line under the office,
-and never stops the app. **A config file that other users can write (group or world write bit)
-keeps `task-folders` and `quota-samples` but drops `claude-agents`**, because that section names a
-program to run.
+and never stops the app. **A config file that someone else could have written keeps `task-folders`
+and `quota-samples` but drops `claude-agents`**, because that section names a program to run.
+"Could have written" is: the group or world write bit is set, the file is owned by another user, or
+its folder is owned by another user (other than root) or can be changed by group or others (a folder
+with the sticky bit set, like `/tmp`, is fine when root or you own it). The file is opened once and
+checked and read through that one descriptor.
 
 `cubiclark doctor --adapters` detects and reads each configured adapter once and says what it found:
 
@@ -199,12 +202,30 @@ file; the **current** session is the `session` file's, else the newest one in `L
 2. `state: blocked`: `blocked`;
 3. `state: planned`: `planning`;
 4. `state: in_progress`: `building`;
-5. `state: done` (with or without a pull request, and not yet verified): `review`;
+5. `state: done` (with or without a pull request, and not yet verified): `review`, **unless the
+   newest entry on the timeline is more than 24 hours older than the clock: then `done`** (5a: the
+   task was accepted by other means, so it does not wait in the review corner for ever);
 6. no `STATUS.md`, or an unknown state: the newest dispatch, resume or fork decides, `planning` when
    it ran the task's `PlanModel` and `building` otherwise;
 7. otherwise, no phase.
 
-A dispatch after a verification reopens the task (rule 1 no longer holds).
+A dispatch after a verification reopens the task (rule 1 no longer holds), and a dispatch after an
+old `done` is newer activity, so rule 5a does not fire. Rule 5a is measured against the clock the
+page runs on: the replay clock in a replay (a replay's cut of a task is decided by its newest entry
+alone). `blocked`, `planned` and `in_progress` are never aged.
+
+**The window.** Only tasks with activity in the last `windowHours` (default 72) are shown: a task whose
+newest timeline entry and whose `STATUS.md` are both older than that is left out.
+
+**Limits (a hostile or huge folder cannot hurt the page).** `LOG.md` is read from its last 1 MiB (the
+first, cut line of that tail is dropped), `TASK.md`, `STATUS.md` and `session` from their first 64 KiB.
+A task keeps its 50 newest session ids (and always the current one), and 200 timeline entries. A
+symlink named `TASK.md`, `STATUS.md`, `LOG.md` or `session` is not followed, and a task folder that is
+a symlink is skipped. `Model:`, `PlanModel:`, `Effort:`, `model=`, `effort=` and `perms=` are kept
+only when they are a plain name (letters, digits and `._:[]-`, at most 64 characters); `Project:` is
+its last `/` or `\` segment, at most 60 characters. Text with a Windows path (`C:\Users\x\y`) is
+reduced like a Unix one. **Known gap:** a relative path with a slash inside (`projects/demo`) in a
+timeline text is kept as written, since it names no directory outside the task.
 
 **Roles.** Every session a task names gets a role from the task's phase: `planning` gives `planner`,
 `building` gives `builder`, `review` gives `reviewer`; `done`, `blocked` and no phase give none.

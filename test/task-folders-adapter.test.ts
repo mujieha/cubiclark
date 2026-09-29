@@ -99,6 +99,14 @@ describe('the fixture tree becomes tasks with the right phases, timelines and mo
     expect(task.timeline[1]?.ts).toBe('2026-01-15T16:00:00.000Z')
   })
 
+  test('gamma-review is done once nothing has happened on it for more than a day (5a)', async () => {
+    const later: AdapterEnv = { nowMs: () => NOW + 2 * 24 * 3_600_000, wallMs: () => NOW, home: '/home/user' }
+    const a = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: null }, later)
+    const tasks = byId((await a.snapshot()).tasks)
+    expect(tasks['gamma-review']?.phase).toBe('done')
+    expect(tasks['beta-build']?.phase).toBe('building') // in_progress is never aged
+  })
+
   test('delta-done: verified after the PR line', async () => {
     const task = byId((await adapter().snapshot()).tasks)['delta-done'] as Task
     expect(task.timeline.map((e) => e.kind)).toEqual(['dispatched', 'pr', 'done'])

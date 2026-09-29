@@ -136,6 +136,27 @@ describe('taskPhase: first match wins', () => {
     expect(taskPhase({ status: { state: 'done', pr: 12 }, entries: [at('10:00', 'dispatched')] })).toBe('review')
     expect(taskPhase({ status: { state: 'done' }, entries: [at('10:00', 'dispatched')] })).toBe('review')
   })
+  test('5a. done, not verified, with nothing new for more than 24 hours is done, not review', () => {
+    const entries = [at('10:00', 'dispatched'), at('12:00', 'pr')]
+    const hours = (h: number): number => Date.parse('2026-01-15T12:00:00Z') + h * 3_600_000
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(23) })).toBe('review')
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(24) })).toBe('review') // exactly 24 h is not more
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(25) })).toBe('done')
+    expect(taskPhase({ status: { state: 'done' }, entries: [at('10:00', 'dispatched')], nowMs: hours(30) })).toBe('done')
+    // no clock passed: the rule cannot apply, so it stays review (as in a plain unit call)
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries })).toBe('review')
+  })
+  test('5b. the age rule only touches done: blocked, planned and in_progress stay as they are, however old', () => {
+    const entries = [at('10:00', 'dispatched')]
+    const later = Date.parse('2026-01-20T00:00:00Z')
+    expect(taskPhase({ status: { state: 'blocked' }, entries, nowMs: later })).toBe('blocked')
+    expect(taskPhase({ status: { state: 'planned' }, entries, nowMs: later })).toBe('planning')
+    expect(taskPhase({ status: { state: 'in_progress' }, entries, nowMs: later })).toBe('building')
+  })
+  test('5c. a dispatch after an old done STATUS is newer activity, so the task is review again, not done', () => {
+    const entries = [at('12:00', 'pr'), { ...at('13:00', 'dispatched'), ts: '2026-01-16T20:00:00Z' }]
+    expect(taskPhase({ status: { state: 'done', pr: 1 }, entries, nowMs: Date.parse('2026-01-16T21:00:00Z') })).toBe('review')
+  })
   test('6. no STATUS.md: the newest start decides, by the plan model', () => {
     const entries = [at('10:00', 'dispatched', 'claude-opus-5-5')]
     expect(taskPhase({ entries, planModel: 'claude-opus-5-5' })).toBe('planning')

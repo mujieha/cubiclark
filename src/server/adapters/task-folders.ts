@@ -148,7 +148,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
         const logText = await this.readCached(join(dir, 'LOG.md'), `${entry.name}/LOG.md`, seenPaths, errors, LOG_LIMIT)
         const sessionFile = await this.readCached(join(dir, 'session'), `${entry.name}/session`, seenPaths, errors)
 
-        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs: wallMs })
+        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs: wallMs, phaseNowMs: nowMs })
         const lastMs = built.task.lastActivity ? Date.parse(built.task.lastActivity) : Number.NEGATIVE_INFINITY
         if (Math.max(lastMs, statusMtimeMs ?? Number.NEGATIVE_INFINITY) < windowStart) continue
 

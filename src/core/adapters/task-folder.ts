@@ -91,7 +91,13 @@ export interface PhaseInput {
   status?: StatusMd
   entries: readonly TaskTimelineEntry[]
   planModel?: string
+  /** The clock the age rule (5a) is measured against; without it the rule does not apply. */
+  nowMs?: number
 }
+
+/** A task whose STATUS says done, with no `verified` line, and nothing new on its timeline for
+ * this long, was accepted by other means: it is done, not waiting for review. */
+export const STALE_DONE_MS = 24 * 60 * 60 * 1000
 
 const START_KINDS: ReadonlySet<TaskTimelineKind> = new Set(['dispatched', 'resumed', 'forked'])
 
@@ -107,7 +113,8 @@ function newest(entries: readonly TaskTimelineEntry[], kinds: ReadonlySet<TaskTi
 /** First match wins (docs/adapters.md):
  * 1. a verified line newer than every dispatch, resume and fork: done;
  * 2. STATUS `blocked`: blocked;  3. `planned`: planning;  4. `in_progress`: building;
- * 5. `done` (with or without a PR, not yet verified): review;
+ * 5. `done` (with or without a PR, not yet verified): review, or done when the newest timeline
+ *    entry is more than STALE_DONE_MS older than `nowMs` (5a);
  * 6. no STATUS.md (or an unknown state): the newest dispatch, resume or fork decides, planning
  *    when it ran the task's PlanModel and building otherwise;
  * 7. otherwise nothing. */
@@ -123,8 +130,12 @@ export function taskPhase(input: PhaseInput): TaskPhase | undefined {
       return 'planning'
     case 'in_progress':
       return 'building'
-    case 'done':
-      return 'review'
+    case 'done': {
+      // 5a: nothing new for more than a day means it was accepted by other means.
+      const newestMs = input.entries.reduce((max, entry) => Math.max(max, Date.parse(entry.ts)), Number.NEGATIVE_INFINITY)
+      const stale = input.nowMs !== undefined && Number.isFinite(newestMs) && input.nowMs - newestMs > STALE_DONE_MS
+      return stale ? 'done' : 'review'
+    }
     default:
       break
   }
@@ -143,7 +154,10 @@ export interface TaskParts {
   logText?: string
   /** The contents of the `session` file. */
   sessionFile?: string
+  /** Wall time: STATUS.md's entry is never dated later than this. */
   nowMs: number
+  /** The clock of the age rule (5a): the replay clock in a replay, else the same as nowMs. */
+  phaseNowMs?: number
 }
 
 export interface BuiltTask {
@@ -205,7 +219,7 @@ export function buildTask(parts: TaskParts): BuiltTask {
   const newestModel = [...timeline].reverse().find((entry) => entry.model !== undefined)?.model
 
   const task: Task = { id: parts.id, timeline, source: 'task-folders' }
-  const phase = taskPhase({ status, entries: timeline, planModel: taskMd.planModel })
+  const phase = taskPhase({ status, entries: timeline, planModel: taskMd.planModel, nowMs: parts.phaseNowMs })
   if (phase) task.phase = phase
   const title = taskMd.goal ?? taskMd.heading
   if (title) task.title = title
