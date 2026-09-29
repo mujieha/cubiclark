@@ -52,6 +52,13 @@ export function recordTypeName(type: unknown, subtype?: unknown): string {
   return TYPE_NAME.test(name) ? name : '(invalid)'
 }
 
+const VERSION_NAME = /^\d+\.\d+\.\d+[0-9A-Za-z.+-]{0,24}$/
+
+/** A Claude Code version as something safe to print: a version number, else '(invalid)'. */
+export function versionName(version: string): string {
+  return VERSION_NAME.test(version) ? version : '(invalid)'
+}
+
 /** A record's own timestamp as ISO: a string, or a number (epoch seconds below 1e12, else ms).
  * Anything else, including a date that does not exist, is "no timestamp". */
 export function recordTimestamp(value: unknown): string | undefined {
@@ -108,7 +115,7 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   // changes — cheap and idempotent for the reducer, and the only way project/version drift
   // becomes visible.
   const cwd = typeof record.cwd === 'string' ? record.cwd : undefined
-  const version = typeof record.version === 'string' ? record.version : undefined
+  const version = typeof record.version === 'string' ? versionName(record.version) : undefined
   const isBackground = record.sessionKind === TRANSCRIPT_GUESSES.backgroundSessionKind
   const cwdChanged = cwd !== undefined && cwd !== state.lastCwd
   const versionChanged = version !== undefined && version !== state.lastVersion
@@ -150,8 +157,9 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
     case 'system': {
       const result = fromSystem(record, handlerCtx, ts)
       if (result.unknownSubtype !== undefined) {
-        const name = `system:${result.unknownSubtype}`
-        return unparsedLine(events, nextState, 'unknown_subtype', recordTypeName('system', result.unknownSubtype), name)
+        // The printable name, never the raw subtype: it is printed by doctor and kept in the World.
+        const name = recordTypeName('system', result.unknownSubtype)
+        return unparsedLine(events, nextState, 'unknown_subtype', name, name)
       }
       events.push(...result.events)
       break
@@ -167,7 +175,7 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
       break
     default:
       if (!IGNORED_TYPES.has(type)) {
-        return unparsedLine(events, nextState, 'unknown_type', recordTypeName(type), type)
+        return unparsedLine(events, nextState, 'unknown_type', recordTypeName(type), recordTypeName(type))
       }
   }
 

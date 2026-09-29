@@ -3,7 +3,9 @@
 // source (step 6) can call this on every path it discovers and the parser tests can call it on
 // invented paths without touching disk.
 
-const SESSION_RE = /^projects\/[^/]+\/([^/]+)\.jsonl$/
+import { isSafeKey } from '../keys.js'
+
+const SESSION_RE =/^projects\/[^/]+\/([^/]+)\.jsonl$/
 const SUBAGENT_RE = /^projects\/[^/]+\/([^/]+)\/subagents\/agent-([^/]+)\.jsonl$/
 const SUBAGENT_META_RE = /^projects\/[^/]+\/([^/]+)\/subagents\/agent-([^/]+)\.meta\.json$/
 
@@ -21,18 +23,24 @@ export type PathClassification =
 export function classifyPath(relPath: string): PathClassification {
   const normalized = relPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
+  // An id that is also a property of every object (`constructor`, `__proto__`) is not a real one.
+  const safe = (...ids: (string | undefined)[]): boolean => ids.every((id) => id !== undefined && isSafeKey(id))
+
   const subagentMeta = SUBAGENT_META_RE.exec(normalized)
   if (subagentMeta) {
+    if (!safe(subagentMeta[1], subagentMeta[2])) return { kind: 'ignore' }
     return { kind: 'subagent-meta', parentId: subagentMeta[1] as string, agentId: subagentMeta[2] as string }
   }
 
   const subagent = SUBAGENT_RE.exec(normalized)
   if (subagent) {
+    if (!safe(subagent[1], subagent[2])) return { kind: 'ignore' }
     return { kind: 'subagent', parentId: subagent[1] as string, agentId: subagent[2] as string }
   }
 
   const session = SESSION_RE.exec(normalized)
   if (session) {
+    if (!safe(session[1])) return { kind: 'ignore' }
     return { kind: 'session', sessionId: session[1] as string }
   }
 

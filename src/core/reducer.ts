@@ -2,6 +2,7 @@
 // state machine here is PLAN.md §1.6's table; `tick()` (a separate pure function) is where
 // `stuck` and the inferred permission wait live, since both need a clock the reducer never sees.
 
+import { MAX_COUNTED_NAMES, bump, isSafeKey } from './keys.js'
 import { projectName } from './transcript/paths.js'
 import { toolStateForName } from './transcript/tools.js'
 import type {
@@ -275,15 +276,9 @@ function applyDiagnostics(world: World, event: Extract<AgentEvent, { t: 'diagnos
   if (event.unparsed > 0) {
     next = { ...next, diagnostics: { ...next.diagnostics, unparsedLines: next.diagnostics.unparsedLines + event.unparsed } }
   }
-  for (const [type, count] of Object.entries(event.unknownTypes)) {
-    next = {
-      ...next,
-      diagnostics: {
-        ...next.diagnostics,
-        unknownTypes: { ...next.diagnostics.unknownTypes, [type]: (next.diagnostics.unknownTypes[type] ?? 0) + count },
-      },
-    }
-  }
+  const unknownTypes = { ...next.diagnostics.unknownTypes }
+  for (const [type, count] of Object.entries(event.unknownTypes)) bump(unknownTypes, type, count, MAX_COUNTED_NAMES)
+  if (Object.keys(event.unknownTypes).length > 0) next = { ...next, diagnostics: { ...next.diagnostics, unknownTypes } }
   if (event.unparsedBy) {
     next = { ...next, diagnostics: { ...next.diagnostics, unparsedBy: mergeUnparsedBy(next.diagnostics.unparsedBy, event.unparsedBy) } }
   }
@@ -377,7 +372,17 @@ function applyCompacted(world: World, event: CompactedEvent): World {
   return setState(next, event.agentId, event.trigger === 'manual' ? 'waiting_user' : 'thinking', event.ts)
 }
 
+const UNSAFE_ID_ERROR = 'ignored an event whose agent id is not a plain name'
+
 export function reduce(world: World, event: AgentEvent): World {
+  if (event.t !== 'diagnostics') {
+    // An id such as `constructor` is not a real one and would find an inherited property (S1-1).
+    const ids = event as { agentId: string; parentId?: string }
+    if (!isSafeKey(ids.agentId) || (ids.parentId !== undefined && !isSafeKey(ids.parentId))) {
+      const errors = world.diagnostics.sourceErrors
+      return errors[errors.length - 1] === UNSAFE_ID_ERROR ? world : pushSourceError(world, UNSAFE_ID_ERROR)
+    }
+  }
   switch (event.t) {
     case 'agent_meta':
       return applyAgentMeta(world, event)

@@ -22,6 +22,7 @@ import {
   withoutCollector,
 } from '../core/hooks/settings.js'
 import { TOOL_HOOK_EVENTS, type HookEventName } from '../core/hooks/whitelist.js'
+import { printableLines } from '../core/printable.js'
 import type { HooksInspection } from '../core/types.js'
 
 /** [path relative to dist/, path relative to <stateDir>/bin/]. The collector's whole import graph. */
@@ -368,5 +369,5 @@ export function formatHooksStatus(i: HooksInspection): string {
       ? `events file: ${i.eventsFile} (none yet)`
       : `events file: ${i.eventsFile}, ${i.eventsBytes} bytes${i.lastEventTs ? `, last event ${i.lastEventTs}` : ''}`
   )
-  return lines.join('\n')
+  return printableLines(lines)
 }

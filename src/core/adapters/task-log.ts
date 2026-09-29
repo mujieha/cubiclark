@@ -5,6 +5,7 @@
 // text that leaves this module has had its absolute paths reduced to their last segment and is
 // capped, so no filesystem path reaches the page.
 
+import { bump, countKey } from '../keys.js'
 import type { TaskTimelineEntry, TaskTimelineKind } from '../types.js'
 
 export const MAX_ENTRY_TEXT = 160
@@ -200,8 +201,8 @@ export function parseLog(text: string): ParsedLog {
         out.newestEffort = parsed.effort
       }
     }
-    if (parsed.unknownVerb && (parsed.verb in out.unknownVerbs || Object.keys(out.unknownVerbs).length < 20)) {
-      out.unknownVerbs[parsed.verb] = (out.unknownVerbs[parsed.verb] ?? 0) + 1
+    if (parsed.unknownVerb && (Object.hasOwn(out.unknownVerbs, countKey(parsed.verb)) || Object.keys(out.unknownVerbs).length < 20)) {
+      bump(out.unknownVerbs, parsed.verb)
     }
   }
   return out

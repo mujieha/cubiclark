@@ -8,6 +8,7 @@ import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { gateTranscriptEvent } from '../core/merge.js'
+import { printableLines } from '../core/printable.js'
 import { reduce } from '../core/reducer.js'
 import { classifyHooks, classifyTranscripts, type SourceCheck } from '../core/hooks/status.js'
 import { HOOK_EVENTS_VERIFIED_ON, HOOK_EVENT_NAMES } from '../core/hooks/whitelist.js'
@@ -235,7 +236,7 @@ export function formatDoctorReport(r: DoctorReport): string {
     for (const warning of r.adapters.warnings) lines.push(`${'config'.padEnd(14)}${warning}`)
     for (const entry of r.adapters.entries) lines.push(`${entry.id.padEnd(14)}${entry.status.padEnd(10)}${entry.detail}`)
   }
-  return lines.join('\n')
+  return printableLines(lines)
 }
 
 /** "no_timestamp 9000 (mode 4000, user 3000), unknown_type 5 (x 5)", or "none". Names and counts

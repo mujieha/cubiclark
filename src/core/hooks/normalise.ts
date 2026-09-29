@@ -3,6 +3,7 @@
 // The only state is the set of subagents seen starting, needed because SubagentStop also fires
 // for Claude Code's own internal agents (prompt suggestions, /btw) and those must not appear.
 
+import { isSafeKey } from '../keys.js'
 import type { AgentEvent, HookSeenEvent } from '../types.js'
 import { HOOK_EVENT_NAMES, TOOL_HOOK_EVENTS, type HookEventName } from './whitelist.js'
 
@@ -54,9 +55,10 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
 
   if (e === '_malformed' || e === '_unknown' || !isHookEvent(e)) return result(state, [], { unknownShape: true })
   const sid = str('sid')
-  if (sid === undefined) return result(state, [], { unknownShape: true })
+  if (sid === undefined || !isSafeKey(sid)) return result(state, [], { unknownShape: true })
 
   const aid = str('aid')
+  if (aid !== undefined && !isSafeKey(aid)) return result(state, [], { unknownShape: true })
   const agentId = aid ?? sid
   const tool = str('tool')
   const tuid = str('tuid')
