@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { worldSessionId } from '../scripts/world-fixture-lib.js'
+import { ACCESSORIES } from '../src/client/office/art/accessories.js'
+import { CHARACTER_FRAMES } from '../src/client/office/art/characters.js'
+import { POSE_FRAMES } from '../src/core/office/visual.js'
 import { PALETTE, fnv1a, hexToRgb, shirtKey, toneFor, variantFor } from '../src/client/office/palette.js'
 import { alphaMask, mirror, rasterize, rotate90, validateSprite, type SpriteDef } from '../src/client/office/sprite.js'
 
@@ -135,5 +138,107 @@ describe('mirror and rotate90', () => {
   test('alphaMask is the silhouette, blind to colour', () => {
     expect(alphaMask({ w: 3, h: 1, rows: ['1.a'] })).toBe('#.#')
     expect(alphaMask({ w: 3, h: 1, rows: ['0.c'] })).toBe(alphaMask({ w: 3, h: 1, rows: ['1.a'] }))
+  })
+})
+
+describe('the character frames', () => {
+  const names = Object.keys(CHARACTER_FRAMES)
+  const frame = (name: string): SpriteDef => {
+    const def = CHARACTER_FRAMES[name]
+    if (!def) throw new Error(`no frame ${name}`)
+    return def
+  }
+  const visible = (name: string): string => alphaMask(frame(name))
+
+  test('every frame is 16x24 and validates as a template', () => {
+    for (const name of names) {
+      expect(frame(name).w, name).toBe(16)
+      expect(frame(name).h, name).toBe(24)
+      expect(validateSprite(frame(name), name)).toEqual([])
+    }
+  })
+
+  test('every frame bakes with a shirt, skin and hair, and then has no placeholder left', () => {
+    for (const name of names) {
+      expect(() => rasterize(frame(name), PALETTE, { S: 'e', K: '8', H: '6' }), name).not.toThrow()
+    }
+  })
+
+  test('every frame the pose table names exists', () => {
+    for (const [pose, { frames }] of Object.entries(POSE_FRAMES)) {
+      for (const ref of frames) expect(CHARACTER_FRAMES[ref.name], `${pose}: ${ref.name}`).toBeDefined()
+    }
+  })
+
+  test('a seated frame keeps its content in the top 16 rows, so the desk can be drawn over the rest', () => {
+    for (const name of names.filter((n) => n.startsWith('sit_'))) {
+      expect(frame(name).rows.slice(16).every((row) => /^\.+$/.test(row)), name).toBe(true)
+      expect(frame(name).rows.slice(0, 16).some((row) => row !== '.'.repeat(16)), name).toBe(true)
+    }
+  })
+
+  test('a standing or walking frame uses the whole 24 rows', () => {
+    for (const name of names.filter((n) => !n.startsWith('sit_'))) {
+      expect(frame(name).rows[23]).not.toBe('.'.repeat(16))
+    }
+  })
+
+  test('the two frames of a pair differ, so the animation shows', () => {
+    const pairs = names.filter((n) => n.endsWith('_a')).map((n) => [n, n.replace(/_a$/, '_b')] as const)
+    expect(pairs.length).toBeGreaterThanOrEqual(8)
+    for (const [a, b] of pairs) {
+      expect(CHARACTER_FRAMES[b], `${b} exists`).toBeDefined()
+      expect(frame(a).rows, `${a} vs ${b}`).not.toEqual(frame(b).rows)
+    }
+  })
+
+  test('asleep and slumped differ from each other and from typing', () => {
+    expect(frame('sit_sleep').rows).not.toEqual(frame('sit_slump').rows)
+    expect(frame('sit_sleep').rows).not.toEqual(frame('sit_type_a').rows)
+    expect(frame('sit_slump').rows).not.toEqual(frame('sit_type_a').rows)
+    expect(visible('sit_sleep')).not.toBe(visible('sit_slump'))
+  })
+
+  test('no two frames are the same picture', () => {
+    expect(new Set(names.map((n) => frame(n).rows.join('/'))).size).toBe(names.length)
+  })
+
+  test('every frame has a head and a chest anchor inside the grid', () => {
+    for (const name of names) {
+      expect(frame(name).anchors, name).toBeDefined()
+    }
+  })
+
+  test('a mirrored walking frame is a different picture facing the other way', () => {
+    expect(mirror(frame('walk_side_a')).rows).not.toEqual(frame('walk_side_a').rows)
+  })
+})
+
+describe('the accessories', () => {
+  test('one for each role that wears one, all valid', () => {
+    expect(Object.keys(ACCESSORIES).sort()).toEqual(['cap', 'clipboard', 'headphones', 'magnifier', 'tie'])
+    for (const [name, accessory] of Object.entries(ACCESSORIES)) {
+      expect(validateSprite(accessory.sprite, name, false), name).toEqual([])
+    }
+  })
+
+  test('drawn at every frame anchor, each stays inside the 16x24 frame', () => {
+    for (const [frameName, frame] of Object.entries(CHARACTER_FRAMES)) {
+      for (const [name, accessory] of Object.entries(ACCESSORIES)) {
+        const at = frame.anchors?.[accessory.anchor]
+        expect(at, `${frameName} anchor`).toBeDefined()
+        const x = (at?.x ?? 0) + accessory.dx
+        const y = (at?.y ?? 0) + accessory.dy
+        expect(x, `${name} on ${frameName}: left`).toBeGreaterThanOrEqual(0)
+        expect(y, `${name} on ${frameName}: top`).toBeGreaterThanOrEqual(0)
+        expect(x + accessory.sprite.w, `${name} on ${frameName}: right`).toBeLessThanOrEqual(16)
+        expect(y + accessory.sprite.h, `${name} on ${frameName}: bottom`).toBeLessThanOrEqual(24)
+      }
+    }
+  })
+
+  test('the five silhouettes are different', () => {
+    const masks = Object.values(ACCESSORIES).map((a) => alphaMask(a.sprite))
+    expect(new Set(masks).size).toBe(5)
   })
 })
