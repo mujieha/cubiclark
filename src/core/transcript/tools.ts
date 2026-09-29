@@ -70,34 +70,46 @@ function stringInput(input: Record<string, unknown>, key: string): string | unde
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
+/** The state bucket a tool name alone implies, with no input needed. The reducer's tool_start
+ * handler uses this directly (PLAN.md §1.6's "state from table"), so it never has to duplicate
+ * this classification or import a whole tool_use block just to re-derive a state it can get from
+ * the name it already has. */
+export function toolStateForName(name: string): ToolState {
+  if (READING_TOOLS.has(name)) return 'reading'
+  if (EDITING_TOOLS.has(name)) return 'editing'
+  if (RUNNING_TOOLS.has(name)) return 'running'
+  if (SEARCHING_TOOLS.has(name)) return 'searching'
+  if (name === 'WebFetch' || name === 'WebSearch' || isBrowsingMcp(name)) return 'browsing'
+  if (DELEGATING_TOOLS.has(name)) return 'delegating'
+  return 'running'
+}
+
 export function toolActivity(name: string, input: Record<string, unknown>): ToolActivity {
-  if (READING_TOOLS.has(name)) {
-    const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path') ?? stringInput(input, 'path')
-    return { state: 'reading', target: path ? basename(path) : undefined }
+  const state = toolStateForName(name)
+  switch (state) {
+    case 'reading': {
+      const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path') ?? stringInput(input, 'path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'editing': {
+      const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'running': {
+      const command = stringInput(input, 'command')
+      return { state, target: command ? bashTarget(command) : undefined }
+    }
+    case 'searching': {
+      // Grep/Glob patterns are never returned; only an explicit `path` argument is.
+      const path = stringInput(input, 'path')
+      return { state, target: path ? basename(path) : undefined }
+    }
+    case 'browsing': {
+      if (name !== 'WebFetch') return { state } // WebSearch's query and MCP browsing are content, never shown
+      const url = stringInput(input, 'url')
+      return { state, target: url ? urlHost(url) : undefined }
+    }
+    case 'delegating':
+      return { state, target: stringInput(input, 'subagent_type') }
   }
-  if (EDITING_TOOLS.has(name)) {
-    const path = stringInput(input, 'file_path') ?? stringInput(input, 'notebook_path')
-    return { state: 'editing', target: path ? basename(path) : undefined }
-  }
-  if (RUNNING_TOOLS.has(name)) {
-    const command = stringInput(input, 'command')
-    return { state: 'running', target: command ? bashTarget(command) : undefined }
-  }
-  if (SEARCHING_TOOLS.has(name)) {
-    // Grep/Glob patterns are never returned; only an explicit `path` argument is.
-    const path = stringInput(input, 'path')
-    return { state: 'searching', target: path ? basename(path) : undefined }
-  }
-  if (name === 'WebFetch') {
-    const url = stringInput(input, 'url')
-    return { state: 'browsing', target: url ? urlHost(url) : undefined }
-  }
-  if (name === 'WebSearch' || isBrowsingMcp(name)) {
-    // The search query is content, never shown.
-    return { state: 'browsing' }
-  }
-  if (DELEGATING_TOOLS.has(name)) {
-    return { state: 'delegating', target: stringInput(input, 'subagent_type') }
-  }
-  return { state: 'running' }
 }
