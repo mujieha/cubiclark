@@ -3,6 +3,7 @@
 // dispatches to these; nothing here touches the agent_meta bookkeeping, which parse.ts owns.
 
 import type { AgentEvent, ErrorKind } from '../types.js'
+import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { toolActivity } from './tools.js'
 
 export interface ParseCtx {
@@ -41,11 +42,6 @@ const INTERRUPT_TEXTS = new Set(['[Request interrupted by user]', '[Request inte
 
 const LOCAL_COMMAND_PREFIXES = ['<command-name>', '<local-command-stdout>', '<local-command-caveat>']
 
-const API_ERROR_KIND_BY_FIELD: Record<string, ErrorKind> = {
-  rate_limit: 'rate_limit',
-  overloaded: 'overloaded',
-}
-
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
 }
@@ -72,7 +68,7 @@ function toolResultBlocks(message: unknown): Record<string, unknown>[] {
 }
 
 function classifyTerminalApiErrorKind(errorField: string | undefined, text: string | undefined): ErrorKind {
-  if (errorField) return API_ERROR_KIND_BY_FIELD[errorField] ?? 'other'
+  if (errorField) return TRANSCRIPT_GUESSES.apiErrorKindByField[errorField] ?? 'other'
   if (text) {
     if (/rate.?limit|usage limit|\b429\b/i.test(text)) return 'rate_limit'
     if (/overloaded|\b529\b/i.test(text)) return 'overloaded'
@@ -94,7 +90,8 @@ export function fromUser(record: Record<string, unknown>, ctx: ParseCtx, ts: str
 
   const results = toolResultBlocks(record.message)
   if (results.length > 0) {
-    const denied = typeof record.toolDenialKind === 'string' && record.toolDenialKind.length > 0
+    const denialKind = record[TRANSCRIPT_GUESSES.toolDenialKey]
+    const denied = typeof denialKind === 'string' && denialKind.length > 0
     for (const block of results) {
       events.push({
         t: 'tool_end',

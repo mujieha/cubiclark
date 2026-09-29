@@ -3,6 +3,8 @@
 // parseLine-style function; the caller (the transcript source, step 6) turns a successful parse
 // into a subagent_link AgentEvent and a failed one into a diagnostic.
 
+import { TRANSCRIPT_GUESSES } from './guesses.js'
+
 export interface SubagentMeta {
   agentType?: string
   description?: string
@@ -30,15 +32,16 @@ export function parseSubagentMeta(text: string): ParseMetaResult {
   const str = (key: string): string | undefined => (typeof obj[key] === 'string' ? (obj[key] as string) : undefined)
   const num = (key: string): number | undefined => (typeof obj[key] === 'number' ? (obj[key] as number) : undefined)
 
+  const keys = TRANSCRIPT_GUESSES.subagentMetaKeys
   return {
     ok: true,
     meta: {
-      agentType: str('agentType'),
-      description: str('description'),
-      toolUseId: str('toolUseId'),
-      model: str('model'),
-      name: str('name'),
-      spawnDepth: num('spawnDepth'),
+      agentType: str(keys.agentType),
+      description: str(keys.description),
+      toolUseId: str(keys.toolUseId),
+      model: str(keys.model),
+      name: str(keys.name),
+      spawnDepth: num(keys.spawnDepth),
     },
   }
 }
