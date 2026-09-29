@@ -108,7 +108,7 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
   (stdout on some events becomes context) and never turns a failure into a blocked action. An
   ESLint rule bans `console` in its code.
 - It never prints a decision, and never answers a `PermissionRequest`; it only observes.
-- It keeps out of Claude Code's way: ten of the fourteen events are installed as `async` hooks,
+- It keeps out of Claude Code's way: eleven of the fifteen events are installed as `async` hooks,
   so nothing waits for it, and the four synchronous ones have a 5 second timeout.
   `npm run bench:hook` measures what the collector adds over Node's own start-up and fails above
   30 ms (about 6 ms on the development machine).

@@ -141,6 +141,10 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
       return result(state, [seen(), { t: 'compacting', ts, agentId, ...(trig ? { trigger: trig } : {}) }])
     case 'PostCompact':
       return result(state, [seen(), { t: 'compacted', ts, agentId, ...(trig ? { trigger: trig } : {}) }])
+    case 'PostModelSwitch': {
+      const model = str('model')
+      return model === undefined ? result(state, [seen()]) : result(state, [seen(), { t: 'model_changed', ts, agentId, model }])
+    }
     case 'SessionEnd': {
       const reason = str('reason')
       return result(state, [seen(), { t: 'session_end', ts, agentId, ...(reason ? { reason } : {}) }])

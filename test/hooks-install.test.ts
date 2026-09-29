@@ -72,7 +72,7 @@ describe('on then off is byte-identical', () => {
       const original = await writeFixture(name)
       const on = await hooksOn(paths, { tools: true, nowMs: NOW })
       expect(on.changed).toBe(true)
-      expect(await entryCount()).toBe(14)
+      expect(await entryCount()).toBe(15)
       const off = await hooksOff(paths, { purge: false })
       expect(off.restored).toBe('backup')
       const after = await readSettingsBytes()
@@ -90,17 +90,17 @@ describe('hooks on', () => {
     const bytes = await readSettingsBytes()
     const second = await hooksOn(paths, { tools: true, nowMs: NOW + 1000 })
     expect(second.changed).toBe(false)
-    expect(await entryCount()).toBe(14)
+    expect(await entryCount()).toBe(15)
     expect((await readSettingsBytes())?.equals(bytes as Buffer)).toBe(true)
     expect((await stat(settingsPath)).mtimeMs).toBe(first.mtimeMs)
   })
 
-  test('--no-tools records 11 events, a later plain on adds the tool entries once, off still restores', async () => {
+  test('--no-tools records 12 events, a later plain on adds the tool entries once, off still restores', async () => {
     const original = await writeFixture('canonical')
     await hooksOn(paths, { tools: false, nowMs: NOW })
-    expect(await entryCount()).toBe(11)
+    expect(await entryCount()).toBe(12)
     await hooksOn(paths, { tools: true, nowMs: NOW + 1000 })
-    expect(await entryCount()).toBe(14)
+    expect(await entryCount()).toBe(15)
     await hooksOff(paths, { purge: false })
     expect((await readSettingsBytes())?.equals(original as Buffer)).toBe(true)
   })
@@ -126,7 +126,7 @@ describe('hooks on', () => {
     expect(record.originalSha256).toMatch(/^[0-9a-f]{64}$/)
     expect(record.writtenSha256).toMatch(/^[0-9a-f]{64}$/)
     expect(record.originalSha256).not.toBe(record.writtenSha256)
-    expect(record.events).toHaveLength(14)
+    expect(record.events).toHaveLength(15)
   })
 
   test('copies the collector files into <stateDir>/bin and marks the folder as ESM', async () => {
@@ -188,7 +188,7 @@ describe('hooks off', () => {
 
     const off = await hooksOff(paths, { purge: false })
     expect(off.restored).toBe('structural')
-    expect(off.removed).toBe(14)
+    expect(off.removed).toBe(15)
     const after = parseSettings((await readSettingsBytes())?.toString('utf8') ?? '')
     expect(collectorEntries(after)).toHaveLength(0)
     expect(after.theme).toBe('dark')
@@ -238,7 +238,7 @@ describe('a symlinked settings.json (dotfile managers)', () => {
 
     await hooksOn(paths, { tools: true, nowMs: NOW })
     expect((await lstat(settingsPath)).isSymbolicLink()).toBe(true)
-    expect(collectorEntries(parseSettings(await readFile(target, 'utf8')))).toHaveLength(14)
+    expect(collectorEntries(parseSettings(await readFile(target, 'utf8')))).toHaveLength(15)
 
     await hooksOff(paths, { purge: false })
     expect((await lstat(settingsPath)).isSymbolicLink()).toBe(true)
@@ -268,12 +268,12 @@ describe('pause, resume and inspect', () => {
     expect(i.parseError).toBeTruthy()
   })
 
-  test('inspect: installed with all 14 events, then paused, then the copy deleted', async () => {
+  test('inspect: installed with all 15 events, then paused, then the copy deleted', async () => {
     await writeFixture('canonical')
     await hooksOn(paths, { tools: true, nowMs: NOW })
     let i = await inspectHooks(paths.configDir, paths.stateDir)
     expect(i).toMatchObject({ settingsState: 'ok', tools: true, collectorExists: true, paused: false })
-    expect(i.events).toHaveLength(14)
+    expect(i.events).toHaveLength(15)
 
     await pauseHooks(paths.stateDir)
     i = await inspectHooks(paths.configDir, paths.stateDir)
@@ -289,7 +289,7 @@ describe('pause, resume and inspect', () => {
     await hooksOn(paths, { tools: false, nowMs: NOW })
     const i = await inspectHooks(paths.configDir, paths.stateDir)
     expect(i.tools).toBe(false)
-    expect(i.events).toHaveLength(11)
+    expect(i.events).toHaveLength(12)
   })
 
   test('inspect: last event time comes from the last complete line, ignoring a partial one', async () => {
@@ -306,12 +306,37 @@ describe('pause, resume and inspect', () => {
     await writeFixture('canonical')
     await hooksOn(paths, { tools: true, nowMs: NOW })
     const text = formatHooksStatus(await inspectHooks(paths.configDir, paths.stateDir))
-    expect(text).toContain('14 events')
+    expect(text).toContain('15 events')
     expect(text).toContain('paused: no')
     expect(text).toContain('installed: yes')
 
     const none = formatHooksStatus(await inspectHooks(join(root, 'nothing'), join(root, 'nothing-state')))
     expect(none).toContain('installed: no')
+  })
+})
+
+describe('an install from before PostModelSwitch existed', () => {
+  test('hooks on again adds the one entry, and hooks off still gives back the original bytes', async () => {
+    const original = (await writeFixture('canonical')) as Buffer
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    // Rewind to what the previous version wrote: 14 entries, and an install record that matches them.
+    const current = parseSettings((await readSettingsBytes())?.toString('utf8') ?? '{}')
+    const hooks = current.hooks as Record<string, unknown[]>
+    delete hooks.PostModelSwitch
+    const older = JSON.stringify(current, null, 2) + '\n'
+    await writeFile(settingsPath, older)
+    const recordPath = join(paths.stateDir, 'install.json')
+    const record = JSON.parse(await readFile(recordPath, 'utf8')) as Record<string, unknown>
+    const { createHash } = await import('node:crypto')
+    await writeFile(recordPath, JSON.stringify({ ...record, writtenSha256: createHash('sha256').update(older).digest('hex') }))
+    expect(await entryCount()).toBe(14)
+
+    const again = await hooksOn(paths, { tools: true, nowMs: NOW + 1000 })
+    expect(again.changed).toBe(true)
+    expect(await entryCount()).toBe(15)
+    const off = await hooksOff(paths, { purge: false })
+    expect(off.restored).toBe('backup')
+    expect(await readSettingsBytes()).toEqual(original)
   })
 })
 
@@ -458,7 +483,7 @@ describe('the settings write', () => {
     await symlink(victim, join(paths.configDir, `.settings.json.cubiclark-${process.pid}.tmp`))
     await hooksOn(paths, { tools: true, nowMs: NOW })
     expect(await readFile(victim, 'utf8')).toBe('untouched')
-    expect(await entryCount()).toBe(14)
+    expect(await entryCount()).toBe(15)
     expect((await readdir(paths.configDir)).filter((name) => name.endsWith('.tmp') && !name.includes(String(process.pid)))).toEqual([])
   })
 

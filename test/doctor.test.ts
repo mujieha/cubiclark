@@ -259,10 +259,10 @@ describe('runDoctor', () => {
       await cp(join(FIXTURE_STATE, 'events.jsonl'), join(state, 'events.jsonl'))
     })
 
-    test('hooks live: 14 events, and the hook agents are folded into the diagnostics', async () => {
+    test('hooks live: 15 events, and the hook agents are folded into the diagnostics', async () => {
       const r = await runDoctor(options({ root: claude, configDir: claude, stateDir: state }))
       expect(r.hooks.status).toBe('live')
-      expect(r.hooks.reason).toContain('14 events (tools on)')
+      expect(r.hooks.reason).toContain('15 events (tools on)')
       expect(r.diagnostics.unknownHookShapes).toBe(0)
       expect(r.transcripts.status).toBe('live')
     })

@@ -72,6 +72,17 @@ describe('the collector process', () => {
     expect(await readdir(state)).toEqual(before)
   })
 
+  test('a PostModelSwitch payload stores one line with the new model only, prints nothing', async () => {
+    const state = join(dir, 'state')
+    const payload = { hook_event_name: 'PostModelSwitch', session_id: 's1', from_model: 'claude-opus-5-5', to_model: 'claude-sonnet-5-5' }
+    const result = collect(state, JSON.stringify(payload))
+    expect(result.stderr).toBe('')
+    const stored = await lines(state)
+    expect(stored).toHaveLength(1)
+    expect(JSON.parse(stored[0] as string)).toMatchObject({ e: 'PostModelSwitch', sid: 's1', model: 'claude-sonnet-5-5' })
+    expect(stored[0]).not.toContain('opus')
+  })
+
   test('a PermissionRequest prints no decision and nothing on stderr', () => {
     const payload = { hook_event_name: 'PermissionRequest', session_id: 's1', tool_name: 'Bash', tool_input: { command: 'rm -rf x' } }
     const result = collect(join(dir, 'state'), JSON.stringify(payload))

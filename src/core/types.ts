@@ -447,6 +447,14 @@ export interface CompactedEvent {
   trigger?: 'auto' | 'manual'
 }
 
+/** NEW in phase 5: the model of a running session changed (the PostModelSwitch hook). */
+export interface ModelChangedEvent {
+  t: 'model_changed'
+  ts: string
+  agentId: string
+  model: string
+}
+
 export type AgentEvent =
   | AgentMetaEvent
   | SubagentLinkEvent
@@ -466,3 +474,4 @@ export type AgentEvent =
   | PermissionWaitEvent
   | CompactingEvent
   | CompactedEvent
+  | ModelChangedEvent

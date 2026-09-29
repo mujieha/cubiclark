@@ -50,9 +50,17 @@ it was.
 **What `hooks off` does.** If `settings.json` is exactly what `hooks on` wrote, the original file
 comes back byte for byte. If something else has edited it since, only Cubiclark's entries are
 removed and every other edit is kept. The installed copy goes with it. Events already collected
-and the backups stay in `~/.cubiclark` unless you pass `--purge`.
+and the backups stay in `~/.cubiclark` unless you pass `--purge`, which also deletes the events
+files and the soft-off flag (and the directory, if that leaves it empty). `--purge` never deletes
+anything else in that directory: `config.json`, `assets/` and `backups/` stay (a backup may be the
+only copy of your settings from before Cubiclark), and it refuses `/` and your home directory.
 
-**`--no-tools`** installs the 11 lifecycle events only (no `PreToolUse`, `PostToolUse` or
+**After an upgrade, run `cubiclark hooks on` again**: it adds the entries a newer version needs
+(this phase added `PostModelSwitch`, so the model of a running session follows a model switch) and
+keeps the backup of your original settings. `PreModelSwitch` is never installed, because a hook on
+it can block a model switch.
+
+**`--no-tools`** installs the 12 lifecycle events only (no `PreToolUse`, `PostToolUse` or
 `PostToolUseFailure`), for people who do not want any tool activity recorded. Transcripts then
 remain the only source of tool activity.
 
@@ -61,13 +69,13 @@ one old file kept): the event name, a timestamp, the session id, the subagent id
 working directory, the tool name and its id, and a *reduced* target (a file's basename, a command's
 first word, a URL's host, a subagent type), plus a few enum values (why a session ended, a
 compaction's trigger, an API error's kind, the permission mode, the effort level, a session's
-starting model). It never stores prompt text, tool input or output, error text, assistant text or
+starting model, the model a session switched to). It never stores prompt text, tool input or output, error text, assistant text or
 anything it does not recognise. `test/whitelist.test.ts` feeds it payloads full of fake secrets and
 checks that none survives.
 
 **What it never does.** The collector exits 0 with empty stdout on every path, including
 malformed input, so it adds nothing to any session's context. It never answers a permission
-request. If it breaks, Claude Code carries on exactly as before. Ten of the events are installed
+request. If it breaks, Claude Code carries on exactly as before. Eleven of the events are installed
 as `async` hooks, so Claude Code does not wait for the collector at all; the four that fire as a
 turn or session ends (`Stop`, `StopFailure`, `SubagentStop`, `SessionEnd`) are synchronous with a
 5 second timeout, because an async hook may be killed at teardown.
@@ -231,8 +239,10 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **The rotated `events.1.jsonl` is not read at start-up.** Only the current file is.
 - **Two collectors rotating at the same instant can lose a few lines.** Rare, and only at the
   5 MB boundary.
-- **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always), so
-  the model still comes from transcripts.
+- **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always) and,
+  since `PostModelSwitch`, when it changes; the model otherwise comes from transcripts. The
+  `PostModelSwitch` payload's field name (`to_model`) is read from the hooks reference's prose, which
+  shows no example: until seen on a real session, a different name just stores nothing.
 - **Background-session detection depends on an undocumented field** (`sessionKind: "bg"`). The key
   exists in real 2.1.284 and 2.1.285 transcripts; its value is unverified, and the hooks reference offers no
   background marker. If it is wrong, a background worker shows as an ordinary session: wrong, but

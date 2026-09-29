@@ -85,7 +85,7 @@ export interface DesiredEntry {
   handler: CollectorHandler
 }
 
-/** All 14 events, or the 11 lifecycle ones when tool events are switched off. */
+/** All 15 events, or the 12 lifecycle ones when tool events are switched off. */
 export function desiredEntries(collectorPath: string, stateDirArg: string | undefined, tools: boolean): DesiredEntry[] {
   return HOOK_EVENT_NAMES.filter((event) => tools || !TOOL_HOOK_EVENTS.includes(event)).map((event) => ({
     event,

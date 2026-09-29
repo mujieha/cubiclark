@@ -50,7 +50,7 @@ describe('cubiclark doctor', () => {
 
     const live = cli('doctor', '--fixture-home', home, '--config-dir', home, '--state-dir', state)
     expect(live.status).toBe(0)
-    expect(live.stdout).toMatch(/hooks {9}live {6}14 events \(tools on\)/)
+    expect(live.stdout).toMatch(/hooks {9}live {6}15 events \(tools on\)/)
 
     await rm(join(state, 'bin'), { recursive: true })
     const failing = cli('doctor', '--fixture-home', home, '--config-dir', home, '--state-dir', state)

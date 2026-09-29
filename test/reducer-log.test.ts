@@ -54,6 +54,24 @@ describe('the kinds of line', () => {
     expect(logOf(helper, 'turn')).toEqual([{ agentId: H, kind: 'turn', text: 'finished', ts: T(1) }])
   })
 
+  test('a model change: one line with the new model, no state or activity change, none when it is the same model', () => {
+    const base = run([meta(), { t: 'session_start', ts: T(1), agentId: A, source: 'startup', model: 'claude-opus-5-5' }])
+    const before = base.agents[A]
+    const after = run([{ t: 'model_changed', ts: T(5), agentId: A, model: 'claude-sonnet-5-5' }], base)
+    expect(logOf(after, 'model')).toEqual([{ agentId: A, kind: 'model', text: 'model → claude-sonnet-5-5', ts: T(5) }])
+    expect(after.agents[A]?.model).toBe('claude-sonnet-5-5')
+    expect(after.agents[A]?.state).toBe(before?.state)
+    expect(after.agents[A]?.stateSince).toBe(before?.stateSince)
+    expect(after.agents[A]?.lastActivity).toBe(before?.lastActivity)
+    const same = run([{ t: 'model_changed', ts: T(6), agentId: A, model: 'claude-sonnet-5-5' }], after)
+    expect(logOf(same, 'model')).toHaveLength(1)
+  })
+
+  test('a model change for an agent the World has not seen creates it', () => {
+    const w = run([{ t: 'model_changed', ts: T(5), agentId: 'new-agent', model: 'claude-haiku-4-5' }])
+    expect(w.agents['new-agent']?.model).toBe('claude-haiku-4-5')
+  })
+
   test('a session starting: fresh ones only, with their source', () => {
     expect(logOf(run([{ t: 'session_start', ts: T(1), agentId: A, source: 'startup' }]), 'session')).toEqual([
       { agentId: A, kind: 'session', text: 'session started (startup)', ts: T(1) },

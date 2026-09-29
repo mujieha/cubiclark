@@ -16,6 +16,7 @@ import type {
   CompactionEvent,
   HookSeenEvent,
   InterruptedEvent,
+  ModelChangedEvent,
   PermissionModeEvent,
   PermissionWaitEvent,
   PromptEvent,
@@ -374,6 +375,15 @@ function applyCompacted(world: World, event: CompactedEvent): World {
 
 const UNSAFE_ID_ERROR = 'ignored an event whose agent id is not a plain name'
 
+function applyModelChanged(world: World, event: ModelChangedEvent): World {
+  const known = Object.hasOwn(world.agents, event.agentId) ? world.agents[event.agentId] : undefined
+  if (known?.model === event.model) return world
+  let next = ensureAgent(world, event.agentId, event.ts)
+  // Only the model: the state, its timer and the last activity are not touched by a model switch.
+  next = updateAgent(next, event.agentId, (agent) => ({ ...agent, model: event.model }))
+  return pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'model', text: `model → ${event.model}` })
+}
+
 export function reduce(world: World, event: AgentEvent): World {
   if (event.t !== 'diagnostics') {
     // An id such as `constructor` is not a real one and would find an inherited property (S1-1).
@@ -420,5 +430,7 @@ export function reduce(world: World, event: AgentEvent): World {
       return applyCompacting(world, event)
     case 'compacted':
       return applyCompacted(world, event)
+    case 'model_changed':
+      return applyModelChanged(world, event)
   }
 }

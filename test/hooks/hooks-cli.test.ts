@@ -46,7 +46,7 @@ describe('cubiclark hooks', () => {
     const on = cli('hooks', 'on')
     expect(on.status).toBe(0)
     expect(on.stdout).toBe('')
-    expect(await installedEntries()).toHaveLength(14)
+    expect(await installedEntries()).toHaveLength(15)
     const off = cli('hooks', 'off')
     expect(off.status).toBe(0)
     expect(off.stdout).toBe('')
@@ -59,14 +59,16 @@ describe('cubiclark hooks', () => {
     const again = cli('hooks', 'on')
     expect(again.status).toBe(0)
     expect(again.stderr).toContain('already on')
-    expect(await installedEntries()).toHaveLength(14)
+    expect(await installedEntries()).toHaveLength(15)
   })
 
-  test('hooks on --no-tools installs the 11 lifecycle events only', async () => {
+  test('hooks on --no-tools installs the 12 lifecycle events only', async () => {
     await writeFile(settingsPath, SETTINGS_FIXTURES.empty as string)
     expect(cli('hooks', 'on', '--no-tools').status).toBe(0)
     const events = (await installedEntries()).map((e) => e.event)
-    expect(events).toHaveLength(11)
+    expect(events).toHaveLength(12)
+    expect(events).toContain('PostModelSwitch')
+    expect(events).not.toContain('PreModelSwitch')
     expect(events).not.toContain('PreToolUse')
   })
 
@@ -100,7 +102,7 @@ describe('cubiclark hooks', () => {
     cli('hooks', 'on')
     const status = cli('hooks', 'status')
     expect(status.status).toBe(0)
-    expect(status.stdout).toContain('14 events')
+    expect(status.stdout).toContain('15 events')
     expect(status.stdout).toContain('paused: no')
 
     expect(cli('hooks', 'pause').status).toBe(0)
