@@ -36,6 +36,8 @@ function hasLiveChild(world: World, agentId: string): boolean {
 }
 
 function inferredPermissionWait(agent: Agent, nowMs: number, permissionAfterMs: number): boolean {
+  // Hooks report a real PermissionRequest, so the transcript-side guess is never made for them.
+  if (agent.hooked) return false
   const lastOpen = agent.openTools[agent.openTools.length - 1]
   if (!lastOpen) return false
   if (agent.permissionMode === 'bypassPermissions' || agent.permissionMode === 'dontAsk') return false

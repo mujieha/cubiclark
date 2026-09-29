@@ -10,10 +10,16 @@ import type {
   AgentRole,
   ApiErrorEvent,
   AssistantEvent,
+  CompactedEvent,
+  CompactingEvent,
   CompactionEvent,
+  HookSeenEvent,
   InterruptedEvent,
   PermissionModeEvent,
+  PermissionWaitEvent,
   PromptEvent,
+  SessionEndEvent,
+  SessionStartEvent,
   SubagentLinkEvent,
   ToolEndEvent,
   ToolStartEvent,
@@ -33,6 +39,20 @@ function roleFromAgentType(agentType: string | undefined): AgentRole | undefined
 function isHelperKind(kind: string): boolean {
   return kind === 'subagent' || kind === 'teammate'
 }
+
+const MAX_CLOSED_TOOL_IDS = 64
+
+/** Remembers a closed tool id (newest last, capped) so a late duplicate tool_start cannot reopen
+ * it. The empty id is never tracked: it stands for "the record had no id" and would match every
+ * other id-less tool. */
+function rememberClosed(ids: readonly string[] | undefined, id: string): string[] | undefined {
+  if (id === '') return ids ? [...ids] : undefined
+  const list = (ids ?? []).filter((x) => x !== id)
+  list.push(id)
+  return list.length > MAX_CLOSED_TOOL_IDS ? list.slice(-MAX_CLOSED_TOOL_IDS) : list
+}
+
+const TERMINAL_STATES: ReadonlySet<string> = new Set(['finished', 'failed', 'ended'])
 
 function applyAgentMeta(world: World, event: AgentMetaEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
@@ -98,13 +118,25 @@ function applyAssistant(world: World, event: AssistantEvent): World {
     lastActivity: event.ts,
   }))
   const agent = next.agents[event.agentId]
-  if (agent && agent.openTools.length === 0 && agent.state !== 'delegating') {
+  // fillOnly: the merge gate lets a hooked agent's transcript record fill in the model and the
+  // token count, but hooks own its state.
+  if (!event.fillOnly && agent && agent.openTools.length === 0 && agent.state !== 'delegating') {
     next = setState(next, event.agentId, 'thinking', event.ts)
   }
   return next
 }
 
 function applyToolStart(world: World, event: ToolStartEvent): World {
+  // Order-proof dedup: the same tool can arrive from both the hook source and the transcript,
+  // and an async hook's PostToolUse can land before its PreToolUse.
+  const known = world.agents[event.agentId]
+  if (
+    known &&
+    event.toolUseId !== '' &&
+    (known.openTools.some((t) => t.id === event.toolUseId) || known.closedToolIds?.includes(event.toolUseId))
+  ) {
+    return world
+  }
   let next = ensureAgent(world, event.agentId, event.ts)
   const state = toolStateForName(event.name)
   next = updateAgent(next, event.agentId, (agent) => ({
@@ -123,9 +155,11 @@ function applyToolStart(world: World, event: ToolStartEvent): World {
 
 function applyToolEnd(world: World, event: ToolEndEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
+  const wasOpen = next.agents[event.agentId]?.openTools.some((t) => t.id === event.toolUseId) ?? false
   next = updateAgent(next, event.agentId, (agent) => ({
     ...agent,
     openTools: agent.openTools.filter((t) => t.id !== event.toolUseId),
+    closedToolIds: rememberClosed(agent.closedToolIds, event.toolUseId),
     lastActivity: event.ts,
   }))
 
@@ -140,6 +174,10 @@ function applyToolEnd(world: World, event: ToolEndEvent): World {
   if (event.denied) {
     next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'permission', text: 'permission denied' })
   }
+
+  // A tool_end whose tool was never open here (its start arrived from the other source, or has
+  // not arrived yet) is remembered above but must not move the agent's state.
+  if (!wasOpen) return next
 
   const agent = next.agents[event.agentId]
   if (agent) {
@@ -229,7 +267,88 @@ function applyDiagnostics(world: World, event: Extract<AgentEvent, { t: 'diagnos
   }
   for (const version of event.versions) next = noteVersion(next, version)
   if (event.sourceError) next = pushSourceError(next, event.sourceError)
+  if (event.unknownHookShapes) {
+    next = {
+      ...next,
+      diagnostics: {
+        ...next.diagnostics,
+        unknownHookShapes: next.diagnostics.unknownHookShapes + event.unknownHookShapes,
+      },
+    }
+  }
   return next
+}
+
+function applyHookSeen(world: World, event: HookSeenEvent): World {
+  const existed = world.agents[event.agentId] !== undefined
+  let next = ensureAgent(world, event.agentId, event.ts)
+  next = updateAgent(next, event.agentId, (agent) => {
+    const previous = agent.hooked
+    const keepPrevious = previous !== undefined && Date.parse(previous.lastTs) > Date.parse(event.ts)
+    return {
+      ...agent,
+      kind: !existed && event.kind ? event.kind : agent.kind,
+      parentId: agent.parentId ?? event.parentId,
+      cwd: event.cwd ?? agent.cwd,
+      project: event.cwd ? projectName(event.cwd) : agent.project,
+      effort: event.effort ?? agent.effort,
+      permissionMode: event.permissionMode ?? agent.permissionMode,
+      hooked: { lastTs: keepPrevious ? previous.lastTs : event.ts, tools: (previous?.tools ?? false) || event.tools },
+    }
+  })
+  return next
+}
+
+function applySessionStart(world: World, event: SessionStartEvent): World {
+  let next = ensureAgent(world, event.agentId, event.ts)
+  const fresh = event.source !== 'compact'
+  next = updateAgent(next, event.agentId, (agent) => ({
+    ...agent,
+    model: agent.model ?? event.model,
+    openTools: fresh ? [] : agent.openTools,
+    currentTool: fresh ? undefined : agent.currentTool,
+    error: fresh ? undefined : agent.error,
+    lastActivity: event.ts,
+  }))
+  return fresh ? setState(next, event.agentId, 'waiting_user', event.ts) : next
+}
+
+function endAgent(world: World, agentId: string, ts: string, seen: Set<string>): World {
+  if (seen.has(agentId)) return world
+  seen.add(agentId)
+  let next = updateAgent(world, agentId, (agent) => ({ ...agent, openTools: [], currentTool: undefined, lastActivity: ts }))
+  next = setState(next, agentId, 'ended', ts)
+  for (const child of Object.values(next.agents)) {
+    if (child.parentId === agentId && !TERMINAL_STATES.has(child.state)) next = endAgent(next, child.id, ts, seen)
+  }
+  return next
+}
+
+function applySessionEnd(world: World, event: SessionEndEvent): World {
+  const next = ensureAgent(world, event.agentId, event.ts)
+  return endAgent(next, event.agentId, event.ts, new Set())
+}
+
+function applyPermissionWait(world: World, event: PermissionWaitEvent): World {
+  let next = ensureAgent(world, event.agentId, event.ts)
+  next = updateAgent(next, event.agentId, (agent) => ({
+    ...agent,
+    currentTool: agent.currentTool ?? (event.toolName ? { name: event.toolName } : undefined),
+    lastActivity: event.ts,
+  }))
+  return setState(next, event.agentId, 'waiting_permission', event.ts)
+}
+
+function applyCompacting(world: World, event: CompactingEvent): World {
+  let next = ensureAgent(world, event.agentId, event.ts)
+  next = updateAgent(next, event.agentId, (agent) => ({ ...agent, lastActivity: event.ts }))
+  return setState(next, event.agentId, 'compacting', event.ts)
+}
+
+function applyCompacted(world: World, event: CompactedEvent): World {
+  let next = ensureAgent(world, event.agentId, event.ts)
+  next = updateAgent(next, event.agentId, (agent) => ({ ...agent, lastActivity: event.ts }))
+  return setState(next, event.agentId, event.trigger === 'manual' ? 'waiting_user' : 'thinking', event.ts)
 }
 
 export function reduce(world: World, event: AgentEvent): World {
@@ -258,5 +377,17 @@ export function reduce(world: World, event: AgentEvent): World {
       return applyPermissionMode(world, event)
     case 'diagnostics':
       return applyDiagnostics(world, event)
+    case 'hook_seen':
+      return applyHookSeen(world, event)
+    case 'session_start':
+      return applySessionStart(world, event)
+    case 'session_end':
+      return applySessionEnd(world, event)
+    case 'permission_wait':
+      return applyPermissionWait(world, event)
+    case 'compacting':
+      return applyCompacting(world, event)
+    case 'compacted':
+      return applyCompacted(world, event)
   }
 }

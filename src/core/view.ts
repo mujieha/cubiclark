@@ -18,6 +18,7 @@ export function publicWorld(world: World): World {
       ...agent,
       cwd: projectName(agent.cwd),
       spawnToolUseId: undefined,
+      closedToolIds: undefined,
       openTools: agent.openTools.map((tool) => ({ ...tool, id: '' })),
     }
   }
@@ -49,7 +50,7 @@ export function emptyScreenText(id: EmptyScreenId, world: World | undefined): st
     case 'unreadable':
       return `Cannot read the transcripts folder ${transcripts?.root ?? ''}: ${transcripts?.error ?? 'unknown error'}`
     case 'no-collector':
-      return `No transcripts found in ${transcripts?.root ?? ''}, and the live collector is not installed (arrives in phase 2)`
+      return `No transcripts found in ${transcripts?.root ?? ''}, and the live collector is not installed (run \`cubiclark hooks on\`)`
     case 'no-agents': {
       const windowHours = transcripts?.windowHours
       const older = (transcripts?.files ?? 0) - (transcripts?.inWindow ?? 0)

@@ -64,7 +64,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   })
 
   const mergeSourceStatus = (): void => {
-    store.mergeSources({ transcripts: source.getStatus(), hooks: { status: 'not_installed' } })
+    store.mergeSources({ transcripts: source.getStatus(), hooks: { status: 'not_installed', events: 0 } })
   }
 
   await source.start()

@@ -58,6 +58,13 @@ export interface AgentCounters {
   tokensOut?: number
 }
 
+/** Set once any hook event has been seen for an agent (phase 2). `lastTs` is the newest hook
+ * timestamp; `tools` says whether PreToolUse/PostToolUse events are being recorded for it. */
+export interface AgentHooked {
+  lastTs: string
+  tools: boolean
+}
+
 export interface Agent {
   id: string
   kind: AgentKind
@@ -85,6 +92,11 @@ export interface Agent {
   /** Tool calls with no matching result yet, oldest first. */
   openTools: OpenTool[]
   error?: AgentError
+  // NEW in phase 2.
+  /** Present once a hook event was seen for this agent: hooks then own timing (PLAN.md §2.6). */
+  hooked?: AgentHooked
+  /** The newest 64 tool ids already closed, so a late duplicate tool_start cannot reopen one. */
+  closedToolIds?: string[]
 }
 
 export type TaskPhase = 'planning' | 'building' | 'review' | 'done' | 'blocked'
@@ -148,8 +160,30 @@ export interface TranscriptSourceStatus {
 }
 
 export interface HooksSourceStatus {
-  // Phase 2 adds 'live' | 'failing'.
-  status: 'not_installed'
+  status: 'not_installed' | 'live' | 'failing'
+  reason?: string
+  eventsFile?: string
+  /** Stored lines read so far this run. */
+  events: number
+  lastEventTs?: string
+  /** Whether tool events are being recorded (`hooks on --no-tools` turns them off). */
+  tools?: boolean
+  paused?: boolean
+}
+
+/** What `hooks status` and `doctor` learn by looking at the settings file and the state dir. */
+export interface HooksInspection {
+  settingsPath: string
+  settingsState: 'absent' | 'ok' | 'unparseable'
+  parseError?: string
+  events: string[]
+  tools: boolean
+  collectorPath?: string
+  collectorExists: boolean
+  paused: boolean
+  eventsFile: string
+  eventsBytes?: number
+  lastEventTs?: string
 }
 
 // NEW: drives the four empty screens (design §3.1, PLAN.md §1.9).
@@ -215,6 +249,8 @@ export interface AssistantEvent {
   tokensOut?: number
   thinking: boolean
   text: boolean
+  /** Model and token counts only, never a state change: set by the merge gate for a hooked agent. */
+  fillOnly?: boolean
 }
 
 export interface ToolStartEvent {
@@ -279,6 +315,58 @@ export interface DiagnosticsEvent {
   unknownTypes: Record<string, number>
   versions: string[]
   sourceError?: string
+  unknownHookShapes?: number
+}
+
+// Hook-sourced events (phase 2), produced by core/hooks/normalise.ts.
+
+export interface HookSeenEvent {
+  t: 'hook_seen'
+  ts: string
+  agentId: string
+  /** True for the tool events, meaning this agent's tool activity is recorded by hooks. */
+  tools: boolean
+  kind?: 'subagent'
+  parentId?: string
+  cwd?: string
+  effort?: string
+  permissionMode?: string
+}
+
+export interface SessionStartEvent {
+  t: 'session_start'
+  ts: string
+  agentId: string
+  source: string
+  model?: string
+}
+
+export interface SessionEndEvent {
+  t: 'session_end'
+  ts: string
+  agentId: string
+  reason?: string
+}
+
+export interface PermissionWaitEvent {
+  t: 'permission_wait'
+  ts: string
+  agentId: string
+  toolName?: string
+}
+
+export interface CompactingEvent {
+  t: 'compacting'
+  ts: string
+  agentId: string
+  trigger?: 'auto' | 'manual'
+}
+
+export interface CompactedEvent {
+  t: 'compacted'
+  ts: string
+  agentId: string
+  trigger?: 'auto' | 'manual'
 }
 
 export type AgentEvent =
@@ -294,3 +382,9 @@ export type AgentEvent =
   | ApiErrorEvent
   | PermissionModeEvent
   | DiagnosticsEvent
+  | HookSeenEvent
+  | SessionStartEvent
+  | SessionEndEvent
+  | PermissionWaitEvent
+  | CompactingEvent
+  | CompactedEvent

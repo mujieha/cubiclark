@@ -171,4 +171,18 @@ describe('publicWorld', () => {
     expect(pub.agents.a1?.spawnToolUseId).toBeUndefined()
     expect(pub.agents.a1?.openTools[0]?.id).toBe('')
   })
+
+  test('drops the closed tool ids too', () => {
+    let world = emptyWorld('t0', '/root')
+    world = withAgent(world, 'a1', { closedToolIds: ['toolu_fx000003'] })
+    expect(publicWorld(world).agents.a1?.closedToolIds).toBeUndefined()
+  })
+})
+
+describe('the no-collector screen text', () => {
+  test('points at the command that installs the collector', () => {
+    const text = emptyScreenText('no-collector', emptyWorld('t0', '/my/root'))
+    expect(text).toContain('/my/root')
+    expect(text).toContain('cubiclark hooks on')
+  })
 })
