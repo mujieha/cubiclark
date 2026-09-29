@@ -12,6 +12,9 @@ export interface ParseCtx {
 
 export interface HandlerResult {
   events: AgentEvent[]
+  /** Set when the record had the right `type` but not the shape its handler needs; parse.ts
+   * counts it as an unparsed line with reason `handler_rejected`. */
+  rejected?: boolean
 }
 
 /** Record `type` values this parser knows about and deliberately does nothing with (A11):
@@ -32,11 +35,17 @@ export const IGNORED_TYPES = new Set([
   'custom-title',
   'queue-operation',
   'progress',
+  // Seen in Claude Code 2.1.285, none of them changes agent state:
+  'warning', // a notice shown to the person (has a `level`)
+  'update', // a version-update notice
+  'continued-in', // "this session continues in another" (`continuedInSessionId`)
+  'pr-link', // a pull request the session opened
 ])
 
 /** system.subtype values that are known and deliberately ignored, alongside the three that
- * carry state (turn_duration, compact_boundary, api_error). */
-const IGNORED_SYSTEM_SUBTYPES = new Set(['stop_hook_summary', 'away_summary', 'local_command', 'informational'])
+ * carry state (turn_duration, compact_boundary, api_error). `bridge_status`: remote-control
+ * status, seen in 2.1.285. */
+const IGNORED_SYSTEM_SUBTYPES = new Set(['stop_hook_summary', 'away_summary', 'local_command', 'informational', 'bridge_status'])
 
 const INTERRUPT_TEXTS = new Set(['[Request interrupted by user]', '[Request interrupted by user for tool use]'])
 
@@ -87,6 +96,7 @@ export function fromUser(record: Record<string, unknown>, ctx: ParseCtx, ts: str
   if (permissionMode) events.push({ t: 'permission_mode', ts, agentId: ctx.agentId, mode: permissionMode })
 
   if (record.isMeta === true || record.isCompactSummary === true) return { events }
+  if (asRecord(record.message) === undefined) return { events, rejected: true }
 
   const results = toolResultBlocks(record.message)
   if (results.length > 0) {
@@ -122,7 +132,7 @@ export function fromUser(record: Record<string, unknown>, ctx: ParseCtx, ts: str
  * as absent, never propagated. */
 export function fromAssistant(record: Record<string, unknown>, ctx: ParseCtx, ts: string): HandlerResult {
   const message = asRecord(record.message)
-  if (!message) return { events: [] }
+  if (!message) return { events: [], rejected: true }
 
   const rawModel = typeof message.model === 'string' ? message.model : undefined
   const model = rawModel && rawModel !== '<synthetic>' ? rawModel : undefined
@@ -224,7 +234,7 @@ export function fromSystem(record: Record<string, unknown>, ctx: ParseCtx, ts: s
 /** A10: a dedicated permission-mode record. */
 export function fromPermissionMode(record: Record<string, unknown>, ctx: ParseCtx, ts: string): HandlerResult {
   const mode = typeof record.permissionMode === 'string' ? record.permissionMode : undefined
-  return { events: mode ? [{ t: 'permission_mode', ts, agentId: ctx.agentId, mode }] : [] }
+  return { events: mode ? [{ t: 'permission_mode', ts, agentId: ctx.agentId, mode }] : [], rejected: mode ? undefined : true }
 }
 
 /** A11: a background worker's display label. */

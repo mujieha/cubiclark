@@ -4,8 +4,9 @@ import { defineConfig, devices } from '@playwright/test'
 // can control --fixture-home and read the run token per test, rather than sharing one server.
 //
 // Screenshots are compared to committed baselines with zero tolerance, so everything that could
-// change a pixel is pinned: a fixed viewport (at 1280 px the office scale is 2), one device pixel
-// ratio, UTC and en-US. The baselines are macOS + Chromium (README, Known limits).
+// change a pixel is pinned: a fixed viewport, one device pixel ratio, UTC and en-US. The baselines
+// are macOS + Chromium (README, Known limits). At 1600 px the HUD panel (380 px) leaves the office
+// column 1172 px, so the office scale is still 2, as it was at 1280 px before the panel existed.
 export default defineConfig({
   testDir: 'test/e2e',
   timeout: 30_000,
@@ -17,7 +18,7 @@ export default defineConfig({
   },
   use: {
     ...devices['Desktop Chrome'],
-    viewport: { width: 1280, height: 1024 },
+    viewport: { width: 1600, height: 1024 },
     deviceScaleFactor: 1,
     timezoneId: 'UTC',
     locale: 'en-US',

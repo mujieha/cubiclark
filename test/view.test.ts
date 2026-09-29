@@ -168,9 +168,24 @@ describe('diagnosticsLine', () => {
         sourceErrors: ['boom'],
         unknownTypes: { 'future-thing': 1, 'system:x': 2 },
         versions: ['2.1.284'],
+        unparsedBy: {},
       },
     }
     expect(diagnosticsLine(world)).toBe('unparsed 3 · unknown types 2 · versions 2.1.284 · source errors 1')
+  })
+
+  test('the reasons follow the unparsed count, biggest first, three at most', () => {
+    let world = emptyWorld('t0', '/root')
+    world = {
+      ...world,
+      diagnostics: {
+        ...world.diagnostics,
+        unparsedLines: 10,
+        unparsedBy: { no_timestamp: { mode: 5, user: 1 }, not_json: { '(none)': 1 }, unknown_type: { x: 2 }, handler_rejected: { assistant: 1 } },
+      },
+    }
+    // a tie (not_json 1, handler_rejected 1) keeps the order of UNPARSED_REASONS; the 4th reason is cut
+    expect(diagnosticsLine(world)).toBe('unparsed 10 (no_timestamp 6, unknown_type 2, not_json 1)')
   })
 
   test('unknown hook shapes are named when there are any', () => {
@@ -213,6 +228,44 @@ describe('sourcesLine', () => {
 
   test('an unreadable transcripts folder is named as such', () => {
     expect(sourcesLine(withSources({ status: 'unreadable' }, { status: 'not_installed', events: 0 }))).toContain('transcripts: unreadable')
+  })
+
+  describe('with adapters', () => {
+    const withAdapters = (adapters: NonNullable<World['sources']['adapters']>): World => {
+      const world = withSources({ status: 'live' }, { status: 'not_installed', events: 0 })
+      return { ...world, sources: { ...world.sources, adapters } }
+    }
+
+    test('a live adapter says how it is doing; one that is off is left out', () => {
+      const line = sourcesLine(
+        withAdapters([
+          { id: 'task-folders', status: 'live', detail: '5 tasks in 1 root' },
+          { id: 'quota-samples', status: 'off', detail: 'not configured' },
+          { id: 'claude-agents', status: 'off', detail: 'not configured' },
+        ])
+      )
+      expect(line).toBe('transcripts: live · hooks: not installed · task-folders: 5 tasks in 1 root')
+    })
+
+    test('a missing or failing adapter says so, with its reason', () => {
+      const line = sourcesLine(
+        withAdapters([
+          { id: 'task-folders', status: 'missing', detail: 'no readable tasks root' },
+          { id: 'quota-samples', status: 'failing', detail: 'boom' },
+        ])
+      )
+      expect(line).toContain(' · task-folders: missing — no readable tasks root')
+      expect(line).toContain(' · quota-samples: failing — boom')
+    })
+
+    test('a problem with the configuration file is shown even when every adapter is off', () => {
+      const line = sourcesLine(withAdapters([{ id: 'task-folders', status: 'off', detail: 'not configured · config: unknown key "x" ignored' }]))
+      expect(line).toContain('task-folders: off — not configured · config: unknown key "x" ignored')
+    })
+
+    test('no adapters key, no change', () => {
+      expect(sourcesLine(withSources({ status: 'live' }, { status: 'not_installed', events: 0 }))).toBe('transcripts: live · hooks: not installed')
+    })
   })
 })
 

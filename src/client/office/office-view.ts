@@ -6,7 +6,7 @@ import { layout as computeLayout, type OfficeLayout } from '../../core/office/la
 import { reconcileActors, type Actor } from '../../core/office/motion.js'
 import { buildTileMap } from '../../core/office/tilemap.js'
 import { EMPTY_SCENES, type EmptySceneId } from '../../core/office/visual.js'
-import type { World } from '../../core/types.js'
+import type { Task, World } from '../../core/types.js'
 import { emptyWorld } from '../../core/world.js'
 import { FrameLoop, browserHost, type LoopHost } from './loop.js'
 import { OfficeOverlay } from './overlay.js'
@@ -49,12 +49,15 @@ export class OfficeView {
   private seeded = false
   private reduced: boolean
   private focusedId: string | undefined
+  private selectedId: string | undefined
+  private task: Task | undefined
   private drawnAgents = 0
   private statsAtMs = Number.NEGATIVE_INFINITY
 
   constructor(
     private readonly container: HTMLElement,
-    private readonly env: OfficeEnv
+    private readonly env: OfficeEnv,
+    private readonly handlers: { onSelect?: (agentId: string) => void } = {}
   ) {
     container.classList.add('office')
     this.stage = document.createElement('div')
@@ -66,7 +69,10 @@ export class OfficeView {
     this.canvas.setAttribute('aria-hidden', 'true')
     this.stage.appendChild(this.canvas)
     this.renderer = new OfficeRenderer(this.canvas)
-    this.overlay = new OfficeOverlay(this.stage, { onFocus: (agentId) => this.setFocused(agentId) })
+    this.overlay = new OfficeOverlay(this.stage, {
+      onFocus: (agentId) => this.setFocused(agentId),
+      onSelect: (agentId) => this.handlers.onSelect?.(agentId),
+    })
 
     this.reducedQuery = env.matchMedia(REDUCED_MOTION)
     this.reduced = this.reducedQuery.matches
@@ -111,6 +117,19 @@ export class OfficeView {
   /** The agent the keyboard focus is on, ringed on the canvas. */
   setFocused(agentId: string | undefined): void {
     this.focusedId = agentId
+    this.loop.requestDraw()
+  }
+
+  /** The task the whiteboard shows. Takes effect with the next setWorld, which redraws the walls. */
+  setSelectedTask(task: Task | undefined): void {
+    this.task = task
+  }
+
+  /** The agent the page has selected (its card is in the HUD): ringed until the focus moves elsewhere. */
+  setSelected(agentId: string | undefined): void {
+    if (this.selectedId === agentId) return
+    this.selectedId = agentId
+    this.overlay.setSelected(agentId)
     this.loop.requestDraw()
   }
 
@@ -179,6 +198,7 @@ export class OfficeView {
         tilemap: buildTileMap(officeLayout, { quota: world.quota !== undefined }),
         actors: this.actors,
         reducedMotion: this.reduced,
+        ...(this.task ? { task: this.task } : {}),
       }
     }
     // A world still "starting" is not a first snapshot: the agents that appear a moment later are
@@ -195,7 +215,7 @@ export class OfficeView {
 
   private drawFrame(): void {
     const nowMs = this.env.now()
-    const stats = this.renderer.draw(nowMs, this.focusedId)
+    const stats = this.renderer.draw(nowMs, this.focusedId ?? this.selectedId)
     this.overlay.syncWalkers(stats.walkers)
     this.drawnAgents = stats.drawn
     this.canvas.dataset.frames = String(this.loop.frames + 1)

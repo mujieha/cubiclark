@@ -97,6 +97,22 @@ export interface Agent {
   hooked?: AgentHooked
   /** The newest 64 tool ids already closed, so a late duplicate tool_start cannot reopen one. */
   closedToolIds?: string[]
+  // NEW in phase 4.
+  /** What `claude agents --json` last said about this session (the claude-agents adapter). */
+  cli?: CliSessionInfo
+}
+
+/** One session as `claude agents --json` reports it. Only whitelisted fields, capped at 40 characters. */
+export interface CliSessionInfo {
+  kind?: 'interactive' | 'background'
+  /** working | blocked | done | failed | stopped, or 'other' for a value not in the docs. */
+  state?: string
+  /** busy | waiting | idle */
+  status?: string
+  waitingFor?: string
+  name?: string
+  /** ISO time of the fetch this came from. */
+  fetchedAt: string
 }
 
 export type TaskPhase = 'planning' | 'building' | 'review' | 'done' | 'blocked'
@@ -120,21 +136,54 @@ export interface TaskTimelineEntry {
   text: string
 }
 
-// Defined for design §5 completeness; unused in phase 1 (no adapter populates it yet, see
-// PLAN.md §1.12). Phase 4 adds the task-folders adapter that fills this in.
+// Filled in by the task-folders adapter (phase 4); design §5 plus the fields the HUD shows.
 export interface Task {
   id: string
   phase?: TaskPhase
   timeline: TaskTimelineEntry[]
+  // NEW in phase 4, all optional.
+  /** The adapter id that produced it, e.g. 'task-folders'. */
+  source?: string
+  /** TASK.md `Goal:`, reduced to names (no absolute paths) and capped at 160 characters. */
+  title?: string
+  /** Basename of TASK.md `Project:`. */
+  project?: string
+  /** The newest model named in LOG.md, else TASK.md `Model:`. */
+  model?: string
+  /** TASK.md `PlanModel:`. */
+  planModel?: string
+  effort?: string
+  /** Every session id named in LOG.md or the `session` file, oldest first. */
+  sessionIds?: string[]
+  currentSessionId?: string
+  pr?: number
+  /** The newest timeline timestamp. */
+  lastActivity?: string
 }
 
 export interface LogLine {
   ts: string
   agentId: string
   kind: string
-  /** Never holds prompt or tool content; capped at 300 lines total in the World. */
+  /** Never holds prompt or tool content; capped at 500 lines total in the World. */
   text: string
 }
+
+/** Why a transcript line was not turned into events. Names only, never values. */
+export const UNPARSED_REASONS = [
+  'not_json',
+  'not_object',
+  'no_type',
+  'no_timestamp',
+  'unknown_type',
+  'unknown_subtype',
+  'handler_rejected',
+] as const
+
+export type UnparsedReason = (typeof UNPARSED_REASONS)[number]
+
+/** reason -> record type ('(none)' when there is no string type) -> count. */
+export type UnparsedBreakdown = Partial<Record<UnparsedReason, Record<string, number>>>
 
 export interface Diagnostics {
   unparsedLines: number
@@ -145,6 +194,8 @@ export interface Diagnostics {
   unknownTypes: Record<string, number>
   /** NEW: distinct Claude Code versions seen in transcript records, a format-drift signal. */
   versions: string[]
+  /** NEW in phase 4: the unparsed lines by reason, then by record type. */
+  unparsedBy: UnparsedBreakdown
 }
 
 export interface TranscriptSourceStatus {
@@ -186,10 +237,22 @@ export interface HooksInspection {
   lastEventTs?: string
 }
 
+/** One orchestration adapter's health, for the status bar and `doctor --adapters`. */
+export interface AdapterStatus {
+  /** 'task-folders' | 'quota-samples' | 'claude-agents' */
+  id: string
+  /** off: not configured. missing: configured, source absent. live: working. failing: last snapshot failed. */
+  status: 'off' | 'missing' | 'live' | 'failing'
+  detail: string
+  lastSnapshotAt?: string
+}
+
 // NEW: drives the four empty screens (design §3.1, PLAN.md §1.9).
 export interface SourcesStatus {
   transcripts: TranscriptSourceStatus
   hooks: HooksSourceStatus
+  /** NEW in phase 4: one entry per known adapter, once the host has started. */
+  adapters?: AdapterStatus[]
 }
 
 export interface Quota {
@@ -197,6 +260,16 @@ export interface Quota {
   p7d: number
   resets5h?: string
   resets7d?: string
+  /** NEW in phase 4: the time of the sample this came from. */
+  sampledAt?: string
+}
+
+/** Set only by `cubiclark replay`. */
+export interface ReplayInfo {
+  sinceTs: string
+  endTs: string
+  speed: number
+  done: boolean
 }
 
 export interface World {
@@ -209,6 +282,8 @@ export interface World {
   sources: SourcesStatus
   /** NEW: ISO time of the last tick; the page computes "since" against this, not wall time. */
   clock: string
+  /** NEW in phase 4: present only while replaying. */
+  replay?: ReplayInfo
 }
 
 // AgentEvent: the one normalised shape produced by the transcript parser (and, in phase 2, by
@@ -316,6 +391,7 @@ export interface DiagnosticsEvent {
   versions: string[]
   sourceError?: string
   unknownHookShapes?: number
+  unparsedBy?: UnparsedBreakdown
 }
 
 // Hook-sourced events (phase 2), produced by core/hooks/normalise.ts.

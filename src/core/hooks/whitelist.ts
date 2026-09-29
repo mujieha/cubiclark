@@ -9,7 +9,7 @@
 
 import { toolActivity } from '../transcript/tools.js'
 
-export const HOOK_EVENTS_VERIFIED_ON = '2.1.284'
+export const HOOK_EVENTS_VERIFIED_ON = '2.1.285'
 
 export const HOOK_EVENT_NAMES = [
   'SessionStart',
@@ -216,8 +216,11 @@ export function toStoredLine(payload: unknown, tsIso: string): StoredLine {
     if (trig) line.trig = trig
   }
 
-  if (event === 'StopFailure' && typeof payload.error === 'string') {
-    line.err = oneOf(payload.error, STOP_FAILURE_ERRORS) ?? 'unknown'
+  // The hooks reference documents the StopFailure *matcher* as `error_type` and never shows the
+  // payload, so either spelling is read; only a value from the fixed enum is kept.
+  const stopError = typeof payload.error === 'string' ? payload.error : payload.error_type
+  if (event === 'StopFailure' && typeof stopError === 'string') {
+    line.err = oneOf(stopError, STOP_FAILURE_ERRORS) ?? 'unknown'
   }
 
   if (event === 'Notification') {

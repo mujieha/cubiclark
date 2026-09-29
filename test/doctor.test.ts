@@ -42,11 +42,11 @@ const EVENTS = ['SessionStart', 'PreToolUse']
 
 function report(overrides: Partial<DoctorReport> = {}): DoctorReport {
   return {
-    claude: { version: '2.1.284', verified: true },
-    hookEvents: { verifiedOn: '2.1.284', events: EVENTS },
+    claude: { version: '2.1.285', verified: true },
+    hookEvents: { verifiedOn: '2.1.285', events: EVENTS },
     transcripts: { status: 'live', reason: '5 transcript files, 5 read (/claude)' },
     hooks: { status: 'missing', reason: 'not installed: run `cubiclark hooks on`' },
-    diagnostics: { unparsedLines: 0, unknownHookShapes: 0, unknownTypes: {}, versions: ['2.1.284'], sourceErrors: [] },
+    diagnostics: { unparsedLines: 0, unknownHookShapes: 0, unknownTypes: {}, unparsedBy: {}, versions: ['2.1.284'], sourceErrors: [] },
     ...overrides,
   }
 }
@@ -55,11 +55,12 @@ describe('formatDoctorReport', () => {
   test('live transcripts, hooks not installed', () => {
     expect(formatDoctorReport(report())).toBe(
       [
-        'Claude Code   2.1.284 — hook events verified against the hooks reference for this version',
+        'Claude Code   2.1.285 — hook events verified against the hooks reference for this version',
         'Hook events   SessionStart, PreToolUse',
         'transcripts   live      5 transcript files, 5 read (/claude)',
         'hooks         missing   not installed: run `cubiclark hooks on`',
         'diagnostics   0 unparsed lines, 0 unknown hook shapes, 0 unknown record types, versions seen: 2.1.284',
+        'unparsed by   none',
       ].join('\n')
     )
   })
@@ -71,7 +72,7 @@ describe('formatDoctorReport', () => {
         hooks: { status: 'failing', reason: 'the collector copy is missing (/s/bin/x.js); run `cubiclark hooks on` again' },
       })
     )
-    expect(text).toContain("Claude Code   9.9.9 — not verified; cubiclark's hook events were verified on 2.1.284")
+    expect(text).toContain("Claude Code   9.9.9 — not verified; cubiclark's hook events were verified on 2.1.285")
     expect(text).toContain('hooks         failing   the collector copy is missing')
   })
 
@@ -87,6 +88,7 @@ describe('formatDoctorReport', () => {
           unparsedLines: 3,
           unknownHookShapes: 2,
           unknownTypes: { 'future-thing': 1, 'system:x': 2 },
+          unparsedBy: {},
           versions: [],
           sourceErrors: ['boom', 'bang'],
         },
@@ -95,6 +97,55 @@ describe('formatDoctorReport', () => {
     expect(text).toContain(
       'diagnostics   3 unparsed lines, 2 unknown hook shapes, 2 unknown record types (future-thing, system:x), versions seen: none, 2 source errors (first: boom)'
     )
+  })
+
+  test('the unparsed-by line: reasons biggest first, each with its top record types', () => {
+    const text = formatDoctorReport(
+      report({
+        diagnostics: {
+          unparsedLines: 13,
+          unknownHookShapes: 0,
+          unknownTypes: { x: 3 },
+          unparsedBy: {
+            no_timestamp: { mode: 5, 'last-prompt': 3, user: 1 },
+            unknown_type: { x: 3 },
+            not_json: { '(none)': 1 },
+          },
+          versions: [],
+          sourceErrors: [],
+        },
+      })
+    )
+    expect(text).toContain('unparsed by   no_timestamp 9 (mode 5, last-prompt 3, user 1), unknown_type 3 (x 3), not_json 1 ((none) 1)')
+  })
+
+  test('the adapter lines: a config line per warning, then one line per adapter', () => {
+    const text = formatDoctorReport(
+      report({
+        adapters: {
+          warnings: ['unknown key "x" ignored'],
+          entries: [
+            { id: 'task-folders', status: 'live', detail: '5 tasks in 1 root · 0 unparsed log lines' },
+            { id: 'quota-samples', status: 'missing', detail: 'no samples file found' },
+            { id: 'claude-agents', status: 'off', detail: 'not configured' },
+          ],
+        },
+      })
+    )
+    expect(text.split('\n').slice(-4)).toEqual([
+      'config        unknown key "x" ignored',
+      'task-folders  live      5 tasks in 1 root · 0 unparsed log lines',
+      'quota-samples missing   no samples file found',
+      'claude-agents off       not configured',
+    ])
+  })
+
+  test('the unparsed-by line keeps only the top five types of a reason', () => {
+    const types: Record<string, number> = { a: 9, b: 8, c: 7, d: 6, e: 5, f: 4, g: 3 }
+    const text = formatDoctorReport(
+      report({ diagnostics: { unparsedLines: 42, unknownHookShapes: 0, unknownTypes: {}, unparsedBy: { unknown_type: types }, versions: [], sourceErrors: [] } })
+    )
+    expect(text).toContain('unparsed by   unknown_type 42 (a 9, b 8, c 7, d 6, e 5)')
   })
 })
 
@@ -114,7 +165,7 @@ describe('runDoctor', () => {
     expect(r.transcripts.reason).toContain('5 transcript files, 5 read')
     expect(r.hooks.status).toBe('missing')
     expect(r.hooks.reason).toContain('not checked')
-    expect(r.claude).toEqual({ version: '2.1.284', verified: true })
+    expect(r.claude).toEqual({ version: '2.1.285', verified: true })
     expect(r.diagnostics.versions).toContain('2.1.284')
     expect(r.diagnostics.unparsedLines).toBe(0)
     expect(doctorExitCode(r)).toBe(0)
@@ -124,6 +175,67 @@ describe('runDoctor', () => {
     const r = await runDoctor(options({ root: join(root, 'nowhere'), configDir: join(root, 'nowhere') }))
     expect(r.transcripts).toEqual({ status: 'missing', reason: `no transcripts folder at ${join(root, 'nowhere')}` })
     expect(doctorExitCode(r)).toBe(0)
+  })
+
+  describe('--adapters', () => {
+    const FIXTURE_TASKS = join(FIXTURES, 'tasks')
+    const FIXTURE_QUOTA = join(FIXTURES, 'quota', 'samples-*.jsonl')
+    // a fixture clock inside the quota fixture's day, before the 17:30 sample's 19:00 reset
+    const AT = Date.parse('2026-01-16T17:45:00Z')
+
+    async function configWith(adapters: unknown): Promise<string> {
+      const path = join(root, 'config.json')
+      await writeFile(path, JSON.stringify({ adapters }), { mode: 0o600 })
+      await chmod(path, 0o600)
+      return path
+    }
+    const withAdapters = async (adapters: unknown, extra: Partial<DoctorOptions> = {}): Promise<DoctorReport> =>
+      // real mode (not a fixture home) so that the injected clock, not the newest transcript, is "now"
+      runDoctor(options({ fixtureMode: false, nowMs: () => AT, adapters: { configPath: await configWith(adapters), home: '/home/user' }, ...extra }))
+
+    test('without the flag no adapter is read', async () => {
+      expect((await runDoctor(options())).adapters).toBeUndefined()
+    })
+
+    test('each configured adapter is detected and read; the others are off', async () => {
+      const r = await withAdapters({
+        'task-folders': { roots: [FIXTURE_TASKS] },
+        'quota-samples': { file: FIXTURE_QUOTA },
+        'claude-agents': { enabled: true, bin: FIXTURE_CLAUDE },
+      })
+      expect(r.adapters?.warnings).toEqual([])
+      const [tasks, quota, agents] = r.adapters?.entries ?? []
+      expect(tasks).toMatchObject({ id: 'task-folders', status: 'live' })
+      expect(tasks?.detail).toMatch(/^7 tasks \(2 planning, 2 building, 1 review, 1 blocked, 1 done\) in 1 root · 1 unparsed log line$/)
+      expect(quota).toMatchObject({ id: 'quota-samples', status: 'live' })
+      expect(quota?.detail).toContain('5h 62% · 7d 40% · newest sample 2026-01-16T17:30:00.000Z')
+      expect(agents).toMatchObject({ id: 'claude-agents', status: 'live' })
+      expect(agents?.detail).toContain('4 sessions')
+    })
+
+    test('an adapter that is not configured is off; one whose source is absent is missing; exit 0', async () => {
+      const r = await withAdapters({ 'quota-samples': { file: join(root, 'nope-*.jsonl') }, 'task-folders': { roots: [join(root, 'nowhere')] } })
+      expect(r.adapters?.entries).toEqual([
+        { id: 'task-folders', status: 'missing', detail: 'no readable tasks root' },
+        { id: 'quota-samples', status: 'missing', detail: 'no samples file found' },
+        { id: 'claude-agents', status: 'off', detail: 'not configured' },
+      ])
+      expect(doctorExitCode(r)).toBe(0)
+    })
+
+    test('no config file at all: every adapter is off, no warning', async () => {
+      const r = await runDoctor(options({ adapters: { configPath: join(root, 'absent.json'), home: '/h' } }))
+      expect(r.adapters?.warnings).toEqual([])
+      expect(r.adapters?.entries.map((e) => e.status)).toEqual(['off', 'off', 'off'])
+    })
+
+    test('a configuration problem is a warning line', async () => {
+      const r = await withAdapters({ 'quota-samples': {}, 'mystery': {} })
+      expect(r.adapters?.warnings).toEqual([
+        'unknown adapter "mystery" ignored',
+        'quota-samples: "file" is required (a path, or a glob such as samples-*.jsonl); ignored',
+      ])
+    })
   })
 
   describe('with the collector installed', () => {

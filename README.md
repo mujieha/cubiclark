@@ -5,9 +5,13 @@ from a small hooks collector. Runs entirely on your machine, on `127.0.0.1`; it 
 model and never sends anything off the machine.
 
 The page is a pixel-art office: every agent is a character at a desk, and what it is doing shows
-in its pose, its speech bubble and its desk lamp. Behind it are a transcript parser, a hook
-collector, a state reducer and two tailing sources that merge into one world, plus the commands to
-install, remove and check the collector. A plain list of the same agents is one click away.
+in its pose, its speech bubble and its desk lamp. Beside it a terminal-style panel shows the
+selected agent, the session log and how the work is organised: tasks and their timelines, the
+quota, what is waiting on you. Behind it are a transcript parser, a hook collector, a state reducer
+and two tailing sources that merge into one world, optional adapters that read how your work is
+organised (task folders, quota samples, `claude agents`), and the commands to install, remove and
+check the collector and to replay a stretch of the past. A plain list of the same agents is one
+click away.
 
 ## Two ways to see agents
 
@@ -19,7 +23,7 @@ install, remove and check the collector. A plain list of the same agents is one 
   calls, permission requests, compactions, failures and subagents as they happen. Transcripts stay
   in use for what hooks do not carry (the model, compactions, a manual denial, an interrupt).
 
-Verified against Claude Code **2.1.284** and its hooks reference. `cubiclark doctor` says which
+Verified against Claude Code **2.1.285** and its hooks reference. `cubiclark doctor` says which
 version you run and whether it is the one the hook events were checked on.
 
 ## Hooks
@@ -30,7 +34,9 @@ cubiclark hooks off [--purge]     # remove it
 cubiclark hooks status            # what is installed, and whether it is paused
 cubiclark hooks pause             # soft-off: the collector exits 0 and writes nothing
 cubiclark hooks resume
-cubiclark doctor                  # the version, each source, and what failed to parse
+cubiclark doctor                  # the version, each source, and why lines did not parse
+cubiclark doctor --adapters       # also: what each configured adapter found
+cubiclark replay --since 3h       # play back the last three hours, 10 times as fast
 ```
 
 **What `hooks on` does.** It parses `~/.claude/settings.json` (or `--config-dir <dir>`/
@@ -85,7 +91,9 @@ npm run bench:hook    # collector overhead over Node's own start-up
 npm run fixtures        # regenerate the synthetic fixtures under test/fixtures/
 npm run fixtures:check  # verify the checked-in fixtures still match the generator
 
-node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>]
+node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>]
+node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>]
+node dist/cli.js doctor --adapters --fixture-home test/fixtures/day/home --state-dir test/fixtures/day/state
 ```
 
 Every test uses fixture directories under a temp dir and never reads or writes the real
@@ -149,13 +157,70 @@ setting while the page is open takes effect at once.
 at a whole-number scale (so pixels stay crisp) and stops entirely while the list is showing. With
 50 agents a draw takes about a millisecond.
 
+## The panel
+
+On the right of the page (below the office on a narrow window), in monospace, collapsible with
+"Hide panel" (remembered per browser). Click an agent in the office, a row of the list or a row of
+the log to select it; click it again to clear.
+
+- **Title bar:** the legend (shirt colour by model family, the accessory of each role) and whether
+  the page is connected.
+- **Agent card:** kind, role, model, effort (when an adapter knows it), task and its phase, state
+  and since when, counters, what `claude agents` says about it, and its error.
+- **Session log:** `time · agent · event · result`, oldest at the top and newest at the bottom, by
+  time. Prompts, tool results (the tool, a file's basename or a command's first word, and ok, error
+  or denied), turns, sessions starting and ending, subagents starting, permission waits, errors. Never
+  a prompt or a tool's content. Filter by project or by task.
+- **Task timeline:** for the selected agent's task, else the newest live one (or pick one): planning,
+  building, review and done with where the task is, and its entries, with a mark where the model
+  changed ("opus → sonnet"). The **whiteboard** in the planning room shows the same task in small.
+- **Status bar:** sources and adapters live, agents busy out of total, permission waits (always
+  shown, zero too), quota, unparsed lines, and during a replay its speed and clock.
+
+The **wall meter** in the manager's office shows the 5-hour quota over the 7-day quota (green, amber
+from 70%, red from 90%; ringed red while an agent is rate limited).
+
+## Adapters
+
+Optional, read-only, and off until `~/.cubiclark/config.json` names them. Three come with
+Cubiclark; `docs/adapters.md` is the reference for the interface, the configuration and every file
+format.
+
+- **Task folders.** A folder of task folders (`TASK.md`, `STATUS.md`, `LOG.md`, `session`) gives
+  tasks with a phase (planning, building, review, done, blocked), a timeline with the model and
+  effort of each session, and which session belongs to which task. An agent whose task is being
+  planned sits in the planning room; the orchestrator is found by its working directory. The format
+  is documented so that anyone can write it.
+- **Quota samples.** A JSONL file of `limit_5h_pct` / `limit_7d_pct` samples (or a glob of daily
+  files) feeds the wall meter and the status bar. A sample whose reset time has passed reads as zero.
+- **`claude agents`.** Runs the local `claude agents --json` (no model is called) to learn which
+  background sessions are busy, waiting or idle, and what a waiting one waits for. Never more than
+  once every 15 seconds, and only when the configuration says `"enabled": true`.
+
+`cubiclark doctor --adapters` says what each configured adapter found and why one is missing.
+
+## Replay
+
+`cubiclark replay --since 3h [--speed 10]` plays the last three hours (`90m`, `1h30m`, `2d`; at most
+14 days) on the same page. Everything that happened before the window is applied at once, so the
+agents that were already there are in the office when it opens; the rest arrives 10 times as fast.
+The quota is the sample at that time and each task's timeline is cut there. It reads the same files
+as the live page and never writes anything. `claude agents` is not asked in a replay, since it
+describes the present.
+
 ## What else the page shows
 
-A line naming each source and its health, a diagnostics line (unparsed lines, unknown record types
-and hook shapes, Claude Code versions seen, source errors), and the list: a table of every agent
-(kind, parent, project, model, state, since, current tool). A subagent appears under the agent that
-started it, and a permission wait reported by a hook reads "waiting for permission" while a guess
-from transcripts alone reads "waiting for permission? (inferred)".
+A line naming each source and adapter and its health, a diagnostics line (unparsed lines with the
+reasons, unknown record types and hook shapes, Claude Code versions seen, source errors), and the list:
+a table of every agent (kind, parent, project, model, state, since, current tool). A subagent appears
+under the agent that started it, and a permission wait reported by a hook reads "waiting for
+permission" while a guess from transcripts alone reads "waiting for permission? (inferred)".
+
+**When lines do not parse.** `cubiclark doctor` prints an `unparsed by` line: how many transcript
+lines were not turned into events, by reason (`not_json`, `not_object`, `no_type`, `no_timestamp`,
+`unknown_type`, `unknown_subtype`, `handler_rejected`) and by record type, never any value from the
+lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, `last-prompt`,
+`permission-mode`, ...) borrow the file's newest one, so they do not count.
 
 ## Known limits
 
@@ -169,10 +234,10 @@ from transcripts alone reads "waiting for permission? (inferred)".
 - **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always), so
   the model still comes from transcripts.
 - **Background-session detection depends on an undocumented field** (`sessionKind: "bg"`). The key
-  exists in real 2.1.284 transcripts; its value is unverified, and the hooks reference offers no
+  exists in real 2.1.284 and 2.1.285 transcripts; its value is unverified, and the hooks reference offers no
   background marker. If it is wrong, a background worker shows as an ordinary session: wrong, but
   harmless. Every guessed transcript value lives in `src/core/transcript/guesses.ts`.
-- **The transcript format is not documented and is pinned to Claude Code 2.1.284.** Every
+- **The transcript format is not documented and is pinned to Claude Code 2.1.285.** Every
   assumption about it lives under `src/core/transcript/` and is checked against a fixture; an
   unrecognised shape is counted, never guessed at.
 - **Without hooks, the permission wait is a guess and `compacting`/`ended` are never shown.**
@@ -183,8 +248,18 @@ from transcripts alone reads "waiting for permission? (inferred)".
   before committing. Only Chromium is in CI; `npm run test:e2e:firefox` is a manual extra.
 - **Bubble text is cut to 12 characters** with an ellipsis, and is drawn in the system monospace
   font, not a pixel font. The full text is in the tooltip.
-- **The wall meter and whiteboard are drawn but empty of data** until a later phase feeds them: the
-  meter needs quota samples and the whiteboard a task timeline.
+- **The quota file's format is read tolerantly.** The status line's own keys are documented in
+  `docs/adapters.md`; other spellings of the reset times are accepted, and a reset it cannot read only
+  means the sample is treated as stale after its window.
+- **`claude agents` is polled, so what it says can be 15 seconds old.** It only ever adds a permission
+  wait, once per fetch, and never for an agent that hooks report on.
+- **Notes in a task's `LOG.md` (`- 2026-01-15 13:00 …`) are read as local time**, and the entry that
+  `STATUS.md` adds is dated by the file's modification time.
+- **The panel takes 380 px, so the office stays at scale 2 only in a window at least 1580 px wide.**
+  Below that the office steps down to scale 1 (with the panel hidden it fits again); below 1100 px
+  the panel goes under the office.
+- **A replay of adapter data is approximate.** A task's timeline is cut at the replay clock, but a
+  file's contents are read as they are now.
 - **Tested on macOS and Linux.** Windows is untested.
 
 ## Development

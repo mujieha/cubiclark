@@ -127,6 +127,14 @@ export class RecordChain {
     this.prev = uuid
     return out
   }
+
+  /** Like rec(), but the record carries no top-level `timestamp` (Claude Code 2.1.285 writes
+   * its bookkeeping records that way). */
+  recNoTs(fields: Record<string, unknown>): Record<string, unknown> {
+    const out = this.rec('', fields)
+    delete out.timestamp
+    return out
+  }
 }
 
 export function toolUseBlock(id: string, name: string, input: Record<string, unknown>): Record<string, unknown> {
@@ -559,6 +567,37 @@ export function interruptedLines(startAt: number, sid: string, cwd: string): Lin
     })
   )
   lines.push(userInterruptedRecord(chain, at()))
+
+  return lines
+}
+
+/** The record types Claude Code 2.1.285 writes that earlier phases did not know, and the
+ * bookkeeping records that carry no top-level `timestamp` (which was rejecting most real lines).
+ * Exactly one line is unparsed: a permission-mode record before the file has shown any time. */
+export function recordTypes2185Lines(startAt: number, sid: string, cwd: string): Line[] {
+  const chain = new RecordChain({ sessionId: sid, cwd })
+  const lines: Line[] = []
+  let i = 0
+  const at = (): string => ts(startAt, i++)
+
+  lines.push(chain.recNoTs({ type: 'mode', mode: 'normal' })) // ignored type: fine without a time
+  lines.push(chain.recNoTs({ type: 'permission-mode', permissionMode: 'default' })) // the one unparsed line
+  lines.push(userPromptRecord(chain, at(), lorem(5)))
+  lines.push(chain.recNoTs({ type: 'last-prompt', lastPrompt: lorem(2) }))
+  lines.push(chain.recNoTs({ type: 'atis-latch', atis: true }))
+  lines.push(chain.recNoTs({ type: 'ai-title', aiTitle: lorem(3) }))
+  lines.push(chain.recNoTs({ type: 'cost-state', totalCostUSD: 0 }))
+  lines.push(chain.recNoTs({ type: 'permission-mode', permissionMode: 'acceptEdits' })) // borrows the prompt's time
+  lines.push({ type: 'file-history-snapshot', messageId: 'fx', snapshot: { timestamp: at() } })
+  lines.push(chain.rec(at(), { type: 'warning', level: 'warn' }))
+  lines.push(chain.rec(at(), { type: 'update' }))
+  lines.push(chain.rec(at(), { type: 'continued-in', continuedInSessionId: sessionId('c') }))
+  lines.push(chain.rec(at(), { type: 'pr-link', pr: { number: 7 } }))
+  lines.push(systemRecord(chain, at(), 'bridge_status', { level: 'info' }))
+  lines.push(assistantRecord(chain, at(), [textBlock(lorem(4))], { stopReason: 'end_turn', outputTokens: 12 }))
+  // A numeric epoch-millisecond timestamp instead of an ISO string.
+  const when = at()
+  lines.push({ ...assistantRecord(chain, when, [textBlock(lorem(3))], { stopReason: 'end_turn', outputTokens: 8 }), timestamp: Date.parse(when) })
 
   return lines
 }

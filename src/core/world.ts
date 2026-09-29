@@ -1,9 +1,9 @@
 // Pure helpers over World, shared by the reducer (step 5) and its tests. No I/O: every
 // timestamp is passed in by the caller.
 
-import type { Agent, AgentState, LogLine, World } from './types.js'
+import { UNPARSED_REASONS, type Agent, type AgentState, type LogLine, type UnparsedBreakdown, type World } from './types.js'
 
-const MAX_LOG_LINES = 300
+export const MAX_LOG_LINES = 500
 const MAX_SOURCE_ERRORS = 50
 
 export function emptyWorld(nowIso: string, transcriptsRoot: string): World {
@@ -17,6 +17,7 @@ export function emptyWorld(nowIso: string, transcriptsRoot: string): World {
       sourceErrors: [],
       unknownTypes: {},
       versions: [],
+      unparsedBy: {},
     },
     sources: {
       transcripts: {
@@ -93,6 +94,26 @@ export function pushSourceError(world: World, error: string): World {
       ? [...world.diagnostics.sourceErrors.slice(1), error]
       : [...world.diagnostics.sourceErrors, error]
   return { ...world, diagnostics: { ...world.diagnostics, sourceErrors } }
+}
+
+/** Most distinct record-type names kept per reason; the rest are counted under '(other)'. */
+export const MAX_UNPARSED_TYPE_NAMES = 50
+
+/** Adds `add` into `into` (both reason -> type -> count) without mutating either. */
+export function mergeUnparsedBy(into: UnparsedBreakdown, add: UnparsedBreakdown | undefined): UnparsedBreakdown {
+  if (!add) return into
+  const out: UnparsedBreakdown = { ...into }
+  for (const reason of UNPARSED_REASONS) {
+    const incoming = add[reason]
+    if (!incoming) continue
+    const types: Record<string, number> = { ...(out[reason] ?? {}) }
+    for (const [type, count] of Object.entries(incoming)) {
+      const key = type in types || Object.keys(types).length < MAX_UNPARSED_TYPE_NAMES ? type : '(other)'
+      types[key] = (types[key] ?? 0) + count
+    }
+    out[reason] = types
+  }
+  return out
 }
 
 /** Adds a Claude Code version to the diagnostics' deduplicated version list, if new. */

@@ -39,6 +39,7 @@ describe('emptyWorld', () => {
       sourceErrors: [],
       unknownTypes: {},
       versions: [],
+      unparsedBy: {},
     })
     expect(world.sources.transcripts).toEqual({
       status: 'starting',
@@ -101,14 +102,14 @@ describe('setState', () => {
 })
 
 describe('pushLog', () => {
-  test('appends and caps at 300 lines, dropping the oldest', () => {
+  test('appends and caps at 500 lines, dropping the oldest', () => {
     let world = emptyWorld('t0', '/root')
-    for (let i = 0; i < 305; i += 1) {
+    for (let i = 0; i < 505; i += 1) {
       world = pushLog(world, { ts: `t${i}`, agentId: 'a1', kind: 'note', text: `line ${i}` })
     }
-    expect(world.log).toHaveLength(300)
+    expect(world.log).toHaveLength(500)
     expect(world.log[0]?.text).toBe('line 5')
-    expect(world.log[299]?.text).toBe('line 304')
+    expect(world.log[499]?.text).toBe('line 504')
   })
 })
 

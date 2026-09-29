@@ -14,6 +14,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serialiseStoredLine, toStoredLine } from '../src/core/hooks/whitelist.js'
 import { hookFixtureEvents } from './hook-fixture-lib.js'
+import { dayFixture } from './day-fixture-lib.js'
+import { agentsFixtureText, quotaFixtureFiles, taskTreeFiles } from './task-fixture-lib.js'
 import { WORLD_FIXTURES } from './world-fixture-lib.js'
 import {
   DEMO_CWD,
@@ -29,6 +31,7 @@ import {
   permissionDeniedLines,
   permissionWaitLines,
   rateLimitLines,
+  recordTypes2185Lines,
   resetFixtureSequence,
   sessionId,
   subagentId,
@@ -39,6 +42,10 @@ const TRANSCRIPTS_DIR = join(REPO_ROOT, 'test/fixtures/transcripts')
 const HOME_DIR = join(REPO_ROOT, 'test/fixtures/home')
 const STATE_DIR = join(REPO_ROOT, 'test/fixtures/state')
 const WORLDS_DIR = join(REPO_ROOT, 'test/fixtures/worlds')
+const TASKS_DIR = join(REPO_ROOT, 'test/fixtures/tasks')
+const QUOTA_DIR = join(REPO_ROOT, 'test/fixtures/quota')
+const BIN_DIR = join(REPO_ROOT, 'test/fixtures/bin')
+const DAY_DIR = join(REPO_ROOT, 'test/fixtures/day')
 
 type FileMap = Map<string, string>
 
@@ -57,12 +64,28 @@ function encodeProjectDir(cwd: string): string {
   return cwd.replace(/[^a-zA-Z0-9]/g, '-')
 }
 
-function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap; worlds: FileMap } {
+function buildFixtures(): {
+  transcripts: FileMap
+  home: FileMap
+  state: FileMap
+  worlds: FileMap
+  tasks: FileMap
+  quota: FileMap
+  bin: FileMap
+  dayHome: FileMap
+  dayState: FileMap
+  dayTasks: FileMap
+} {
   resetFixtureSequence()
   const transcripts: FileMap = new Map()
   const home: FileMap = new Map()
   const state: FileMap = new Map()
   const worlds: FileMap = new Map()
+  // The task-folder tree (phase 4): plain strings, no uuid counter involved.
+  const tasks: FileMap = taskTreeFiles()
+  const quota: FileMap = quotaFixtureFiles()
+  // Only agents.json is generated: the stand-in `claude` script beside it is written by hand.
+  const bin: FileMap = new Map([['agents.json', agentsFixtureText()]])
 
   const START = Date.parse('2026-01-15T10:00:00.000Z')
   const HOUR = 60 * 60 * 1000
@@ -152,7 +175,17 @@ function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap;
   // The office's fixture worlds (phase 3): the World value the browser receives, one file each.
   for (const [name, build] of Object.entries(WORLD_FIXTURES)) worlds.set(`${name}.json`, jsonText(build()))
 
-  return { transcripts, home, state, worlds }
+  // Built last: it draws record uuids from the shared counter, and building it earlier would
+  // renumber every file above.
+  transcripts.set(
+    'record-types-2.1.285.jsonl',
+    jsonlText(recordTypes2185Lines(START + 10 * HOUR, sessionId('b'), DEMO_CWD))
+  )
+
+  // The fixture day (phase 4), built after everything else for the same reason.
+  const day = dayFixture()
+
+  return { transcripts, home, state, worlds, tasks, quota, bin, dayHome: day.home, dayState: day.state, dayTasks: day.tasks }
 }
 
 async function writeAll(base: string, files: FileMap): Promise<void> {
@@ -183,16 +216,25 @@ async function checkAll(base: string, files: FileMap): Promise<string[]> {
 
 async function main(): Promise<void> {
   const check = process.argv.includes('--check')
-  const { transcripts, home, state, worlds } = buildFixtures()
-  const total = transcripts.size + home.size + state.size + worlds.size
+  const built = buildFixtures()
+  // Every generated directory and what belongs in it.
+  const sets: [string, FileMap][] = [
+    [TRANSCRIPTS_DIR, built.transcripts],
+    [HOME_DIR, built.home],
+    [STATE_DIR, built.state],
+    [WORLDS_DIR, built.worlds],
+    [TASKS_DIR, built.tasks],
+    [QUOTA_DIR, built.quota],
+    [BIN_DIR, built.bin],
+    [join(DAY_DIR, 'home'), built.dayHome],
+    [join(DAY_DIR, 'state'), built.dayState],
+    [join(DAY_DIR, 'tasks'), built.dayTasks],
+  ]
+  const total = sets.reduce((sum, [, files]) => sum + files.size, 0)
 
   if (check) {
-    const stale = [
-      ...(await checkAll(TRANSCRIPTS_DIR, transcripts)),
-      ...(await checkAll(HOME_DIR, home)),
-      ...(await checkAll(STATE_DIR, state)),
-      ...(await checkAll(WORLDS_DIR, worlds)),
-    ]
+    const stale: string[] = []
+    for (const [dir, files] of sets) stale.push(...(await checkAll(dir, files)))
     if (stale.length > 0) {
       console.error('fixtures out of date, run `npm run fixtures`:')
       for (const path of stale) console.error(`  ${path}`)
@@ -203,10 +245,7 @@ async function main(): Promise<void> {
     return
   }
 
-  await writeAll(TRANSCRIPTS_DIR, transcripts)
-  await writeAll(HOME_DIR, home)
-  await writeAll(STATE_DIR, state)
-  await writeAll(WORLDS_DIR, worlds)
+  for (const [dir, files] of sets) await writeAll(dir, files)
   console.log(`wrote ${total} fixture files`)
 }
 

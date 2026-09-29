@@ -1,0 +1,10 @@
+{"ts":1768550400,"limit_5h_pct":10,"limit_7d_pct":30,"limit_5h_resets":1768557600,"limit_7d_resets":1768795200}
+{"ts":1768552200,"tokens_in":1200,"tokens_out":300}
+{"ts":"2026-01-16T09:00:00Z","limit_5h_pct":"25","limit_7d_pct":31,"limit_5h_resets":1768557600,"limit_7d_resets":1768795200}
+this line is not json
+{"ts":1768555800000,"limit_5h_pct":40,"limit_7d_pct":32,"resets":{"5h":"2026-01-16T10:00:00Z","7d":"2026-01-19T04:00:00Z"}}
+[1, 2]
+{"ts":1768559400,"limit_5h_pct":5}
+{"ts":1768561200,"limit_5h_pct":8,"limit_7d_pct":33}
+{"ts":1768564800,"limit_5h_pct":150,"limit_7d_pct":-5,"limit_5h_resets":1768582800,"limit_7d_resets":1768795200}
+{"ts":1768584600,"limit_5h_pct":62,"limit_7d_pct":40,"limit_5h_resets":1768590000,"limit_7d_resets":1768795200}

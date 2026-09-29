@@ -26,7 +26,7 @@ import type {
   TurnEndEvent,
   World,
 } from './types.js'
-import { ensureAgent, noteVersion, pushLog, pushSourceError, setState, updateAgent } from './world.js'
+import { ensureAgent, mergeUnparsedBy, noteVersion, pushLog, pushSourceError, setState, updateAgent } from './world.js'
 
 function roleFromAgentType(agentType: string | undefined): AgentRole | undefined {
   if (!agentType) return undefined
@@ -70,7 +70,11 @@ function applyAgentMeta(world: World, event: AgentMetaEvent): World {
 }
 
 function applySubagentLink(world: World, event: SubagentLinkEvent): World {
-  const next = ensureAgent(world, event.agentId, event.ts)
+  // The first link a helper gets (it has no label or spawn id yet) is the moment it "started";
+  // a later re-link of the same helper is not news.
+  const known = world.agents[event.agentId]
+  const firstLink = known === undefined || (known.label === undefined && known.spawnToolUseId === undefined)
+  let next = ensureAgent(world, event.agentId, event.ts)
 
   // A nested subagent (one that started another subagent, not the top-level session) re-
   // parents to whichever helper currently has this spawn id as an open tool.
@@ -84,7 +88,7 @@ function applySubagentLink(world: World, event: SubagentLinkEvent): World {
     }
   }
 
-  return updateAgent(next, event.agentId, (agent) => ({
+  next = updateAgent(next, event.agentId, (agent) => ({
     ...agent,
     kind: event.name ? 'teammate' : 'subagent',
     parentId,
@@ -93,6 +97,7 @@ function applySubagentLink(world: World, event: SubagentLinkEvent): World {
     role: roleFromAgentType(event.agentType) ?? agent.role,
     lastActivity: event.ts,
   }))
+  return firstLink ? pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'subagent', text: `started ${event.agentType ?? 'subagent'}` }) : next
 }
 
 function applyPrompt(world: World, event: PromptEvent): World {
@@ -104,6 +109,7 @@ function applyPrompt(world: World, event: PromptEvent): World {
     error: undefined,
     lastActivity: event.ts,
   }))
+  next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'prompt', text: 'prompt' })
   return setState(next, event.agentId, 'thinking', event.ts)
 }
 
@@ -155,7 +161,8 @@ function applyToolStart(world: World, event: ToolStartEvent): World {
 
 function applyToolEnd(world: World, event: ToolEndEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
-  const wasOpen = next.agents[event.agentId]?.openTools.some((t) => t.id === event.toolUseId) ?? false
+  const openTool = next.agents[event.agentId]?.openTools.find((t) => t.id === event.toolUseId)
+  const wasOpen = openTool !== undefined
   next = updateAgent(next, event.agentId, (agent) => ({
     ...agent,
     openTools: agent.openTools.filter((t) => t.id !== event.toolUseId),
@@ -173,6 +180,14 @@ function applyToolEnd(world: World, event: ToolEndEvent): World {
 
   if (event.denied) {
     next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'permission', text: 'permission denied' })
+  }
+
+  // One line per tool that was open here: its name and reduced target, and how it ended. A result
+  // that arrives for a tool this World never saw open (the other source got there first) has no line.
+  if (openTool) {
+    const result = event.denied ? 'denied' : event.isError ? 'error' : 'ok'
+    const what = openTool.target ? `${openTool.name} ${openTool.target}` : openTool.name
+    next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'tool', text: `${what} · ${result}` })
   }
 
   // A tool_end whose tool was never open here (its start arrived from the other source, or has
@@ -199,12 +214,14 @@ function finishOrWait(world: World, agentId: string, ts: string): World {
 
 function applyTurnEnd(world: World, event: TurnEndEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
+  const helper = isHelperKind(next.agents[event.agentId]?.kind ?? 'session')
   next = updateAgent(next, event.agentId, (agent) => ({
     ...agent,
     openTools: [],
     currentTool: undefined,
     lastActivity: event.ts,
   }))
+  next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'turn', text: helper ? 'finished' : 'turn done' })
   return finishOrWait(next, event.agentId, event.ts)
 }
 
@@ -238,9 +255,11 @@ function applyApiError(world: World, event: ApiErrorEvent): World {
     lastActivity: event.ts,
   }))
   if (event.kind === 'rate_limit' || event.kind === 'overloaded') {
+    next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'error', text: event.kind === 'overloaded' ? 'overloaded' : 'rate limited' })
     return setState(next, event.agentId, 'rate_limited', event.ts)
   }
   if (!event.retrying) {
+    next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'error', text: `failed: ${event.kind}` })
     return setState(next, event.agentId, 'failed', event.ts)
   }
   return pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'error', text: 'retrying after an error' })
@@ -264,6 +283,9 @@ function applyDiagnostics(world: World, event: Extract<AgentEvent, { t: 'diagnos
         unknownTypes: { ...next.diagnostics.unknownTypes, [type]: (next.diagnostics.unknownTypes[type] ?? 0) + count },
       },
     }
+  }
+  if (event.unparsedBy) {
+    next = { ...next, diagnostics: { ...next.diagnostics, unparsedBy: mergeUnparsedBy(next.diagnostics.unparsedBy, event.unparsedBy) } }
   }
   for (const version of event.versions) next = noteVersion(next, version)
   if (event.sourceError) next = pushSourceError(next, event.sourceError)
@@ -310,7 +332,9 @@ function applySessionStart(world: World, event: SessionStartEvent): World {
     error: fresh ? undefined : agent.error,
     lastActivity: event.ts,
   }))
-  return fresh ? setState(next, event.agentId, 'waiting_user', event.ts) : next
+  if (!fresh) return next
+  next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'session', text: `session started (${event.source})` })
+  return setState(next, event.agentId, 'waiting_user', event.ts)
 }
 
 function endAgent(world: World, agentId: string, ts: string, seen: Set<string>): World {
@@ -325,7 +349,8 @@ function endAgent(world: World, agentId: string, ts: string, seen: Set<string>):
 }
 
 function applySessionEnd(world: World, event: SessionEndEvent): World {
-  const next = ensureAgent(world, event.agentId, event.ts)
+  let next = ensureAgent(world, event.agentId, event.ts)
+  next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'session', text: event.reason ? `session ended (${event.reason})` : 'session ended' })
   return endAgent(next, event.agentId, event.ts, new Set())
 }
 
@@ -336,6 +361,7 @@ function applyPermissionWait(world: World, event: PermissionWaitEvent): World {
     currentTool: agent.currentTool ?? (event.toolName ? { name: event.toolName } : undefined),
     lastActivity: event.ts,
   }))
+  next = pushLog(next, { ts: event.ts, agentId: event.agentId, kind: 'permission', text: event.toolName ? `waiting for permission (${event.toolName})` : 'waiting for permission' })
   return setState(next, event.agentId, 'waiting_permission', event.ts)
 }
 

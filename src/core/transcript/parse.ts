@@ -1,9 +1,10 @@
 // The parser's entry points. parseLine never throws: a line that is not JSON, not an object, or
-// has no string `type`/`timestamp` becomes `unparsed: true` instead. parseTranscript is the
+// has no string `type`/`timestamp` becomes `unparsed: true` instead, with a reason and the record's
+// type name so diagnostics can say *why* (never any value from the line). parseTranscript is the
 // whole-file convenience the tests use; the transcript source (step 6) calls parseLine directly,
 // one appended line at a time, carrying the returned ParseState forward itself.
 
-import type { AgentEvent, AgentKind } from '../types.js'
+import type { AgentEvent, AgentKind, UnparsedBreakdown, UnparsedReason } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { fromAgentName, fromAssistant, fromPermissionMode, fromSystem, fromUser, IGNORED_TYPES } from './records.js'
 
@@ -19,6 +20,9 @@ export interface ParseState {
   seenFirst: boolean
   lastCwd?: string
   lastVersion?: string
+  /** The newest record timestamp seen in this file (ISO); bookkeeping records that carry none
+   * borrow it. */
+  lastTs?: string
 }
 
 export function initialParseState(): ParseState {
@@ -32,6 +36,40 @@ export interface ParseLineResult {
   /** Set only when unparsed is true and the cause was a recognizable but unhandled `type` (or
    * `system:<subtype>`), so diagnostics can be grouped by name instead of one flat counter. */
   unknownType?: string
+  /** Set whenever unparsed is true: which rule rejected the line. */
+  reason?: UnparsedReason
+  /** Set whenever unparsed is true: the record's type name, `type:subtype` for system records,
+   * '(invalid)' for a type that is not a plain name, '(none)' when there is no string type. */
+  recordType?: string
+}
+
+const TYPE_NAME = /^[A-Za-z0-9_.:()-]{1,40}$/
+
+/** The record's type as something safe to print and count: a name, never a value. */
+export function recordTypeName(type: unknown, subtype?: unknown): string {
+  if (typeof type !== 'string') return '(none)'
+  const name = typeof subtype === 'string' && type === 'system' ? `${type}:${subtype}` : type
+  return TYPE_NAME.test(name) ? name : '(invalid)'
+}
+
+/** A record's own timestamp as ISO: a string, or a number (epoch seconds below 1e12, else ms).
+ * Anything else, including a date that does not exist, is "no timestamp". */
+export function recordTimestamp(value: unknown): string | undefined {
+  if (typeof value === 'string') return value.length > 0 ? value : undefined
+  if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
+  const ms = value >= 1e12 ? value : value * 1000
+  const date = new Date(ms)
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}
+
+function unparsedLine(
+  events: AgentEvent[],
+  state: ParseState,
+  reason: UnparsedReason,
+  recordType: string,
+  unknownType?: string
+): ParseLineResult {
+  return { events, state, unparsed: true, reason, recordType, ...(unknownType !== undefined ? { unknownType } : {}) }
 }
 
 export function parseLine(line: string, ctx: ParseCtx, state: ParseState): ParseLineResult {
@@ -42,21 +80,29 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   try {
     value = JSON.parse(trimmed)
   } catch {
-    return { events: [], state, unparsed: true }
+    return unparsedLine([], state, 'not_json', '(none)')
   }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return { events: [], state, unparsed: true }
+    return unparsedLine([], state, 'not_object', '(none)')
   }
 
   const record = value as Record<string, unknown>
   const type = record.type
-  if (typeof type !== 'string') return { events: [], state, unparsed: true }
+  if (typeof type !== 'string') return unparsedLine([], state, 'no_type', '(none)')
 
-  const ts = typeof record.timestamp === 'string' ? record.timestamp : undefined
-  if (!ts) return { events: [], state, unparsed: true }
+  // Bookkeeping records (mode, last-prompt, permission-mode, ...) often carry no `timestamp`.
+  // They borrow the newest one seen in this file; only a file that has shown none yet has
+  // nothing to lend, and then only a record that needs a time (not an ignored type) is unparsed.
+  const own = recordTimestamp(record.timestamp)
+  const base: ParseState = own ? { ...state, lastTs: own } : state
+  const ts = own ?? state.lastTs
+  if (!ts) {
+    if (IGNORED_TYPES.has(type)) return { events: [], state, unparsed: false }
+    return unparsedLine([], state, 'no_timestamp', recordTypeName(type, record.subtype))
+  }
 
   const events: AgentEvent[] = []
-  let nextState = state
+  let nextState = base
 
   // A4: emit agent_meta on the first record of a file, and again whenever cwd or version
   // changes — cheap and idempotent for the reducer, and the only way project/version drift
@@ -66,7 +112,8 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   const isBackground = record.sessionKind === TRANSCRIPT_GUESSES.backgroundSessionKind
   const cwdChanged = cwd !== undefined && cwd !== state.lastCwd
   const versionChanged = version !== undefined && version !== state.lastVersion
-  if (!state.seenFirst || cwdChanged || versionChanged) {
+  // A borrowed timestamp never starts a file: agent_meta waits for a record with its own time.
+  if ((!state.seenFirst && own !== undefined) || (state.seenFirst && (cwdChanged || versionChanged))) {
     events.push({
       t: 'agent_meta',
       ts,
@@ -77,6 +124,7 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
       version,
     })
     nextState = {
+      ...nextState,
       seenFirst: true,
       lastCwd: cwd ?? state.lastCwd,
       lastVersion: version ?? state.lastVersion,
@@ -84,31 +132,42 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   }
 
   const handlerCtx = { agentId: ctx.agentId }
+  const rejected = (): ParseLineResult => unparsedLine(events, nextState, 'handler_rejected', recordTypeName(type))
 
   switch (type) {
-    case 'user':
-      events.push(...fromUser(record, handlerCtx, ts).events)
+    case 'user': {
+      const result = fromUser(record, handlerCtx, ts)
+      events.push(...result.events)
+      if (result.rejected) return rejected()
       break
-    case 'assistant':
-      events.push(...fromAssistant(record, handlerCtx, ts).events)
+    }
+    case 'assistant': {
+      const result = fromAssistant(record, handlerCtx, ts)
+      events.push(...result.events)
+      if (result.rejected) return rejected()
       break
+    }
     case 'system': {
       const result = fromSystem(record, handlerCtx, ts)
       if (result.unknownSubtype !== undefined) {
-        return { events, state: nextState, unparsed: true, unknownType: `system:${result.unknownSubtype}` }
+        const name = `system:${result.unknownSubtype}`
+        return unparsedLine(events, nextState, 'unknown_subtype', recordTypeName('system', result.unknownSubtype), name)
       }
       events.push(...result.events)
       break
     }
-    case 'permission-mode':
-      events.push(...fromPermissionMode(record, handlerCtx, ts).events)
+    case 'permission-mode': {
+      const result = fromPermissionMode(record, handlerCtx, ts)
+      events.push(...result.events)
+      if (result.rejected) return rejected()
       break
+    }
     case 'agent-name':
       events.push(...fromAgentName(record, handlerCtx, ts).events)
       break
     default:
       if (!IGNORED_TYPES.has(type)) {
-        return { events, state: nextState, unparsed: true, unknownType: type }
+        return unparsedLine(events, nextState, 'unknown_type', recordTypeName(type), type)
       }
   }
 
@@ -119,6 +178,7 @@ export interface TranscriptParseResult {
   events: AgentEvent[]
   unparsed: number
   unknownTypes: Record<string, number>
+  unparsedBy: UnparsedBreakdown
   versions: string[]
 }
 
@@ -129,6 +189,7 @@ export function parseTranscript(text: string, ctx: ParseCtx): TranscriptParseRes
   const events: AgentEvent[] = []
   let unparsed = 0
   const unknownTypes: Record<string, number> = {}
+  const unparsedBy: UnparsedBreakdown = {}
 
   for (const line of text.split('\n')) {
     if (line.trim().length === 0) continue
@@ -140,6 +201,10 @@ export function parseTranscript(text: string, ctx: ParseCtx): TranscriptParseRes
       if (result.unknownType !== undefined) {
         unknownTypes[result.unknownType] = (unknownTypes[result.unknownType] ?? 0) + 1
       }
+      if (result.reason !== undefined && result.recordType !== undefined) {
+        const byType = (unparsedBy[result.reason] ??= {})
+        byType[result.recordType] = (byType[result.recordType] ?? 0) + 1
+      }
     }
   }
 
@@ -148,5 +213,5 @@ export function parseTranscript(text: string, ctx: ParseCtx): TranscriptParseRes
     if (event.t === 'agent_meta' && event.version) versions.add(event.version)
   }
 
-  return { events, unparsed, unknownTypes, versions: [...versions] }
+  return { events, unparsed, unknownTypes, unparsedBy, versions: [...versions] }
 }
