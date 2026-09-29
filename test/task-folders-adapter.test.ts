@@ -155,6 +155,18 @@ describe('reading', () => {
     expect(byId(snap.tasks)['beta-build']?.timeline.map((e) => e.kind)).toEqual(['dispatched', 'forked', 'paused', 'resumed', 'paused'])
   })
 
+  test('a STATUS.md entry is dated by its mtime clamped to wall time, not to the clock the World runs on', async () => {
+    // a replay: the World's clock is early in the day, wall time is the end of it
+    const replayEnv: AdapterEnv = { nowMs: () => Date.parse('2026-01-15T09:00:00Z'), wallMs: () => Date.parse('2026-01-15T18:00:00Z'), home: '/home/user' }
+    const a = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: null }, replayEnv)
+    const task = byId((await a.snapshot()).tasks)['gamma-review'] as Task
+    expect(task.timeline.find((e) => e.kind === 'pr')?.ts).toBe('2026-01-15T16:00:00.000Z')
+    // without wallMs the clamp is the World's clock, as before
+    const plain = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: null }, { nowMs: () => Date.parse('2026-01-15T09:00:00Z'), home: '/home/user' })
+    const clamped = byId((await plain.snapshot()).tasks)['gamma-review'] as Task
+    expect(clamped.timeline.find((e) => e.kind === 'pr')?.ts).toBe('2026-01-15T09:00:00.000Z')
+  })
+
   test('the time window keeps only recent tasks', async () => {
     const lateEnv: AdapterEnv = { nowMs: () => NOW + 24 * 3_600_000, home: '/home/user' }
     const a = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: 1 }, lateEnv)

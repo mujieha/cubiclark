@@ -97,6 +97,8 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
     const seenIds = new Set<string>()
     let unparsed = 0
     const nowMs = this.env.nowMs()
+    // STATUS.md's time is clamped to wall time, which is not the replay clock in a replay.
+    const wallMs = (this.env.wallMs ?? this.env.nowMs)()
     const windowStart = this.config.windowHours === null ? Number.NEGATIVE_INFINITY : nowMs - this.config.windowHours * 3_600_000
 
     for (const root of this.config.roots) {
@@ -122,7 +124,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
         const logText = await this.readCached(join(dir, 'LOG.md'), `${entry.name}/LOG.md`, seenPaths, errors)
         const sessionFile = await this.readCached(join(dir, 'session'), `${entry.name}/session`, seenPaths, errors)
 
-        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs })
+        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs: wallMs })
         const lastMs = built.task.lastActivity ? Date.parse(built.task.lastActivity) : Number.NEGATIVE_INFINITY
         if (Math.max(lastMs, statusMtimeMs ?? Number.NEGATIVE_INFINITY) < windowStart) continue
 

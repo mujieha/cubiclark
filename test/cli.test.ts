@@ -139,6 +139,65 @@ describe('parseCli: doctor', () => {
   })
 })
 
+describe('parseCli: replay', () => {
+  test('--since is the window; speed defaults to 10', () => {
+    expect(parseCli(['replay', '--since', '3h'])).toEqual({
+      command: 'replay',
+      since: '3h',
+      sinceMs: 3 * 3_600_000,
+      speed: 10,
+      port: 4789,
+      open: true,
+      fixtureHome: undefined,
+      configDir: undefined,
+      stateDir: undefined,
+      config: undefined,
+    })
+  })
+
+  test('every flag it takes', () => {
+    expect(
+      parseCli(['replay', '--since', '1h30m', '--speed', '25', '--port', '0', '--no-open', '--fixture-home', '/f', '--state-dir', '/s', '--config', '/c.json', '--config-dir', '/d'])
+    ).toEqual({
+      command: 'replay',
+      since: '1h30m',
+      sinceMs: 90 * 60_000,
+      speed: 25,
+      port: 0,
+      open: false,
+      fixtureHome: '/f',
+      configDir: '/d',
+      stateDir: '/s',
+      config: '/c.json',
+    })
+    expect(parseCli(['replay', '--since', '0.5s', '--speed', '1000'])).toMatchObject({ sinceMs: 500, speed: 1000 })
+  })
+
+  test('--since is required and must be a duration', () => {
+    expect(() => parseCli(['replay'])).toThrow(/needs --since/)
+    expect(() => parseCli(['replay', '--since', 'soon'])).toThrow(/invalid --since: soon/)
+    expect(() => parseCli(['replay', '--since', '0h'])).toThrow(/invalid --since/)
+    expect(() => parseCli(['replay', '--since', '15d'])).toThrow(/at most 14d/)
+  })
+
+  test('--speed must be above 0 and at most 1000', () => {
+    expect(() => parseCli(['replay', '--since', '3h', '--speed', '0'])).toThrow(/invalid --speed/)
+    expect(() => parseCli(['replay', '--since', '3h', '--speed=-2'])).toThrow(/invalid --speed/)
+    expect(() => parseCli(['replay', '--since', '3h', '--speed', '-2'])).toThrow(/invalid arguments/) // parseArgs itself refuses it
+    expect(() => parseCli(['replay', '--since', '3h', '--speed', 'fast'])).toThrow(/invalid --speed/)
+    expect(() => parseCli(['replay', '--since', '3h', '--speed', '1001'])).toThrow(/at most 1000/)
+  })
+
+  test('flags of other commands are refused, and so is a stray argument', () => {
+    expect(() => parseCli(['replay', '--since', '3h', '--since-hours', '3'])).toThrow(/not valid for replay/)
+    expect(() => parseCli(['replay', '--since', '3h', '--adapters'])).toThrow(/not valid for replay/)
+    expect(() => parseCli(['replay', '--since', '3h', 'extra'])).toThrow(/unexpected argument/)
+    expect(() => parseCli(['hooks', 'on', '--since', '3h'])).toThrow(/not valid for hooks/)
+    expect(() => parseCli(['--since', '3h'])).toThrow(/not valid for the default command/)
+    expect(() => parseCli(['doctor', '--speed', '10'])).toThrow(/not valid for doctor/)
+  })
+})
+
 describe('parseCli: --config', () => {
   test('the default command takes it; hooks does not', () => {
     expect(parseCli(['--config', '/c.json'])).toMatchObject({ command: 'serve', config: '/c.json' })

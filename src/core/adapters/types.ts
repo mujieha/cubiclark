@@ -4,7 +4,11 @@
 import type { AgentRole, CliSessionInfo, Task } from '../types.js'
 
 export interface AdapterEnv {
+  /** The clock the World runs on: the real one, a fixture's frozen one, or a replay's. */
   nowMs: () => number
+  /** Real time (or the end of a fixture replay), when `nowMs` is not it. Only used to clamp a file's
+   * modification time, so that a replay does not date every STATUS.md entry at the replay clock. */
+  wallMs?: () => number
   /** Only for expanding `~` in configured paths. */
   home: string
 }

@@ -51,7 +51,7 @@ function newestActivityMs(world: World): number | undefined {
   return max
 }
 
-function openBrowser(url: string): void {
+export function openBrowser(url: string): void {
   const platform = process.platform
   const command = platform === 'darwin' ? 'open' : platform === 'win32' ? 'cmd' : 'xdg-open'
   const args = platform === 'win32' ? ['/c', 'start', '', url] : [url]
