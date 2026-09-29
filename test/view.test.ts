@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'vitest'
-import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, publicWorld, sourcesLine } from '../src/core/view.js'
+import {
+  agentRows,
+  agentStateLabel,
+  diagnosticsLine,
+  emptyScreen,
+  emptyScreenText,
+  officeStatusLine,
+  publicWorld,
+  sourcesLine,
+} from '../src/core/view.js'
 import type { Agent, World } from '../src/core/types.js'
 import { emptyWorld, ensureAgent, setState, updateAgent } from '../src/core/world.js'
 
@@ -233,5 +242,52 @@ describe('the no-collector screen text', () => {
     const text = emptyScreenText('no-collector', emptyWorld('t0', '/my/root'))
     expect(text).toContain('/my/root')
     expect(text).toContain('cubiclark hooks on')
+  })
+})
+
+describe('rows carry the raw state', () => {
+  test('so the list and the office can be compared on the same value', () => {
+    let world = emptyWorld('t0', '/root')
+    world = withAgent(world, 'a1', { state: 'compacting', project: 'demo', stateSince: 't0' })
+    expect(agentRows(world, 0)[0]?.state).toBe('compacting')
+  })
+
+  test('agentStateLabel is the row label, inferred suffix included', () => {
+    let world = emptyWorld('t0', '/root')
+    world = withAgent(world, 'a1', { state: 'waiting_permission', stateEvidence: 'inferred', project: 'demo', stateSince: 't0' })
+    const agent = world.agents.a1
+    expect(agent && agentStateLabel(agent)).toBe(agentRows(world, 0)[0]?.stateLabel)
+  })
+})
+
+describe('officeStatusLine', () => {
+  function crowd(size: number, patch: (index: number) => Partial<Agent> = () => ({})): World {
+    let world = emptyWorld('2026-01-15T10:00:00.000Z', '/root')
+    for (let i = 0; i < size; i++) world = withAgent(world, `a${i}`, { project: 'demo', stateSince: 't0', ...patch(i) })
+    return world
+  }
+
+  test('an empty world is zero agents, zero busy', () => {
+    expect(officeStatusLine(emptyWorld('t0', '/root'))).toBe('0 agents · 0 busy')
+  })
+
+  test('one agent is singular', () => {
+    expect(officeStatusLine(crowd(1, () => ({ state: 'thinking' })))).toBe('1 agent · 1 busy')
+  })
+
+  test('waiting for permission and rate limited are counted only when there are some', () => {
+    const states: Agent['state'][] = ['thinking', 'running', 'waiting_permission', 'waiting_permission', 'rate_limited', 'waiting_user']
+    const world = crowd(states.length, (i) => ({ state: states[i] }))
+    expect(officeStatusLine(world)).toBe('6 agents · 2 busy · 2 waiting for permission · 1 rate limited')
+  })
+
+  test('finished, failed and idle agents are not busy', () => {
+    const states: Agent['state'][] = ['finished', 'ended', 'failed', 'stuck', 'waiting_user']
+    expect(officeStatusLine(crowd(states.length, (i) => ({ state: states[i] })))).toBe('5 agents · 0 busy')
+  })
+
+  test('above 50 agents it suggests the list view; at 50 it does not', () => {
+    expect(officeStatusLine(crowd(50, () => ({ state: 'thinking' })))).not.toContain('list view')
+    expect(officeStatusLine(crowd(51, () => ({ state: 'thinking' })))).toContain('busy office: the list view may be easier')
   })
 })

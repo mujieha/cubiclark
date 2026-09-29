@@ -90,6 +90,8 @@ class App {
     const nowMs = Date.parse(world.clock)
     for (const row of agentRows(world, nowMs)) {
       const tr = document.createElement('tr')
+      tr.dataset.agentId = row.id
+      tr.dataset.state = row.state
       const indent = row.depth > 0 ? `${'  '.repeat(row.depth)}↳ ` : ''
       tr.appendChild(el('td', { text: `${indent}${row.kind}` }))
       tr.appendChild(el('td', { text: row.parentLabel ?? '—' }))
