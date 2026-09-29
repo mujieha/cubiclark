@@ -180,7 +180,7 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
 
   const token = randomBytes(32).toString('base64url')
   const clientDir = fileURLToPath(new URL('../client/', import.meta.url))
-  const http = await createHttpServer({ token, port: o.port, clientDir, store })
+  const http = await createHttpServer({ token, port: o.port, clientDir, store, home: o.home })
   if (o.open) openBrowser(http.url)
 
   return {

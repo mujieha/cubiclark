@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { createHttpServer } from '../src/server/http.js'
+import type { ServerResponse } from 'node:http'
+import { WorldText, createHttpServer, sendSse } from '../src/server/http.js'
 import { Store } from '../src/server/store.js'
 import type { RunningHttpServer } from '../src/server/http.js'
 
@@ -182,6 +183,90 @@ describe('createHttpServer', () => {
 
     // afterEach also closes `server`; give it a fresh, still-open one to close.
     server = await createHttpServer({ token, port: 0, clientDir, store })
+  })
+
+  // S1-13: the redirect branch compared the token with `===`.
+  test('the token redirect works, a near miss is 403, and no plain comparison is left', async () => {
+    const redirect = await request(server.port, `/${token}`)
+    expect(redirect.status).toBe(301)
+    expect(redirect.headers.location).toBe(`/${token}/`)
+    expect((await request(server.port, `/${token.slice(0, -1)}`)).status).toBe(403)
+    expect((await request(server.port, `/${token}x`)).status).toBe(403)
+    const source = await readFile(new URL('../src/server/http.ts', import.meta.url), 'utf8')
+    expect(source).not.toMatch(/===\s*tokenPrefix|tokenPrefix\s*===/)
+  })
+
+  // S1-15: no home directory leaves in the World.
+  test('world.json and the SSE payload name no path under the home directory', async () => {
+    const home = '/Users/fake-person'
+    const local = new Store({ nowMs: () => Date.now(), transcriptsRoot: `${home}/.claude` })
+    local.mergeSources({
+      transcripts: { status: 'unreadable', root: `${home}/.claude`, error: `ENOENT: no such file or directory, scandir '${home}/.claude'`, files: 0, inWindow: 0, windowHours: 12 },
+      hooks: { status: 'live', events: 1, eventsFile: `${home}/.cubiclark/events.jsonl` },
+    })
+    local.applyEvents([{ t: 'diagnostics', ts: 't0', unparsed: 0, unknownTypes: {}, versions: [], sourceError: `cannot read ${home}/.claude/projects/-x/y.jsonl` }])
+    const homed = await createHttpServer({ token, port: 0, clientDir, store: local, home })
+    try {
+      const res = await request(homed.port, `/${token}/world.json`)
+      expect(res.body).not.toContain(home)
+      expect(res.body).not.toContain('/Users/')
+      const world = JSON.parse(res.body) as { sources: { transcripts: { root: string }; hooks: { eventsFile: string } } }
+      expect(world.sources.transcripts.root).toBe('~/.claude')
+      expect(world.sources.hooks.eventsFile).toBe('~/.cubiclark/events.jsonl')
+    } finally {
+      await homed.close()
+      local.stop()
+    }
+  })
+
+  // S1-14: one serialisation per World, and a client that stopped reading is dropped.
+  test('WorldText serialises a World once however often it is asked', () => {
+    const world = store.getWorld()
+    let reads = 0
+    const counted = { ...world }
+    Object.defineProperty(counted, 'agents', {
+      get() {
+        reads += 1
+        return world.agents
+      },
+      enumerable: true,
+    })
+    const text = new WorldText(undefined)
+    const first = text.of(counted)
+    const readsAfterFirst = reads
+    expect(readsAfterFirst).toBeGreaterThan(0)
+    expect(text.of(counted)).toBe(first)
+    expect(reads).toBe(readsAfterFirst)
+  })
+
+  test('a client whose unsent output passes the cap is dropped, and the others are not', () => {
+    const fakeRes = (writableLength: number): { res: ServerResponse; writes: string[]; destroyed: () => boolean } => {
+      const writes: string[] = []
+      let destroyed = false
+      const res = {
+        statusCode: 0,
+        setHeader: () => undefined,
+        flushHeaders: () => undefined,
+        write: (chunk: string) => writes.push(chunk),
+        on: () => undefined,
+        destroy: () => {
+          destroyed = true
+        },
+        get writableLength() {
+          return writableLength
+        },
+      } as unknown as ServerResponse
+      return { res, writes, destroyed: () => destroyed }
+    }
+    const text = new WorldText(undefined)
+    const stalled = fakeRes(2_000)
+    const healthy = fakeRes(10)
+    sendSse({ on: () => undefined }, stalled.res, store, text, 1_000)
+    sendSse({ on: () => undefined }, healthy.res, store, text, 1_000)
+    expect(stalled.destroyed()).toBe(true)
+    expect(stalled.writes).toHaveLength(0)
+    expect(healthy.destroyed()).toBe(false)
+    expect(healthy.writes).toHaveLength(1)
   })
 
   test('the socket is bound to 127.0.0.1 specifically, not every interface', async () => {

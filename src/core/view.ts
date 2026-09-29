@@ -11,7 +11,7 @@ import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, 
  * viewer and are a needless thing to leak, and a full cwd would show more of the filesystem
  * than the page needs (design §4/§9: file paths are shown as basenames unless the user turns
  * full paths on — full paths are a later phase; for now the raw cwd never leaves the server). */
-export function publicWorld(world: World): World {
+export function publicWorld(world: World, home?: string): World {
   const agents: Record<string, Agent> = {}
   for (const [id, agent] of Object.entries(world.agents)) {
     agents[id] = {
@@ -22,7 +22,31 @@ export function publicWorld(world: World): World {
       openTools: agent.openTools.map((tool) => ({ ...tool, id: '' })),
     }
   }
-  return { ...world, agents }
+  const { transcripts, hooks } = world.sources
+  return {
+    ...world,
+    agents,
+    diagnostics: { ...world.diagnostics, sourceErrors: world.diagnostics.sourceErrors.map((error) => tildePath(error, home)) },
+    sources: {
+      ...world.sources,
+      transcripts: {
+        ...transcripts,
+        root: tildePath(transcripts.root, home),
+        ...(transcripts.error !== undefined ? { error: tildePath(transcripts.error, home) } : {}),
+      },
+      hooks: { ...hooks, ...(hooks.eventsFile !== undefined ? { eventsFile: tildePath(hooks.eventsFile, home) } : {}) },
+    },
+  }
+}
+
+/** The text with the home directory written as `~` (S1-15): what leaves the machine, as a
+ * screenshot, a `world.json` or a HAR file, names no user directory. */
+export function tildePath(text: string, home: string | undefined): string {
+  if (home === undefined || home.length < 2) return text
+  const trimmed = home.replace(/\/+$/, '')
+  if (trimmed.length < 2) return text
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return text.replace(new RegExp(`${escaped}(?![A-Za-z0-9_.-])`, 'g'), '~')
 }
 
 // --- The four empty screens (design §3.1, PLAN.md §1.9) ------------------------------------

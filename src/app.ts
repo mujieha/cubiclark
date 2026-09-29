@@ -147,7 +147,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   store.start()
 
   const clientDir = fileURLToPath(new URL('./client/', import.meta.url))
-  const http = await createHttpServer({ token, port: options.port, clientDir, store })
+  const http = await createHttpServer({ token, port: options.port, clientDir, store, home })
 
   const statusTimer = setInterval(() => {
     void mergeSourceStatus()
