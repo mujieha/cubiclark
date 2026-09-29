@@ -59,6 +59,8 @@ export interface ServeCommand {
   fixtureHome?: string
   sinceHours: number
   stateDir?: string
+  /** The adapter configuration file (default `<state dir>/config.json`). */
+  config?: string
 }
 
 export interface HooksCommand {
@@ -77,6 +79,9 @@ export interface DoctorCommand {
   stateDir?: string
   sinceHours: number
   claudeBin: string
+  config?: string
+  /** Also detect and read each configured adapter, and say what it found. */
+  adapters: boolean
 }
 
 export type Command =
@@ -90,9 +95,9 @@ export type Command =
 // Which flags each command accepts. A flag given to a command that ignores it is an error rather
 // than a silent no-op: `cubiclark hooks off --no-tools` should not look like it did something.
 const ALLOWED_FLAGS: Record<'serve' | 'hooks' | 'doctor', readonly string[]> = {
-  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'help', 'version'],
+  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'help', 'version'],
   hooks: ['config-dir', 'state-dir', 'no-tools', 'purge', 'help', 'version'],
-  doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'help', 'version'],
+  doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'help', 'version'],
 }
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
@@ -121,6 +126,8 @@ export function parseCli(argv: readonly string[]): Command {
         'config-dir': { type: 'string' },
         'state-dir': { type: 'string' },
         'claude-bin': { type: 'string' },
+        config: { type: 'string' },
+        adapters: { type: 'boolean' },
         'no-tools': { type: 'boolean' },
         purge: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -171,6 +178,8 @@ export function parseCli(argv: readonly string[]): Command {
       stateDir: str('state-dir'),
       sinceHours: positiveNumber(str('since-hours'), 12, 'since-hours'),
       claudeBin: str('claude-bin') ?? 'claude',
+      config: str('config'),
+      adapters: values.adapters === true,
     }
   }
 
@@ -183,6 +192,7 @@ export function parseCli(argv: readonly string[]): Command {
     fixtureHome: str('fixture-home'),
     sinceHours: positiveNumber(str('since-hours'), 12, 'since-hours'),
     stateDir: str('state-dir'),
+    config: str('config'),
   }
 }
 
@@ -291,7 +301,10 @@ async function runServe(cmd: ServeCommand): Promise<void> {
 
   let app: Awaited<ReturnType<typeof startApp>>
   try {
-    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir })
+    // The adapter configuration lives beside the events file. A fixture home without --state-dir
+    // (and without --config) reads none, so the real one is never touched by accident.
+    const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
+    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {

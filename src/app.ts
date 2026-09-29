@@ -4,9 +4,13 @@
 
 import { randomBytes } from 'node:crypto'
 import { spawn } from 'node:child_process'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hooksSourceStatus } from './core/hooks/status.js'
+import { AdapterHost } from './server/adapters/host.js'
+import { createAdapters, type AdapterDeps } from './server/adapters/registry.js'
+import { loadConfig } from './server/config-file.js'
 import { HookSource } from './server/hook-source.js'
 import { inspectHooks } from './server/hooks-install.js'
 import { Store } from './server/store.js'
@@ -24,6 +28,12 @@ export interface AppOptions {
   /** Where the collector writes events.jsonl. Undefined means no hook source at all: the page
    * then says the collector is not installed. */
   stateDir?: string
+  /** The adapter configuration file. Undefined means no adapters (a missing file is the same). */
+  configPath?: string
+  /** What `~` in the configuration expands to. Default: the user's home directory. */
+  home?: string
+  /** Test seam: how the claude-agents adapter runs its program. */
+  adapterDeps?: AdapterDeps
 }
 
 export interface RunningApp {
@@ -100,9 +110,24 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     return hooksSourceStatus(await inspectHooks(options.root, options.stateDir), stats, nowMs())
   }
 
+  // The adapters: which ones exist comes from the configuration file (none without one). They are
+  // only started below, once the clock is settled, because quota and tasks are read against it.
+  const home = options.home ?? homedir()
+  const adapterEnv = { nowMs, home }
+  const loaded =
+    options.configPath === undefined
+      ? { config: {}, warnings: [] as string[] }
+      : await loadConfig(options.configPath, { home, fixtureMode: options.fixtureMode })
+  const adapterHost = new AdapterHost({
+    adapters: createAdapters(loaded.config, adapterEnv, options.adapterDeps),
+    env: adapterEnv,
+    onSnapshot: (snapshot) => store.setAdapterSnapshot(snapshot),
+    configWarnings: loaded.warnings,
+  })
+
   const mergeSourceStatus = async (): Promise<void> => {
     try {
-      store.mergeSources({ transcripts: source.getStatus(), hooks: await hooksStatus() })
+      store.mergeSources({ transcripts: source.getStatus(), hooks: await hooksStatus(), adapters: adapterHost.statuses() })
     } catch {
       // A status refresh must never take the server down; the next tick tries again.
     }
@@ -111,11 +136,13 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   // The transcripts' history goes in first, the hooks' after it: hooks win on timing from there.
   await source.start()
   await hookSource?.start()
-  await mergeSourceStatus()
 
   if (options.fixtureMode) {
     frozenClockMs = newestActivityMs(store.getWorld()) ?? Date.now()
   }
+
+  await adapterHost.start()
+  await mergeSourceStatus()
 
   store.start()
 
@@ -133,6 +160,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     port: http.port,
     close: async () => {
       clearInterval(statusTimer)
+      adapterHost.stop()
       store.stop()
       source.stop()
       hookSource?.stop()

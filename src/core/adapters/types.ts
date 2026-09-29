@@ -56,6 +56,14 @@ export interface OrchestrationAdapter {
   snapshot(): Promise<AdapterSnapshot>
   /** Optional file watching; returns the unsubscribe function. Never throws. */
   watch?(onChange: () => void): () => void
+  /** Optional: one line for the status bar and `doctor --adapters`, from the last snapshot. */
+  describe?(nowMs: number): AdapterDescription
+}
+
+export interface AdapterDescription {
+  detail: string
+  /** True when the last snapshot could not do its job (the adapter then shows as failing). */
+  failing?: boolean
 }
 
 export function emptySnapshot(): AdapterSnapshot {

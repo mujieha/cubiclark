@@ -9,7 +9,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { buildTask, taskLinks } from '../../core/adapters/task-folder.js'
-import type { AdapterEnv, AdapterSnapshot, AgentLink, OrchestrationAdapter } from '../../core/adapters/types.js'
+import type { AdapterDescription, AdapterEnv, AdapterSnapshot, AgentLink, OrchestrationAdapter } from '../../core/adapters/types.js'
 import type { Task } from '../../core/types.js'
 
 type TaskFoldersConfig = NonNullable<AdapterConfig['taskFolders']>
@@ -136,6 +136,13 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
     this.lastTaskCount = tasks.length
     this.lastUnparsedLogLines = unparsed
     return { tasks, links, orchestratorCwds: [...this.config.orchestratorCwds], diagnostics: { unparsed, errors } }
+  }
+
+  describe(): AdapterDescription {
+    const roots = this.config.roots.length
+    const unparsed = this.lastUnparsedLogLines
+    const detail = `${this.lastTaskCount} task${this.lastTaskCount === 1 ? '' : 's'} in ${roots} root${roots === 1 ? '' : 's'}`
+    return { detail: unparsed > 0 ? `${detail} · ${unparsed} unparsed log line${unparsed === 1 ? '' : 's'}` : detail }
   }
 
   watch(onChange: () => void): () => void {

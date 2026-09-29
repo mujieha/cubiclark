@@ -6,8 +6,9 @@
 import { open, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
-import { parseQuotaText } from '../../core/adapters/quota.js'
-import type { AdapterEnv, AdapterSnapshot, OrchestrationAdapter, QuotaSample } from '../../core/adapters/types.js'
+import { parseQuotaText, quotaAt } from '../../core/adapters/quota.js'
+import type { AdapterDescription, AdapterEnv, AdapterSnapshot, OrchestrationAdapter, QuotaSample } from '../../core/adapters/types.js'
+import { relativeSince } from '../../core/view.js'
 
 type QuotaConfig = NonNullable<AdapterConfig['quotaSamples']>
 
@@ -35,6 +36,7 @@ export class QuotaSamplesAdapter implements OrchestrationAdapter {
   lastSampleCount = 0
   /** The file the last snapshot read from, by name only. */
   lastFileName: string | undefined
+  private lastSamples: QuotaSample[] = []
   private readonly cache = new Map<string, { mtimeMs: number; size: number; text: string }>()
 
   constructor(
@@ -101,6 +103,13 @@ export class QuotaSamplesAdapter implements OrchestrationAdapter {
     return text
   }
 
+  describe(nowMs: number): AdapterDescription {
+    const quota = quotaAt(this.lastSamples, nowMs)
+    if (!quota) return { detail: this.lastFileName ? `no samples yet in ${this.lastFileName}` : 'no samples file' }
+    const sampled = quota.sampledAt ? ` · sampled ${relativeSince(quota.sampledAt, nowMs)}` : ''
+    return { detail: `${quota.p5h}% of 5h · ${quota.p7d}% of 7d${sampled}` }
+  }
+
   async snapshot(): Promise<AdapterSnapshot> {
     const errors: string[] = []
     let unparsed = 0
@@ -130,6 +139,7 @@ export class QuotaSamplesAdapter implements OrchestrationAdapter {
     samples.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts))
     this.lastSkipped = skipped
     this.lastSampleCount = samples.length
+    this.lastSamples = samples
     return { quotaSamples: samples, diagnostics: { unparsed, errors } }
   }
 }

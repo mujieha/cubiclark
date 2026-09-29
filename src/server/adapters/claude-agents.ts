@@ -6,7 +6,8 @@
 import { execFile } from 'node:child_process'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { parseAgentsJson } from '../../core/adapters/claude-agents.js'
-import type { AdapterEnv, AdapterSnapshot, OrchestrationAdapter } from '../../core/adapters/types.js'
+import type { AdapterDescription, AdapterEnv, AdapterSnapshot, OrchestrationAdapter } from '../../core/adapters/types.js'
+import { relativeSince } from '../../core/view.js'
 
 type AgentsConfig = NonNullable<AdapterConfig['claudeAgents']>
 
@@ -37,6 +38,7 @@ export class ClaudeAgentsAdapter implements OrchestrationAdapter {
   lastSessionCount = 0
   lastError: string | undefined
   private cached: AdapterSnapshot | undefined
+  private cachedFetchedAt: string | undefined
   private cachedAtMs = Number.NEGATIVE_INFINITY
 
   constructor(
@@ -45,6 +47,13 @@ export class ClaudeAgentsAdapter implements OrchestrationAdapter {
     private readonly run: CommandRunner = execFileRunner
   ) {
     this.pollMs = Math.max(15_000, config.pollMs)
+  }
+
+  describe(nowMs: number): AdapterDescription {
+    if (this.lastError) return { detail: this.lastError, failing: true }
+    const n = this.lastSessionCount
+    const fetched = this.cachedFetchedAt ? ` · fetched ${relativeSince(this.cachedFetchedAt, nowMs)}` : ''
+    return { detail: `${n} session${n === 1 ? '' : 's'}${fetched}` }
   }
 
   async detect(): Promise<boolean> {
@@ -82,6 +91,7 @@ export class ClaudeAgentsAdapter implements OrchestrationAdapter {
       snapshot = { cliSessions: [], cliFetchedAt: fetchedAt, diagnostics: { unparsed: 0, errors: [this.lastError] } }
     }
     this.lastSessionCount = snapshot.cliSessions?.length ?? 0
+    this.cachedFetchedAt = fetchedAt
     this.cached = snapshot
     this.cachedAtMs = now
     return snapshot

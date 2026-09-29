@@ -114,6 +114,8 @@ describe('parseCli: doctor', () => {
       stateDir: undefined,
       sinceHours: 12,
       claudeBin: 'claude',
+      config: undefined,
+      adapters: false,
     })
   })
 
@@ -127,7 +129,22 @@ describe('parseCli: doctor', () => {
       stateDir: '/s',
       sinceHours: 3,
       claudeBin: '/bin/x',
+      config: undefined,
+      adapters: false,
     })
+  })
+
+  test('--adapters and --config', () => {
+    expect(parseCli(['doctor', '--adapters', '--config', '/c.json'])).toMatchObject({ command: 'doctor', adapters: true, config: '/c.json' })
+  })
+})
+
+describe('parseCli: --config', () => {
+  test('the default command takes it; hooks does not', () => {
+    expect(parseCli(['--config', '/c.json'])).toMatchObject({ command: 'serve', config: '/c.json' })
+    expect(parseCli([])).toMatchObject({ command: 'serve', config: undefined })
+    expect(() => parseCli(['hooks', 'on', '--config', '/c.json'])).toThrow()
+    expect(() => parseCli(['--adapters'])).toThrow(/not valid/)
   })
 })
 
