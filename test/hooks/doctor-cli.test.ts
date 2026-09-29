@@ -40,6 +40,7 @@ describe('cubiclark doctor', () => {
     expect(result.stdout).toMatch(/transcripts {3}live {6}5 transcript files, 5 read/)
     expect(result.stdout).toMatch(/hooks {9}missing {3}not installed/)
     expect(result.stdout).toContain('0 unparsed lines')
+    expect(result.stdout).toMatch(/unparsed by {3}none/)
   })
 
   test('after hooks on it reports the hooks live; with the collector copy deleted it fails with exit 1', async () => {

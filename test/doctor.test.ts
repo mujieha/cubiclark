@@ -46,7 +46,7 @@ function report(overrides: Partial<DoctorReport> = {}): DoctorReport {
     hookEvents: { verifiedOn: '2.1.284', events: EVENTS },
     transcripts: { status: 'live', reason: '5 transcript files, 5 read (/claude)' },
     hooks: { status: 'missing', reason: 'not installed: run `cubiclark hooks on`' },
-    diagnostics: { unparsedLines: 0, unknownHookShapes: 0, unknownTypes: {}, versions: ['2.1.284'], sourceErrors: [] },
+    diagnostics: { unparsedLines: 0, unknownHookShapes: 0, unknownTypes: {}, unparsedBy: {}, versions: ['2.1.284'], sourceErrors: [] },
     ...overrides,
   }
 }
@@ -60,6 +60,7 @@ describe('formatDoctorReport', () => {
         'transcripts   live      5 transcript files, 5 read (/claude)',
         'hooks         missing   not installed: run `cubiclark hooks on`',
         'diagnostics   0 unparsed lines, 0 unknown hook shapes, 0 unknown record types, versions seen: 2.1.284',
+        'unparsed by   none',
       ].join('\n')
     )
   })
@@ -87,6 +88,7 @@ describe('formatDoctorReport', () => {
           unparsedLines: 3,
           unknownHookShapes: 2,
           unknownTypes: { 'future-thing': 1, 'system:x': 2 },
+          unparsedBy: {},
           versions: [],
           sourceErrors: ['boom', 'bang'],
         },
@@ -95,6 +97,34 @@ describe('formatDoctorReport', () => {
     expect(text).toContain(
       'diagnostics   3 unparsed lines, 2 unknown hook shapes, 2 unknown record types (future-thing, system:x), versions seen: none, 2 source errors (first: boom)'
     )
+  })
+
+  test('the unparsed-by line: reasons biggest first, each with its top record types', () => {
+    const text = formatDoctorReport(
+      report({
+        diagnostics: {
+          unparsedLines: 13,
+          unknownHookShapes: 0,
+          unknownTypes: { x: 3 },
+          unparsedBy: {
+            no_timestamp: { mode: 5, 'last-prompt': 3, user: 1 },
+            unknown_type: { x: 3 },
+            not_json: { '(none)': 1 },
+          },
+          versions: [],
+          sourceErrors: [],
+        },
+      })
+    )
+    expect(text).toContain('unparsed by   no_timestamp 9 (mode 5, last-prompt 3, user 1), unknown_type 3 (x 3), not_json 1 ((none) 1)')
+  })
+
+  test('the unparsed-by line keeps only the top five types of a reason', () => {
+    const types: Record<string, number> = { a: 9, b: 8, c: 7, d: 6, e: 5, f: 4, g: 3 }
+    const text = formatDoctorReport(
+      report({ diagnostics: { unparsedLines: 42, unknownHookShapes: 0, unknownTypes: {}, unparsedBy: { unknown_type: types }, versions: [], sourceErrors: [] } })
+    )
+    expect(text).toContain('unparsed by   unknown_type 42 (a 9, b 8, c 7, d 6, e 5)')
   })
 })
 

@@ -5,7 +5,7 @@
 // ever reading a clock itself.
 
 import { projectName } from './transcript/paths.js'
-import type { Agent, AgentState, World } from './types.js'
+import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, type UnparsedReason, type World } from './types.js'
 
 /** The World as it is safe to hand to the browser: real tool_use ids are never useful to a
  * viewer and are a needless thing to leak, and a full cwd would show more of the filesystem
@@ -223,14 +223,37 @@ export function officeStatusLine(world: World): string {
   return parts.join(' · ')
 }
 
+/** Reason -> total, biggest first (ties in the order of UNPARSED_REASONS). Names and counts only. */
+export function unparsedReasonTotals(by: UnparsedBreakdown | undefined): [UnparsedReason, number][] {
+  const totals: [UnparsedReason, number][] = []
+  for (const reason of UNPARSED_REASONS) {
+    const types = by?.[reason]
+    if (!types) continue
+    const sum = Object.values(types).reduce((a, b) => a + b, 0)
+    if (sum > 0) totals.push([reason, sum])
+  }
+  return totals.sort((a, b) => b[1] - a[1])
+}
+
+/** The top record types for one reason, biggest first, then by name. */
+export function unparsedTypeCounts(by: UnparsedBreakdown | undefined, reason: UnparsedReason, limit = 5): [string, number][] {
+  return Object.entries(by?.[reason] ?? {})
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+}
+
 /** One line summarizing the World's diagnostics, e.g. "unparsed 3 · unknown types 2 · versions
  * 2.1.284 · source errors 1". Parts with nothing to report are left out; an all-clean World
  * produces "unparsed 0" alone. */
 export function diagnosticsLine(world: World): string {
   const d = world.diagnostics
   const unknownTypeCount = Object.keys(d.unknownTypes).length
+  const reasons = unparsedReasonTotals(d.unparsedBy)
+    .slice(0, 3)
+    .map(([reason, count]) => `${reason} ${count}`)
+    .join(', ')
   const parts = [
-    `unparsed ${d.unparsedLines}`,
+    `unparsed ${d.unparsedLines}${d.unparsedLines > 0 && reasons ? ` (${reasons})` : ''}`,
     unknownTypeCount > 0 ? `unknown types ${unknownTypeCount}` : undefined,
     d.versions.length > 0 ? `versions ${d.versions.join(', ')}` : undefined,
     d.unknownHookShapes > 0 ? `unknown hook shapes ${d.unknownHookShapes}` : undefined,

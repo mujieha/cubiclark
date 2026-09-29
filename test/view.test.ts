@@ -168,9 +168,24 @@ describe('diagnosticsLine', () => {
         sourceErrors: ['boom'],
         unknownTypes: { 'future-thing': 1, 'system:x': 2 },
         versions: ['2.1.284'],
+        unparsedBy: {},
       },
     }
     expect(diagnosticsLine(world)).toBe('unparsed 3 · unknown types 2 · versions 2.1.284 · source errors 1')
+  })
+
+  test('the reasons follow the unparsed count, biggest first, three at most', () => {
+    let world = emptyWorld('t0', '/root')
+    world = {
+      ...world,
+      diagnostics: {
+        ...world.diagnostics,
+        unparsedLines: 10,
+        unparsedBy: { no_timestamp: { mode: 5, user: 1 }, not_json: { '(none)': 1 }, unknown_type: { x: 2 }, handler_rejected: { assistant: 1 } },
+      },
+    }
+    // a tie (not_json 1, handler_rejected 1) keeps the order of UNPARSED_REASONS; the 4th reason is cut
+    expect(diagnosticsLine(world)).toBe('unparsed 10 (no_timestamp 6, unknown_type 2, not_json 1)')
   })
 
   test('unknown hook shapes are named when there are any', () => {

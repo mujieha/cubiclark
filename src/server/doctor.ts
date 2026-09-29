@@ -11,6 +11,8 @@ import { gateTranscriptEvent } from '../core/merge.js'
 import { reduce } from '../core/reducer.js'
 import { classifyHooks, classifyTranscripts, type SourceCheck } from '../core/hooks/status.js'
 import { HOOK_EVENTS_VERIFIED_ON, HOOK_EVENT_NAMES } from '../core/hooks/whitelist.js'
+import type { UnparsedBreakdown } from '../core/types.js'
+import { unparsedReasonTotals, unparsedTypeCounts } from '../core/view.js'
 import { emptyWorld } from '../core/world.js'
 import { HookSource } from './hook-source.js'
 import { inspectHooks } from './hooks-install.js'
@@ -27,6 +29,7 @@ export interface DoctorReport {
     unparsedLines: number
     unknownHookShapes: number
     unknownTypes: Record<string, number>
+    unparsedBy: UnparsedBreakdown
     versions: string[]
     sourceErrors: string[]
   }
@@ -116,6 +119,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
       unparsedLines: d.unparsedLines,
       unknownHookShapes: d.unknownHookShapes,
       unknownTypes: d.unknownTypes,
+      unparsedBy: d.unparsedBy,
       versions: d.versions,
       sourceErrors: d.sourceErrors,
     },
@@ -149,7 +153,20 @@ export function formatDoctorReport(r: DoctorReport): string {
     sourceLine('transcripts', r.transcripts),
     sourceLine('hooks', r.hooks),
     `${'diagnostics'.padEnd(14)}${parts.join(', ')}`,
+    `${'unparsed by'.padEnd(14)}${unparsedByText(d.unparsedBy)}`,
   ].join('\n')
+}
+
+/** "no_timestamp 9000 (mode 4000, user 3000), unknown_type 5 (x 5)", or "none". Names and counts
+ * only: the record types, never anything from the lines. */
+export function unparsedByText(by: UnparsedBreakdown): string {
+  const parts = unparsedReasonTotals(by).map(([reason, total]) => {
+    const types = unparsedTypeCounts(by, reason)
+      .map(([type, count]) => `${type} ${count}`)
+      .join(', ')
+    return `${reason} ${total}${types ? ` (${types})` : ''}`
+  })
+  return parts.length > 0 ? parts.join(', ') : 'none'
 }
 
 /** 1 only when a source is failing. A source that is merely missing is not a failure. */
