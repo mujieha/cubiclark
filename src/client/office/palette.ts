@@ -1,29 +1,18 @@
-// The one 16-colour palette (design §7) and how an agent picks its shirt, skin and hair. Our own
-// values, not a published palette. Nothing here touches the DOM, so tests can import it.
+// The palette the office is drawn in, and how an agent picks its shirt, skin and hair. The colours
+// themselves are data in src/core/theme/ (one file per theme); this module is what the sprite code
+// imports. `PALETTE` is the day palette, the one whose keys every sprite grid is validated
+// against. Nothing here touches the DOM, so tests can import it.
 
 import type { ModelFamily } from '../../core/office/roles.js'
+import { DAY } from '../../core/theme/day.js'
+import { hexToRgb } from '../../core/theme/colour.js'
+import type { Palette } from '../../core/theme/theme.js'
+
+export type { Palette }
+export { hexToRgb }
 
 /** Palette key -> '#rrggbb'. Keys are the single characters used in sprite grids. */
-export type Palette = Readonly<Record<string, string>>
-
-export const PALETTE: Palette = {
-  '0': '#16161d', // outline, ink
-  '1': '#f2efe6', // paper, bubble fill
-  '2': '#a8b0b8', // light grey, muted bubble
-  '3': '#5b6470', // mid grey, shirt for "other"
-  '4': '#2b3140', // wall dark
-  '5': '#3e4a5e', // wall face, hallway
-  '6': '#8c5a3a', // wood dark
-  '7': '#c9955f', // wood light, desk top
-  '8': '#f0c9a0', // skin light
-  '9': '#9a6444', // skin dark
-  a: '#d8483f', // red: alert bubble, red lamp, cross
-  b: '#f0a830', // amber lamp
-  c: '#4caf6e', // green: shirt haiku, check tag, plants
-  d: '#3d7fd9', // blue: shirt sonnet, screens
-  e: '#8a5cc7', // purple: shirt opus
-  f: '#e87fa8', // pink: shirt fable
-}
+export const PALETTE: Palette = DAY.palette
 
 /** Placeholders a character grid uses, replaced with a palette key when the sprite is baked. */
 export interface Subst {
@@ -62,21 +51,19 @@ export function variantFor(agentId: string): { K: string; H: string } {
   return { K: SKIN_KEYS[hash % SKIN_KEYS.length] as string, H: HAIR_KEYS[(hash >>> 8) % HAIR_KEYS.length] as string }
 }
 
-export function hexToRgb(hex: string): [number, number, number] {
-  const value = Number.parseInt(hex.slice(1), 16)
-  return [(value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff]
+/** The colour a palette entry takes in a variant: dimmed (a stuck agent: everything greyed) or
+ * dark (the lights-off scene). Normal is the palette's own colour. The greys it tones towards are
+ * the given palette's own `2`-`5`, so a theme's dim and dark scenes stay inside that theme. */
+export function toneFor(hex: string, variant: Variant, palette: Palette = PALETTE): string {
+  if (variant === 'normal') return hex
+  const lum = brightness(hex)
+  if (variant === 'dim') return lum < 0.18 ? (palette['4'] as string) : lum < 0.5 ? (palette['3'] as string) : (palette['2'] as string)
+  return lum < 0.18 ? (palette['0'] as string) : lum < 0.5 ? (palette['4'] as string) : (palette['5'] as string)
 }
 
-function luminance(hex: string): number {
+/** Weighted brightness of the gamma-encoded channels, 0 to 1: what the tones' thresholds were set
+ * against (kept as it was, so no existing picture changes). */
+function brightness(hex: string): number {
   const [r, g, b] = hexToRgb(hex)
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-}
-
-/** The colour a palette entry takes in a variant: dimmed (a stuck agent: everything greyed) or
- * dark (the lights-off scene). Normal is the palette's own colour. */
-export function toneFor(hex: string, variant: Variant): string {
-  if (variant === 'normal') return hex
-  const lum = luminance(hex)
-  if (variant === 'dim') return lum < 0.18 ? (PALETTE['4'] as string) : lum < 0.5 ? (PALETTE['3'] as string) : (PALETTE['2'] as string)
-  return lum < 0.18 ? (PALETTE['0'] as string) : lum < 0.5 ? (PALETTE['4'] as string) : (PALETTE['5'] as string)
 }
