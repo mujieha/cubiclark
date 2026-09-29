@@ -13,6 +13,7 @@ export default defineConfig({
   reporter: 'list',
   expect: {
     toHaveScreenshot: { maxDiffPixels: 0 },
+    toMatchSnapshot: { maxDiffPixels: 0 },
   },
   use: {
     ...devices['Desktop Chrome'],
