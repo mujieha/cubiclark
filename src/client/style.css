@@ -215,6 +215,48 @@ body {
   max-width: 60ch;
 }
 
+/* The first-run screen: the two ways of seeing agents, side by side when there is room. */
+.empty:has(.setup) {
+  border-style: solid;
+  max-width: 80ch;
+}
+
+.setup-title {
+  margin: 0 0 8px;
+  color: var(--fg);
+  font-size: 18px;
+}
+
+.setup-mode {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.setup-mode h3 {
+  margin: 0 0 4px;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.setup-mode p {
+  margin: 0 0 6px;
+}
+
+.setup-command {
+  display: inline-block;
+  padding: 2px 8px;
+  color: var(--fg);
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.setup-footer {
+  margin: 8px 0 0;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

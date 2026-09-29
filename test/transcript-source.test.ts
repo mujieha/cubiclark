@@ -160,7 +160,8 @@ describe('TranscriptSource', () => {
     expect(link?.ts).toBe(contentTs)
   })
 
-  test('a missing root reports unreadable with its error', async () => {
+  // A folder that does not exist is a first run (Claude Code has never run here), not a failure.
+  test('a missing root is live with no files and says the folder is missing', async () => {
     const { onEvents } = collector()
     const source = new TranscriptSource({
       root: join(dir, 'does-not-exist'),
@@ -174,9 +175,36 @@ describe('TranscriptSource', () => {
     await source.start()
     source.stop()
 
-    const status = source.getStatus()
-    expect(status.status).toBe('unreadable')
-    expect(status.error).toBeTruthy()
+    expect(source.getStatus()).toEqual({ status: 'live', root: join(dir, 'does-not-exist'), files: 0, inWindow: 0, windowHours: null, rootMissing: true })
+  })
+
+  test('a root that is a file, or cannot be listed, is still unreadable, with its error', async () => {
+    const file = join(dir, 'a-file')
+    await writeFile(file, 'x')
+    for (const root of [file]) {
+      const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 10_000, onEvents: () => undefined, nowMs: () => Date.now() })
+      await source.start()
+      source.stop()
+      const status = source.getStatus()
+      expect(status.status).toBe('unreadable')
+      expect(status.error).toMatch(/ENOTDIR/)
+      expect(status.rootMissing).toBeUndefined()
+    }
+  })
+
+  test('the folder is picked up when it appears', async () => {
+    const root = join(dir, 'later')
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 30, onEvents, nowMs: () => Date.now() })
+    await source.start()
+    expect(source.getStatus().rootMissing).toBe(true)
+    const sid = '00000000-0000-4000-8000-000000000009'
+    await mkdir(join(root, 'projects', '-tmp-demo'), { recursive: true })
+    await writeFile(join(root, 'projects', '-tmp-demo', `${sid}.jsonl`), promptLine(sid, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+    await waitFor(() => events.some((e) => e.t === 'prompt'))
+    source.stop()
+    expect(source.getStatus()).toMatchObject({ status: 'live', files: 1 })
+    expect(source.getStatus().rootMissing).toBeUndefined()
   })
 
   test('a file older than the window is counted but not read; fixture mode ignores the window', async () => {

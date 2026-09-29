@@ -212,6 +212,8 @@ export interface TranscriptSourceStatus {
   inWindow: number
   /** null in fixture mode, where the window is disabled. */
   windowHours: number | null
+  /** NEW in phase 5: the folder does not exist (yet): a first run, `live` with no files. */
+  rootMissing?: boolean
 }
 
 export interface HooksSourceStatus {

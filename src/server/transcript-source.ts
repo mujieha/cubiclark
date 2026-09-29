@@ -59,6 +59,7 @@ export class TranscriptSource {
   private stopped = false
   private status: TranscriptSourceStatus['status'] = 'starting'
   private rootError: string | undefined
+  private rootMissing = false
   private filesFound = 0
   private filesInWindow = 0
   /** The latest record `ts` actually seen in any transcript line, tracked so a sidecar meta
@@ -77,6 +78,7 @@ export class TranscriptSource {
       files: this.filesFound,
       inWindow: this.filesInWindow,
       windowHours: this.opts.windowHours,
+      ...(this.rootMissing ? { rootMissing: true } : {}),
     }
   }
 
@@ -113,12 +115,24 @@ export class TranscriptSource {
     try {
       rootEntries = await readdir(this.opts.root, { withFileTypes: true })
     } catch (err) {
+      if (errorCode(err) === 'ENOENT') {
+        // No folder yet: Claude Code has never run here. That is a first run, not a failure; the
+        // page says how to begin, and the folder is picked up when it appears.
+        this.status = 'live'
+        this.rootError = undefined
+        this.rootMissing = true
+        this.filesFound = 0
+        this.filesInWindow = 0
+        return
+      }
       this.status = 'unreadable'
       this.rootError = errorMessage(err)
+      this.rootMissing = false
       return
     }
     this.status = 'live'
     this.rootError = undefined
+    this.rootMissing = false
 
     const files: string[] = []
     for (const entry of rootEntries) {

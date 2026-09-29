@@ -1,5 +1,5 @@
 import { defaultTaskId, type LogFilter } from '../core/hud.js'
-import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusLine, sourcesLine, type EmptyScreenId } from '../core/view.js'
+import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusLine, setupScreen, sourcesLine, type EmptyScreenId } from '../core/view.js'
 import { THEMES, nextThemeChoice, resolveThemeId, themeButtonText, type Theme, type ThemeChoice } from '../core/theme/index.js'
 import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
@@ -255,7 +255,29 @@ class App {
       return
     }
     this.emptyEl.dataset.empty = screenId
+    if (screenId === 'no-collector') {
+      this.renderSetup()
+      return
+    }
     this.emptyEl.appendChild(el('p', { text: emptyScreenText(screenId, this.world) }))
+  }
+
+  /** The first run: how to begin, and the two ways of seeing agents explained. Text only. */
+  private renderSetup(): void {
+    const setup = setupScreen(this.world)
+    const wrap = el('div', { className: 'setup' })
+    wrap.appendChild(el('h2', { className: 'setup-title', text: setup.title }))
+    wrap.appendChild(el('p', { text: setup.intro }))
+    for (const mode of setup.modes) {
+      const card = el('article', { className: 'setup-mode' })
+      card.dataset.mode = mode.id
+      card.appendChild(el('h3', { text: mode.title }))
+      card.appendChild(el('p', { text: mode.body }))
+      if (mode.command) card.appendChild(el('code', { className: 'setup-command', text: mode.command }))
+      wrap.appendChild(card)
+    }
+    wrap.appendChild(el('p', { className: 'setup-footer', text: setup.footer }))
+    this.emptyEl.appendChild(wrap)
   }
 
   private renderTable(world: World | undefined): void {

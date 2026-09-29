@@ -17,6 +17,8 @@ function plural(count: number, word: string): string {
 
 export function classifyTranscripts(s: TranscriptSourceStatus): SourceCheck {
   if (s.status === 'live') {
+    // A folder that does not exist yet is nothing wrong: Claude Code has not run here.
+    if (s.rootMissing) return { status: 'missing', reason: `no transcripts folder at ${s.root}` }
     return { status: 'live', reason: `${plural(s.files, 'transcript file')}, ${s.inWindow} read (${s.root})` }
   }
   if (s.status === 'unreadable') {
