@@ -2,7 +2,10 @@ import { describe, expect, test } from 'vitest'
 import { worldSessionId } from '../scripts/world-fixture-lib.js'
 import { ACCESSORIES } from '../src/client/office/art/accessories.js'
 import { CHARACTER_FRAMES } from '../src/client/office/art/characters.js'
-import { POSE_FRAMES } from '../src/core/office/visual.js'
+import { ICONS, TAGS } from '../src/client/office/art/icons.js'
+import { PROPS, TILES } from '../src/client/office/art/tiles.js'
+import { TILE_IDS } from '../src/core/office/tilemap.js'
+import { POSE_FRAMES, STATE_VISUALS, type BubbleIcon } from '../src/core/office/visual.js'
 import { PALETTE, fnv1a, hexToRgb, shirtKey, toneFor, variantFor } from '../src/client/office/palette.js'
 import { alphaMask, mirror, rasterize, rotate90, validateSprite, type SpriteDef } from '../src/client/office/sprite.js'
 
@@ -240,5 +243,90 @@ describe('the accessories', () => {
   test('the five silhouettes are different', () => {
     const masks = Object.values(ACCESSORIES).map((a) => alphaMask(a.sprite))
     expect(new Set(masks).size).toBe(5)
+  })
+})
+
+describe('tiles and props', () => {
+  test('there is a tile for every tile id, and no other', () => {
+    expect(Object.keys(TILES).sort()).toEqual([...TILE_IDS].sort())
+  })
+
+  test('every tile is 16x16 and finished (no placeholder)', () => {
+    for (const [name, def] of Object.entries(TILES)) {
+      expect([def.w, def.h], name).toEqual([16, 16])
+      expect(validateSprite(def, name, false), name).toEqual([])
+    }
+  })
+
+  test('the floors are opaque, so the office has no holes', () => {
+    for (const name of ['floor_wood', 'floor_carpet_manager', 'floor_carpet_planning', 'floor_tile_review', 'floor_lobby', 'hall', 'wall_top', 'wall_face', 'board'] as const) {
+      expect(TILES[name].rows.every((row) => !row.includes('.')), name).toBe(true)
+    }
+  })
+
+  test('each room has its own floor', () => {
+    const floors = ['floor_wood', 'floor_carpet_manager', 'floor_carpet_planning', 'floor_tile_review', 'floor_lobby'] as const
+    expect(new Set(floors.map((name) => TILES[name].rows.join('/'))).size).toBe(floors.length)
+  })
+
+  test('the door is different open and closed', () => {
+    expect(TILES.door_open.rows).not.toEqual(TILES.door_closed.rows)
+  })
+
+  test('every prop validates, and the monitor and the lamp differ by state', () => {
+    for (const [name, def] of Object.entries(PROPS)) expect(validateSprite(def, name, false), name).toEqual([])
+    expect(new Set([PROPS.monitor_off, PROPS.monitor_on, PROPS.monitor_flicker].map((d) => d.rows.join('/'))).size).toBe(3)
+    expect(new Set([PROPS.lamp_off, PROPS.lamp_red, PROPS.lamp_amber].map((d) => d.rows.join('/'))).size).toBe(3)
+  })
+})
+
+describe('bubble icons and board tags', () => {
+  const iconNames = Object.keys(ICONS) as BubbleIcon[]
+
+  test('there is an icon for every bubble icon the state table uses', () => {
+    const used = new Set(Object.values(STATE_VISUALS).flatMap((visual) => (visual.bubble ? [visual.bubble.icon] : [])))
+    for (const name of used) expect(ICONS[name], name).toBeDefined()
+    expect(new Set(iconNames)).toEqual(used)
+  })
+
+  test('every icon is 9x9, uses only the ink and accent placeholders, and bakes', () => {
+    for (const name of iconNames) {
+      const def = ICONS[name]
+      expect([def.w, def.h], name).toEqual([9, 9])
+      expect(validateSprite(def, name), name).toEqual([])
+      expect(def.rows.join(''), name).not.toContain('H')
+      expect(() => rasterize(def, PALETTE, { S: '0', K: 'a' }), name).not.toThrow()
+    }
+  })
+
+  test('the silhouettes of all 13 icons are pairwise different: shape, not colour, tells them apart', () => {
+    const masks = iconNames.map((name) => alphaMask(ICONS[name]))
+    expect(masks).toHaveLength(13)
+    expect(new Set(masks).size).toBe(13)
+  })
+
+  test('the two board tags are 14x14, finished, and have different silhouettes', () => {
+    for (const [name, def] of Object.entries(TAGS)) {
+      expect([def.w, def.h], name).toEqual([14, 14])
+      expect(validateSprite(def, name, false), name).toEqual([])
+    }
+    expect(alphaMask(TAGS.check)).not.toBe(alphaMask(TAGS.exit))
+    expect(TAGS.check.rows).not.toEqual(TAGS.exit.rows)
+  })
+
+  test('the arrow turns to point every way, and each turn is a different picture', () => {
+    const right = ICONS.arrow
+    const down = rotate90(right)
+    const left = rotate90(down)
+    const up = rotate90(left)
+    expect(new Set([right, down, left, up].map((d) => d.rows.join('/'))).size).toBe(4)
+    expect(rotate90(up).rows).toEqual(right.rows)
+  })
+
+  test('an icon takes the ink of its bubble', () => {
+    const plain = rasterize(ICONS.cross, PALETTE, { S: '0' })
+    const alert = rasterize(ICONS.cross, PALETTE, { S: '1' })
+    expect(rgba(plain, 0)).toEqual([...hexToRgb(PALETTE['0'] as string), 255])
+    expect(rgba(alert, 0)).toEqual([...hexToRgb(PALETTE['1'] as string), 255])
   })
 })
