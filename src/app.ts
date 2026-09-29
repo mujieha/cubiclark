@@ -59,7 +59,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     windowHours: options.fixtureMode ? null : options.sinceHours,
     watch: true,
     pollMs: options.fixtureMode ? 200 : 2000,
-    onEvents: (events) => store.applyEvents(events),
+    onEvents: (events) => store.applyTranscriptEvents(events),
     nowMs,
   })
 

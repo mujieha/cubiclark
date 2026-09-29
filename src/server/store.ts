@@ -2,6 +2,7 @@
 // injected clock, and notifies subscribers (the SSE layer) on a throttle — so a burst of
 // transcript lines produces at most one push every `throttleMs`, not one per line.
 
+import { gateTranscriptEvent } from '../core/merge.js'
 import { reduce } from '../core/reducer.js'
 import { tick } from '../core/tick.js'
 import type { AgentEvent, SourcesStatus, World } from '../core/types.js'
@@ -47,6 +48,20 @@ export class Store {
     if (events.length === 0) return
     let next = this.world
     for (const event of events) next = reduce(next, event)
+    this.world = next
+    this.scheduleNotify()
+  }
+
+  /** Events from the transcript source: each one first goes through the merge gate, judged
+   * against the World as it stands at that moment, so an agent hooks already report on is not
+   * driven twice. Hook events use applyEvents. */
+  applyTranscriptEvents(events: AgentEvent[]): void {
+    if (events.length === 0) return
+    let next = this.world
+    for (const event of events) {
+      const gated = gateTranscriptEvent(next, event)
+      if (gated) next = reduce(next, gated)
+    }
     this.world = next
     this.scheduleNotify()
   }
