@@ -1,6 +1,6 @@
 # Security
 
-agent-office runs entirely on your own machine. It never calls a model and never sends anything
+Cubiclark runs entirely on your own machine. It never calls a model and never sends anything
 off the machine. This file describes the threat model for what exists today (design §9,
 restricted to phase 1: transcripts only, no hooks collector yet) and what the code does about
 each threat.

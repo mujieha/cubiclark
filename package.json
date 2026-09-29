@@ -1,15 +1,15 @@
 {
-  "name": "agent-office",
+  "name": "cubiclark",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A local list of live Claude Code agents and their states, read from transcripts only.",
+  "description": "A local view of live Claude Code agents and their states.",
   "license": "MIT",
   "engines": {
     "node": ">=22.12.0"
   },
   "bin": {
-    "agent-office": "dist/cli.js"
+    "cubiclark": "dist/cli.js"
   },
   "files": [
     "dist"

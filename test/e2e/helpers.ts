@@ -1,5 +1,5 @@
 // Spawns the built CLI and parses its one machine-readable stdout line
-// ("agent-office listening <url>") to learn the port and run token it picked.
+// ("cubiclark listening <url>") to learn the port and run token it picked.
 
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -21,7 +21,7 @@ export async function runCli(args: string[]): Promise<RunningCli> {
     const timer = setTimeout(() => reject(new Error('timed out waiting for the CLI to start')), 10_000)
     const onData = (chunk: Buffer): void => {
       buffer += chunk.toString('utf8')
-      const match = /agent-office listening (\S+)/.exec(buffer)
+      const match = /cubiclark listening (\S+)/.exec(buffer)
       if (match) {
         clearTimeout(timer)
         child.stdout?.off('data', onData)

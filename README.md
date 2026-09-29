@@ -1,4 +1,4 @@
-# agent-office
+# Cubiclark
 
 A local, transcript-only view of live Claude Code agents and their states. Runs entirely on your
 machine, on `127.0.0.1`; it never calls a model and never sends anything off the machine.
@@ -27,7 +27,7 @@ phase 3.
 - **A transcript source** that discovers transcript files under a Claude config directory, tails
   each one by byte offset, and reacts to `fs.watch` events with a polling loop always running
   underneath as the fallback (`fs.watch(recursive)` is unreliable on some file systems).
-- **A CLI** (`node dist/cli.js`, or `agent-office` once installed) that serves a plain list page
+- **A CLI** (`node dist/cli.js`, or `cubiclark` once installed) that serves a plain list page
   over `node:http` and Server-Sent Events, bound to `127.0.0.1` only, behind a random per-run
   token in the URL path and a Host-header check.
 - **The list page**: a table of every agent (kind, parent, project, model, state, since, current

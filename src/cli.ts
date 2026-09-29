@@ -11,9 +11,9 @@ import { startApp } from './app.js'
 
 const VERSION = '0.1.0'
 
-const HELP_TEXT = `agent-office ${VERSION}
+const HELP_TEXT = `cubiclark ${VERSION}
 
-Usage: agent-office [options]
+Usage: cubiclark [options]
 
   --port <n>            Port to listen on (0 picks a free one). Default 4789.
   --no-open              Do not open a browser tab.
@@ -116,17 +116,17 @@ async function main(): Promise<void> {
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {
-      console.error(`agent-office: port ${opts.port} is already in use`)
+      console.error(`cubiclark: port ${opts.port} is already in use`)
     } else {
-      console.error(`agent-office: failed to start: ${err instanceof Error ? err.message : String(err)}`)
+      console.error(`cubiclark: failed to start: ${err instanceof Error ? err.message : String(err)}`)
     }
     process.exitCode = 1
     return
   }
 
   // Exactly one machine-readable line to stdout; everything else goes to stderr.
-  console.log(`agent-office listening ${app.url}`)
-  console.error(`agent-office: ${fixtureMode ? 'reading fixture data from' : 'reading transcripts from'} ${root}`)
+  console.log(`cubiclark listening ${app.url}`)
+  console.error(`cubiclark: ${fixtureMode ? 'reading fixture data from' : 'reading transcripts from'} ${root}`)
 
   const shutdown = (): void => {
     void app.close().then(() => process.exit(0))

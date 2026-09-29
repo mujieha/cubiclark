@@ -8,7 +8,7 @@ import type { AgentEvent } from '../src/core/types.js'
 let dir: string
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'agent-office-source-'))
+  dir = await mkdtemp(join(tmpdir(), 'cubiclark-source-'))
 })
 
 afterEach(async () => {

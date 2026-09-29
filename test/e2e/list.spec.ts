@@ -51,7 +51,7 @@ test('the diagnostics line is visible and reports a clean parse', async ({ page 
 })
 
 test('an empty fixture home (no transcripts at all) shows the no-collector screen', async ({ page }) => {
-  const emptyHome = await mkdtemp(join(tmpdir(), 'agent-office-e2e-empty-'))
+  const emptyHome = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-empty-'))
   const cli = await runCli(['--fixture-home', emptyHome, '--no-open', '--port', '0'])
   try {
     await page.goto(cli.url)
@@ -63,7 +63,7 @@ test('an empty fixture home (no transcripts at all) shows the no-collector scree
 })
 
 test('a missing fixture home shows the unreadable screen', async ({ page }) => {
-  const missing = join(tmpdir(), 'agent-office-e2e-missing-does-not-exist')
+  const missing = join(tmpdir(), 'cubiclark-e2e-missing-does-not-exist')
   const cli = await runCli(['--fixture-home', missing, '--no-open', '--port', '0'])
   try {
     await page.goto(cli.url)
@@ -74,7 +74,7 @@ test('a missing fixture home shows the unreadable screen', async ({ page }) => {
 })
 
 test('a live append to a transcript updates a row over SSE, with no page reload', async ({ page }) => {
-  const tempHome = await mkdtemp(join(tmpdir(), 'agent-office-e2e-live-'))
+  const tempHome = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-live-'))
   await cp(FIXTURE_HOME, tempHome, { recursive: true })
   const cli = await runCli(['--fixture-home', tempHome, '--no-open', '--port', '0'])
   try {

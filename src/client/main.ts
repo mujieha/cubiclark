@@ -59,7 +59,7 @@ class App {
 
   private renderHeader(): HTMLElement {
     const header = el('header', { className: 'header' })
-    header.appendChild(el('span', { className: 'title', text: 'agent-office' }))
+    header.appendChild(el('span', { className: 'title', text: 'Cubiclark' }))
     header.appendChild(
       el('span', {
         className: `connection connection-${this.connection}`,

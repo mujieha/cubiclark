@@ -49,7 +49,7 @@ let store: Store
 const token = 'test-run-token-0123456789'
 
 beforeEach(async () => {
-  clientDir = await mkdtemp(join(tmpdir(), 'agent-office-http-'))
+  clientDir = await mkdtemp(join(tmpdir(), 'cubiclark-http-'))
   await writeFile(join(clientDir, 'index.html'), '<!doctype html><title>t</title>', 'utf8')
   await mkdir(join(clientDir, 'assets'), { recursive: true })
   await writeFile(join(clientDir, 'assets', 'app.js'), 'console.log(1)', 'utf8')
