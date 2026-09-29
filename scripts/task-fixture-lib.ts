@@ -97,6 +97,24 @@ export function quotaFixtureFiles(): Map<string, string> {
   return files
 }
 
+/** What the stand-in `claude agents --json` prints (test/fixtures/bin/agents.json), from the
+ * documented fields. Four sessions and one element that is not an object:
+ *  - a background session, working and busy (the home fixture's background worker);
+ *  - a background session, blocked and waiting on a permission prompt;
+ *  - an interactive session, idle, with no session id and no `state`;
+ *  - a background session whose `state` is not one of the documented five. */
+export function agentsFixtureText(): string {
+  const started = Date.parse('2026-01-16T08:00:00Z')
+  const sessions: unknown[] = [
+    { cwd: '/home/user/projects/demo', kind: 'background', startedAt: started, id: 'a1b2c3d4', state: 'working', pid: 4101, status: 'busy', sessionId: sessionId('2'), name: 'demo-worker' },
+    { cwd: '/home/user/projects/shop', kind: 'background', startedAt: started + 60_000, id: 'e5f6a7b8', state: 'blocked', pid: 4102, status: 'waiting', waitingFor: 'permission prompt', sessionId: sessionId('5'), name: 'shop-worker' },
+    { cwd: '/home/user/projects/demo', kind: 'interactive', startedAt: started + 120_000, pid: 4103, status: 'idle', name: 'interactive session' },
+    { cwd: '/home/user/projects/shop', kind: 'background', startedAt: started + 180_000, id: 'c9d0e1f2', state: 'paused-ish', sessionId: sessionId('6') },
+    42,
+  ]
+  return `${JSON.stringify(sessions, null, 2)}\n`
+}
+
 /** The tree as relative path -> file text. */
 export function taskTreeFiles(): Map<string, string> {
   const files = new Map<string, string>()

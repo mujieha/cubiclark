@@ -1,4 +1,9 @@
 #!/bin/sh
-# A stand-in for the claude executable: `cubiclark doctor --claude-bin` only ever asks it for its
-# version, and tests must never run the real one.
+# A stand-in for the claude executable. Tests must never run the real one: `--version` prints a
+# version, and `agents --json` prints test/fixtures/bin/agents.json, the shape documented for
+# `claude agents --json` (invented sessions).
+if [ "$1" = "agents" ]; then
+  cat "$(dirname "$0")/agents.json"
+  exit 0
+fi
 echo "2.1.285 (Claude Code)"
