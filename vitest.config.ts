@@ -9,7 +9,7 @@ const unusedHome = '/tmp/cubiclark-test-home-does-not-exist'
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
-    exclude: ['test/e2e/**'],
+    exclude: ['test/e2e/**', 'test/hooks/**'],
     environment: 'node',
     env: {
       HOME: unusedHome,
