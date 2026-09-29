@@ -1,0 +1,395 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:cubiclark:assets-manifest:v1",
+  "title": "Cubiclark custom assets manifest, version 1",
+  "description": "A pack of palette colours and sprites for the office (docs/assets.md). Not expressible here: the file must be at most 262144 bytes; each theme palette, with the pack's colours merged over the built-in one, must keep ink readable on paper, the red, amber and green marks apart and the model shirts apart (cubiclark doctor --assets <file> checks this); a manifest with any error is not applied at all.",
+  "type": "object",
+  "required": [
+    "version",
+    "name"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,39}$"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "palettes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "day": {
+          "$ref": "#/$defs/paletteOverride"
+        },
+        "night": {
+          "$ref": "#/$defs/paletteOverride"
+        }
+      }
+    },
+    "sprites": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 200,
+      "properties": {
+        "character:sit_idle_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_idle_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_type_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_type_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_lean_fwd_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_lean_fwd_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_lean_back": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_side": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_shuffle_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_shuffle_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_sleep": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:sit_slump": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:stand": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:stand_wave_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:stand_wave_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_down_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_down_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_up_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_up_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_side_a": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "character:walk_side_b": {
+          "$ref": "#/$defs/sprite_character_16x24"
+        },
+        "accessory:tie": {
+          "$ref": "#/$defs/sprite_accessory_4x6"
+        },
+        "accessory:clipboard": {
+          "$ref": "#/$defs/sprite_accessory_6x7"
+        },
+        "accessory:magnifier": {
+          "$ref": "#/$defs/sprite_accessory_7x7"
+        },
+        "accessory:headphones": {
+          "$ref": "#/$defs/sprite_accessory_14x7"
+        },
+        "accessory:cap": {
+          "$ref": "#/$defs/sprite_accessory_12x4"
+        },
+        "tile:floor_wood": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:floor_carpet_manager": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:floor_carpet_planning": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:floor_tile_review": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:floor_lobby": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:hall": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:partition": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:wall_top": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:wall_face": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:door_closed": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:door_open": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:desk_l": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:desk_m": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:desk_r": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:chair": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:stool": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:bench": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:sign": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:whiteboard_l": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:whiteboard_r": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:meter_frame": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:plant": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        },
+        "tile:board": {
+          "$ref": "#/$defs/sprite_tile_16x16"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "colour": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "paletteOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "0": {
+          "$ref": "#/$defs/colour"
+        },
+        "1": {
+          "$ref": "#/$defs/colour"
+        },
+        "2": {
+          "$ref": "#/$defs/colour"
+        },
+        "3": {
+          "$ref": "#/$defs/colour"
+        },
+        "4": {
+          "$ref": "#/$defs/colour"
+        },
+        "5": {
+          "$ref": "#/$defs/colour"
+        },
+        "6": {
+          "$ref": "#/$defs/colour"
+        },
+        "7": {
+          "$ref": "#/$defs/colour"
+        },
+        "8": {
+          "$ref": "#/$defs/colour"
+        },
+        "9": {
+          "$ref": "#/$defs/colour"
+        },
+        "a": {
+          "$ref": "#/$defs/colour"
+        },
+        "b": {
+          "$ref": "#/$defs/colour"
+        },
+        "c": {
+          "$ref": "#/$defs/colour"
+        },
+        "d": {
+          "$ref": "#/$defs/colour"
+        },
+        "e": {
+          "$ref": "#/$defs/colour"
+        },
+        "f": {
+          "$ref": "#/$defs/colour"
+        }
+      }
+    },
+    "sprite_character_16x24": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 24,
+          "maxItems": 24,
+          "items": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 16,
+            "pattern": "^[.0123456789abcdefSKH]+$"
+          }
+        }
+      }
+    },
+    "sprite_accessory_4x6": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    },
+    "sprite_accessory_6x7": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 6,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    },
+    "sprite_accessory_7x7": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "string",
+            "minLength": 7,
+            "maxLength": 7,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    },
+    "sprite_accessory_14x7": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "string",
+            "minLength": 14,
+            "maxLength": 14,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    },
+    "sprite_accessory_12x4": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 12,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    },
+    "sprite_tile_16x16": {
+      "type": "object",
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rows": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 16,
+            "pattern": "^[.0123456789abcdef]+$"
+          }
+        }
+      }
+    }
+  }
+}
