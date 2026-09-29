@@ -56,7 +56,7 @@ test.describe('a valid pack', () => {
       await page.goto(cli.url)
       await expect(page.locator('.sources')).toContainText('assets: ok — sunny-office: 2 palettes, 2 sprites')
       await expect(page.locator('#asset-errors')).toBeHidden()
-      expect(await pixelsOf(page, '#d9a86c')).toBeGreaterThan(0)
+      await expect.poll(() => pixelsOf(page, '#d9a86c')).toBeGreaterThan(0) // the first frame may still be coming
     } finally {
       await cli.stop()
     }
