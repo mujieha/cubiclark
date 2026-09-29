@@ -14,7 +14,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serialiseStoredLine, toStoredLine } from '../src/core/hooks/whitelist.js'
 import { hookFixtureEvents } from './hook-fixture-lib.js'
-import { taskTreeFiles } from './task-fixture-lib.js'
+import { quotaFixtureFiles, taskTreeFiles } from './task-fixture-lib.js'
 import { WORLD_FIXTURES } from './world-fixture-lib.js'
 import {
   DEMO_CWD,
@@ -42,6 +42,7 @@ const HOME_DIR = join(REPO_ROOT, 'test/fixtures/home')
 const STATE_DIR = join(REPO_ROOT, 'test/fixtures/state')
 const WORLDS_DIR = join(REPO_ROOT, 'test/fixtures/worlds')
 const TASKS_DIR = join(REPO_ROOT, 'test/fixtures/tasks')
+const QUOTA_DIR = join(REPO_ROOT, 'test/fixtures/quota')
 
 type FileMap = Map<string, string>
 
@@ -60,7 +61,7 @@ function encodeProjectDir(cwd: string): string {
   return cwd.replace(/[^a-zA-Z0-9]/g, '-')
 }
 
-function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap; worlds: FileMap; tasks: FileMap } {
+function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap; worlds: FileMap; tasks: FileMap; quota: FileMap } {
   resetFixtureSequence()
   const transcripts: FileMap = new Map()
   const home: FileMap = new Map()
@@ -68,6 +69,7 @@ function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap;
   const worlds: FileMap = new Map()
   // The task-folder tree (phase 4): plain strings, no uuid counter involved.
   const tasks: FileMap = taskTreeFiles()
+  const quota: FileMap = quotaFixtureFiles()
 
   const START = Date.parse('2026-01-15T10:00:00.000Z')
   const HOUR = 60 * 60 * 1000
@@ -164,7 +166,7 @@ function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap;
     jsonlText(recordTypes2185Lines(START + 10 * HOUR, sessionId('b'), DEMO_CWD))
   )
 
-  return { transcripts, home, state, worlds, tasks }
+  return { transcripts, home, state, worlds, tasks, quota }
 }
 
 async function writeAll(base: string, files: FileMap): Promise<void> {
@@ -195,8 +197,8 @@ async function checkAll(base: string, files: FileMap): Promise<string[]> {
 
 async function main(): Promise<void> {
   const check = process.argv.includes('--check')
-  const { transcripts, home, state, worlds, tasks } = buildFixtures()
-  const total = transcripts.size + home.size + state.size + worlds.size + tasks.size
+  const { transcripts, home, state, worlds, tasks, quota } = buildFixtures()
+  const total = transcripts.size + home.size + state.size + worlds.size + tasks.size + quota.size
 
   if (check) {
     const stale = [
@@ -205,6 +207,7 @@ async function main(): Promise<void> {
       ...(await checkAll(STATE_DIR, state)),
       ...(await checkAll(WORLDS_DIR, worlds)),
       ...(await checkAll(TASKS_DIR, tasks)),
+      ...(await checkAll(QUOTA_DIR, quota)),
     ]
     if (stale.length > 0) {
       console.error('fixtures out of date, run `npm run fixtures`:')
@@ -221,6 +224,7 @@ async function main(): Promise<void> {
   await writeAll(STATE_DIR, state)
   await writeAll(WORLDS_DIR, worlds)
   await writeAll(TASKS_DIR, tasks)
+  await writeAll(QUOTA_DIR, quota)
   console.log(`wrote ${total} fixture files`)
 }
 

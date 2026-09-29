@@ -58,6 +58,45 @@ function log(...lines: string[]): string {
 const dispatched = (time: string, id: string, project: string, model: string): string =>
   `${TASK_FIXTURE_DAY}T${time}Z dispatched session ${id} in ${project} model=${model} effort=high perms=bypassPermissions`
 
+/** Epoch seconds of a moment on 2026-01-16 (the quota fixtures' day), the way the real status
+ * line writes them. */
+export function epochSeconds(iso: string): number {
+  return Math.floor(Date.parse(iso) / 1000)
+}
+
+/** Two days of quota samples in the writer's real shape (invented values): `ts` and the resets in
+ * epoch seconds, under `limit_5h_pct`, `limit_7d_pct`, `limit_5h_resets`, `limit_7d_resets`, plus
+ * the kinds of line the reader must cope with: another metric (no percentages), a line with one
+ * percentage, ISO and millisecond times, a `resets` object, no reset at all, an out-of-range
+ * percentage, JSON that is not an object, and text that is not JSON.
+ * Expected from samples-2026-01-16.jsonl: 6 samples, 2 skipped, 2 unparsed. */
+export function quotaFixtureFiles(): Map<string, string> {
+  const files = new Map<string, string>()
+  const WEEK_RESET = epochSeconds('2026-01-19T04:00:00Z')
+  const j = (value: unknown): string => JSON.stringify(value)
+
+  files.set(
+    'samples-2026-01-15.jsonl',
+    `${j({ ts: epochSeconds('2026-01-15T23:00:00Z'), limit_5h_pct: 90, limit_7d_pct: 50, limit_5h_resets: epochSeconds('2026-01-16T01:00:00Z'), limit_7d_resets: WEEK_RESET })}\n`
+  )
+  files.set(
+    'samples-2026-01-16.jsonl',
+    [
+      j({ ts: epochSeconds('2026-01-16T08:00:00Z'), limit_5h_pct: 10, limit_7d_pct: 30, limit_5h_resets: epochSeconds('2026-01-16T10:00:00Z'), limit_7d_resets: WEEK_RESET }),
+      j({ ts: epochSeconds('2026-01-16T08:30:00Z'), tokens_in: 1200, tokens_out: 300 }),
+      j({ ts: '2026-01-16T09:00:00Z', limit_5h_pct: '25', limit_7d_pct: 31, limit_5h_resets: epochSeconds('2026-01-16T10:00:00Z'), limit_7d_resets: WEEK_RESET }),
+      'this line is not json',
+      j({ ts: epochSeconds('2026-01-16T09:30:00Z') * 1000, limit_5h_pct: 40, limit_7d_pct: 32, resets: { '5h': '2026-01-16T10:00:00Z', '7d': '2026-01-19T04:00:00Z' } }),
+      '[1, 2]',
+      j({ ts: epochSeconds('2026-01-16T10:30:00Z'), limit_5h_pct: 5 }),
+      j({ ts: epochSeconds('2026-01-16T11:00:00Z'), limit_5h_pct: 8, limit_7d_pct: 33 }),
+      j({ ts: epochSeconds('2026-01-16T12:00:00Z'), limit_5h_pct: 150, limit_7d_pct: -5, limit_5h_resets: epochSeconds('2026-01-16T17:00:00Z'), limit_7d_resets: WEEK_RESET }),
+      j({ ts: epochSeconds('2026-01-16T17:30:00Z'), limit_5h_pct: 62, limit_7d_pct: 40, limit_5h_resets: epochSeconds('2026-01-16T19:00:00Z'), limit_7d_resets: WEEK_RESET }),
+    ].join('\n') + '\n'
+  )
+  return files
+}
+
 /** The tree as relative path -> file text. */
 export function taskTreeFiles(): Map<string, string> {
   const files = new Map<string, string>()
