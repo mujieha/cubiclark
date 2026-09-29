@@ -7,7 +7,7 @@ import { LineTailer } from '../src/server/tail.js'
 let dir: string
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'agent-office-tail-'))
+  dir = await mkdtemp(join(tmpdir(), 'cubiclark-tail-'))
 })
 
 afterEach(async () => {

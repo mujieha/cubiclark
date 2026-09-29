@@ -18,6 +18,7 @@ export function publicWorld(world: World): World {
       ...agent,
       cwd: projectName(agent.cwd),
       spawnToolUseId: undefined,
+      closedToolIds: undefined,
       openTools: agent.openTools.map((tool) => ({ ...tool, id: '' })),
     }
   }
@@ -49,7 +50,7 @@ export function emptyScreenText(id: EmptyScreenId, world: World | undefined): st
     case 'unreadable':
       return `Cannot read the transcripts folder ${transcripts?.root ?? ''}: ${transcripts?.error ?? 'unknown error'}`
     case 'no-collector':
-      return `No transcripts found in ${transcripts?.root ?? ''}, and the live collector is not installed (arrives in phase 2)`
+      return `No transcripts found in ${transcripts?.root ?? ''}, and the live collector is not installed (run \`cubiclark hooks on\`)`
     case 'no-agents': {
       const windowHours = transcripts?.windowHours
       const older = (transcripts?.files ?? 0) - (transcripts?.inWindow ?? 0)
@@ -71,7 +72,7 @@ const STATE_LABELS: Record<AgentState, string> = {
   searching: 'searching',
   browsing: 'browsing',
   delegating: 'delegating',
-  waiting_permission: 'waiting for permission?',
+  waiting_permission: 'waiting for permission',
   waiting_user: 'waiting for you',
   compacting: 'compacting',
   stuck: 'stuck',
@@ -108,7 +109,9 @@ function shortId(id: string): string {
 
 function stateLabelFor(agent: Agent): string {
   const base = STATE_LABELS[agent.state]
-  return agent.stateEvidence === 'inferred' ? `${base} (inferred)` : base
+  if (agent.stateEvidence !== 'inferred') return base
+  // A guess is worded as one: "waiting for permission?" and never shown by text alone.
+  return `${agent.state === 'waiting_permission' ? `${base}?` : base} (inferred)`
 }
 
 function relativeSince(sinceIso: string, nowMs: number): string {
@@ -167,6 +170,26 @@ export function agentRows(world: World, nowMs: number): AgentRow[] {
   return rows
 }
 
+/** One line naming each source and its health, e.g. "transcripts: live · hooks: live (14 events,
+ * last 3s ago)". Measured against `world.clock`, like the rest of the page. */
+export function sourcesLine(world: World): string {
+  const { transcripts, hooks } = world.sources
+  const transcriptsText = transcripts.status === 'live' ? 'live' : transcripts.status === 'starting' ? 'starting' : 'unreadable'
+
+  let hooksText: string
+  if (hooks.status === 'not_installed') {
+    hooksText = 'not installed'
+  } else if (hooks.status === 'failing') {
+    hooksText = `failing${hooks.reason ? ` — ${hooks.reason}` : ''}`
+  } else if (hooks.paused) {
+    hooksText = 'paused'
+  } else {
+    const last = hooks.lastEventTs ? `, last ${relativeSince(hooks.lastEventTs, Date.parse(world.clock))}` : ''
+    hooksText = `live (${hooks.events} events${last})`
+  }
+  return `transcripts: ${transcriptsText} · hooks: ${hooksText}`
+}
+
 /** One line summarizing the World's diagnostics, e.g. "unparsed 3 · unknown types 2 · versions
  * 2.1.284 · source errors 1". Parts with nothing to report are left out; an all-clean World
  * produces "unparsed 0" alone. */
@@ -177,6 +200,7 @@ export function diagnosticsLine(world: World): string {
     `unparsed ${d.unparsedLines}`,
     unknownTypeCount > 0 ? `unknown types ${unknownTypeCount}` : undefined,
     d.versions.length > 0 ? `versions ${d.versions.join(', ')}` : undefined,
+    d.unknownHookShapes > 0 ? `unknown hook shapes ${d.unknownHookShapes}` : undefined,
     d.sourceErrors.length > 0 ? `source errors ${d.sourceErrors.length}` : undefined,
   ]
   return parts.filter((p): p is string => p !== undefined).join(' · ')

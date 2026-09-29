@@ -88,6 +88,21 @@ describe('tick: inferred permission wait', () => {
     expect(next.agents.a1?.stateEvidence).toBe('inferred')
   })
 
+  test('no inference on a hooked agent: real PermissionRequest signals replace the guess', () => {
+    const world = worldWith(
+      agent({
+        id: 'a1',
+        state: 'running',
+        lastActivity: isoAt(T0),
+        permissionMode: 'default',
+        hooked: { lastTs: isoAt(T0), tools: true },
+        openTools: [{ id: 't1', name: 'Bash', target: 'rm', since: isoAt(T0) }],
+      })
+    )
+    const next = tick(world, T0 + 60_000)
+    expect(next.agents.a1?.state).toBe('running')
+  })
+
   test('no inference under bypassPermissions', () => {
     const world = worldWith(
       agent({

@@ -26,7 +26,7 @@ export function emptyWorld(nowIso: string, transcriptsRoot: string): World {
         inWindow: 0,
         windowHours: null,
       },
-      hooks: { status: 'not_installed' },
+      hooks: { status: 'not_installed', events: 0 },
     },
     clock: nowIso,
   }

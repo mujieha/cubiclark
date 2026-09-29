@@ -29,5 +29,6 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - run: npm run test:hooks
       - run: npx playwright install chromium
       - run: npm run test:e2e

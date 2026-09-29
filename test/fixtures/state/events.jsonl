@@ -1,0 +1,11 @@
+{"v":1,"ts":"2026-01-15T10:02:00.000Z","e":"SessionStart","sid":"00000000-0000-4000-8000-000000000006","cwd":"/home/user/projects/demo","src":"startup","model":"claude-opus-5-5","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:02.000Z","e":"UserPromptSubmit","sid":"00000000-0000-4000-8000-000000000006","cwd":"/home/user/projects/demo","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:04.000Z","e":"PreToolUse","sid":"00000000-0000-4000-8000-000000000006","cwd":"/home/user/projects/demo","tool":"Agent","tuid":"toolu_fx000060","target":"Explore","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:06.000Z","e":"SubagentStart","sid":"00000000-0000-4000-8000-000000000006","aid":"fx0000000000000e2","at":"Explore","cwd":"/home/user/projects/demo","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:08.000Z","e":"PreToolUse","sid":"00000000-0000-4000-8000-000000000006","aid":"fx0000000000000e2","at":"Explore","cwd":"/home/user/projects/demo","tool":"Read","tuid":"toolu_fx000061","target":"notes.md","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:10.000Z","e":"PostToolUse","sid":"00000000-0000-4000-8000-000000000006","aid":"fx0000000000000e2","at":"Explore","cwd":"/home/user/projects/demo","tool":"Read","tuid":"toolu_fx000061","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:12.000Z","e":"PreToolUse","sid":"00000000-0000-4000-8000-000000000006","aid":"fx0000000000000e2","at":"Explore","cwd":"/home/user/projects/demo","tool":"Grep","tuid":"toolu_fx000062","target":"demo","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:20.000Z","e":"SessionStart","sid":"00000000-0000-4000-8000-000000000007","cwd":"/home/user/projects/demo","src":"startup","model":"claude-sonnet-5-5","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:22.000Z","e":"UserPromptSubmit","sid":"00000000-0000-4000-8000-000000000007","cwd":"/home/user/projects/demo","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:24.000Z","e":"PreToolUse","sid":"00000000-0000-4000-8000-000000000007","cwd":"/home/user/projects/demo","tool":"Bash","tuid":"toolu_fx000070","target":"npm","pm":"default"}
+{"v":1,"ts":"2026-01-15T10:02:26.000Z","e":"PermissionRequest","sid":"00000000-0000-4000-8000-000000000007","cwd":"/home/user/projects/demo","tool":"Bash","target":"npm","pm":"default"}

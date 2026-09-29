@@ -47,7 +47,7 @@ describe('emptyWorld', () => {
       inWindow: 0,
       windowHours: null,
     })
-    expect(world.sources.hooks).toEqual({ status: 'not_installed' })
+    expect(world.sources.hooks).toEqual({ status: 'not_installed', events: 0 })
     expect(world.clock).toBe('2026-01-15T10:00:00.000Z')
   })
 })

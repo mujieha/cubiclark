@@ -4,6 +4,7 @@
 // one appended line at a time, carrying the returned ParseState forward itself.
 
 import type { AgentEvent, AgentKind } from '../types.js'
+import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { fromAgentName, fromAssistant, fromPermissionMode, fromSystem, fromUser, IGNORED_TYPES } from './records.js'
 
 export interface ParseCtx {
@@ -62,7 +63,7 @@ export function parseLine(line: string, ctx: ParseCtx, state: ParseState): Parse
   // becomes visible.
   const cwd = typeof record.cwd === 'string' ? record.cwd : undefined
   const version = typeof record.version === 'string' ? record.version : undefined
-  const isBackground = record.sessionKind === 'bg'
+  const isBackground = record.sessionKind === TRANSCRIPT_GUESSES.backgroundSessionKind
   const cwdChanged = cwd !== undefined && cwd !== state.lastCwd
   const versionChanged = version !== undefined && version !== state.lastVersion
   if (!state.seenFirst || cwdChanged || versionChanged) {

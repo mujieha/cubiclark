@@ -12,6 +12,8 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { serialiseStoredLine, toStoredLine } from '../src/core/hooks/whitelist.js'
+import { hookFixtureEvents } from './hook-fixture-lib.js'
 import {
   DEMO_CWD,
   SHOP_CWD,
@@ -34,6 +36,7 @@ import {
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const TRANSCRIPTS_DIR = join(REPO_ROOT, 'test/fixtures/transcripts')
 const HOME_DIR = join(REPO_ROOT, 'test/fixtures/home')
+const STATE_DIR = join(REPO_ROOT, 'test/fixtures/state')
 
 type FileMap = Map<string, string>
 
@@ -52,10 +55,11 @@ function encodeProjectDir(cwd: string): string {
   return cwd.replace(/[^a-zA-Z0-9]/g, '-')
 }
 
-function buildFixtures(): { transcripts: FileMap; home: FileMap } {
+function buildFixtures(): { transcripts: FileMap; home: FileMap; state: FileMap } {
   resetFixtureSequence()
   const transcripts: FileMap = new Map()
   const home: FileMap = new Map()
+  const state: FileMap = new Map()
 
   const START = Date.parse('2026-01-15T10:00:00.000Z')
   const HOUR = 60 * 60 * 1000
@@ -133,7 +137,16 @@ function buildFixtures(): { transcripts: FileMap; home: FileMap } {
     jsonlText(rateLimitLines(homeStart + 90_000, homeShopSid, SHOP_CWD))
   )
 
-  return { transcripts, home }
+  // The state directory the collector would have written: two hook-only sessions, stored through
+  // the real whitelist so the fixture is exactly what `cubiclark hook` would have appended.
+  state.set(
+    'events.jsonl',
+    hookFixtureEvents()
+      .map((event) => serialiseStoredLine(toStoredLine(event.payload, event.ts)))
+      .join('')
+  )
+
+  return { transcripts, home, state }
 }
 
 async function writeAll(base: string, files: FileMap): Promise<void> {
@@ -164,23 +177,29 @@ async function checkAll(base: string, files: FileMap): Promise<string[]> {
 
 async function main(): Promise<void> {
   const check = process.argv.includes('--check')
-  const { transcripts, home } = buildFixtures()
+  const { transcripts, home, state } = buildFixtures()
+  const total = transcripts.size + home.size + state.size
 
   if (check) {
-    const stale = [...(await checkAll(TRANSCRIPTS_DIR, transcripts)), ...(await checkAll(HOME_DIR, home))]
+    const stale = [
+      ...(await checkAll(TRANSCRIPTS_DIR, transcripts)),
+      ...(await checkAll(HOME_DIR, home)),
+      ...(await checkAll(STATE_DIR, state)),
+    ]
     if (stale.length > 0) {
       console.error('fixtures out of date, run `npm run fixtures`:')
       for (const path of stale) console.error(`  ${path}`)
       process.exitCode = 1
       return
     }
-    console.log(`fixtures up to date (${transcripts.size + home.size} files)`)
+    console.log(`fixtures up to date (${total} files)`)
     return
   }
 
   await writeAll(TRANSCRIPTS_DIR, transcripts)
   await writeAll(HOME_DIR, home)
-  console.log(`wrote ${transcripts.size + home.size} fixture files`)
+  await writeAll(STATE_DIR, state)
+  console.log(`wrote ${total} fixture files`)
 }
 
 await main()

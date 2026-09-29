@@ -52,6 +52,12 @@ export default tseslint.config(
     },
   },
   {
+    // The collector must never write to stdout or stderr (PLAN.md phase 2 §1.2): stdout on some
+    // events becomes context for Claude, and any output is a token cost.
+    files: ['src/hook/**/*.ts', 'src/core/hooks/**/*.ts'],
+    rules: { 'no-console': 'error' },
+  },
+  {
     files: ['test/**/*.ts', 'scripts/**/*.ts'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',

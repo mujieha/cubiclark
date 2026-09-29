@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, publicWorld } from '../src/core/view.js'
+import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, publicWorld, sourcesLine } from '../src/core/view.js'
 import type { Agent, World } from '../src/core/types.js'
 import { emptyWorld, ensureAgent, setState, updateAgent } from '../src/core/world.js'
 
@@ -115,6 +115,13 @@ describe('agentRows', () => {
     expect(rows[0]?.stateLabel).toBe('waiting for permission? (inferred)')
   })
 
+  test('an observed permission wait (from a hook) is not worded as a guess', () => {
+    let world = emptyWorld('t0', '/root')
+    world = withAgent(world, 'a1', { state: 'waiting_permission', stateEvidence: 'observed', project: 'demo', stateSince: 't0' })
+    const rows = agentRows(world, Date.parse('2026-01-15T10:00:00.000Z'))
+    expect(rows[0]?.stateLabel).toBe('waiting for permission')
+  })
+
   test('since is formatted relative to the given now', () => {
     let world = emptyWorld('t0', '/root')
     world = ensureAgent(world, 'a1', '2026-01-15T10:00:00.000Z')
@@ -156,6 +163,48 @@ describe('diagnosticsLine', () => {
     }
     expect(diagnosticsLine(world)).toBe('unparsed 3 · unknown types 2 · versions 2.1.284 · source errors 1')
   })
+
+  test('unknown hook shapes are named when there are any', () => {
+    let world = emptyWorld('t0', '/root')
+    world = { ...world, diagnostics: { ...world.diagnostics, unknownHookShapes: 2 } }
+    expect(diagnosticsLine(world)).toBe('unparsed 0 · unknown hook shapes 2')
+  })
+})
+
+describe('sourcesLine', () => {
+  const clock = '2026-01-15T10:00:30.000Z'
+
+  function withSources(transcripts: Partial<World['sources']['transcripts']>, hooks: World['sources']['hooks']): World {
+    const world = emptyWorld(clock, '/root')
+    return { ...world, sources: { transcripts: { ...world.sources.transcripts, ...transcripts }, hooks } }
+  }
+
+  test('hooks not installed', () => {
+    const world = withSources({ status: 'live' }, { status: 'not_installed', events: 0 })
+    expect(sourcesLine(world)).toBe('transcripts: live · hooks: not installed')
+  })
+
+  test('hooks live with the event count and how long ago the last one was', () => {
+    const world = withSources({ status: 'live' }, { status: 'live', events: 14, lastEventTs: '2026-01-15T10:00:27.000Z' })
+    expect(sourcesLine(world)).toBe('transcripts: live · hooks: live (14 events, last 3s ago)')
+  })
+
+  test('hooks live with nothing read yet', () => {
+    expect(sourcesLine(withSources({ status: 'live' }, { status: 'live', events: 0 }))).toBe(
+      'transcripts: live · hooks: live (0 events)'
+    )
+  })
+
+  test('hooks paused and hooks failing with the reason', () => {
+    expect(sourcesLine(withSources({ status: 'live' }, { status: 'live', events: 3, paused: true }))).toContain('hooks: paused')
+    expect(sourcesLine(withSources({ status: 'live' }, { status: 'failing', events: 0, reason: 'the collector copy is missing' }))).toBe(
+      'transcripts: live · hooks: failing — the collector copy is missing'
+    )
+  })
+
+  test('an unreadable transcripts folder is named as such', () => {
+    expect(sourcesLine(withSources({ status: 'unreadable' }, { status: 'not_installed', events: 0 }))).toContain('transcripts: unreadable')
+  })
 })
 
 describe('publicWorld', () => {
@@ -170,5 +219,19 @@ describe('publicWorld', () => {
     expect(pub.agents.a1?.cwd).toBe('demo')
     expect(pub.agents.a1?.spawnToolUseId).toBeUndefined()
     expect(pub.agents.a1?.openTools[0]?.id).toBe('')
+  })
+
+  test('drops the closed tool ids too', () => {
+    let world = emptyWorld('t0', '/root')
+    world = withAgent(world, 'a1', { closedToolIds: ['toolu_fx000003'] })
+    expect(publicWorld(world).agents.a1?.closedToolIds).toBeUndefined()
+  })
+})
+
+describe('the no-collector screen text', () => {
+  test('points at the command that installs the collector', () => {
+    const text = emptyScreenText('no-collector', emptyWorld('t0', '/my/root'))
+    expect(text).toContain('/my/root')
+    expect(text).toContain('cubiclark hooks on')
   })
 })

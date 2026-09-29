@@ -1,9 +1,9 @@
 # Security
 
-agent-office runs entirely on your own machine. It never calls a model and never sends anything
-off the machine. This file describes the threat model for what exists today (design §9,
-restricted to phase 1: transcripts only, no hooks collector yet) and what the code does about
-each threat.
+Cubiclark runs entirely on your own machine. It never calls a model and never sends anything
+off the machine. This file describes the threat model for what exists today (design §9: the
+transcript source, the hooks collector, and the commands that install and remove it) and what the
+code does about each threat.
 
 ## Threat model
 
@@ -65,14 +65,72 @@ list, so it 404s the same as any other unknown path.
 - The World's log is capped at 300 lines and its diagnostics' source-error list at 50; both drop
   the oldest entry once full, so neither grows without bound while the process runs.
 
-## Not yet applicable
+### The collector leaking prompt text, file contents or secrets
 
-The hooks collector, `hooks on/off/status`, and any write to Claude Code's `settings.json` do not
-exist yet — they are phase 2. Their own threat model (the collector's field whitelist, exit-0
-and empty-stdout guarantees, the settings.json backup-and-atomic-write path) will be added to this
-file when they land.
+The collector (`src/hook/collector.ts`) runs once per Claude Code event and sees the whole hook
+payload, including prompts, tool inputs and tool outputs. It stores none of that.
+
+- **A whitelist, not a blocklist.** `src/core/hooks/whitelist.ts` builds each stored line field by
+  field. A field is an id or name that matches a strict pattern, a value from a fixed enum, or a
+  reduced target (a file's basename, a command's first word, a URL's host, a subagent type,
+  under 100 characters with no path separator or control character). A value that fails its rule
+  is dropped, not stored, and every field it does not name is never read. Unknown event names
+  are recorded as `_unknown` with the name only, and anything that is not a JSON object as
+  `_malformed`.
+- **The secrets test.** `test/whitelist.test.ts` and `test/hooks/collector.test.ts` push payloads
+  stuffed with fake credentials (API keys, tokens, passwords, a private-key header, an e-mail
+  address, secrets inside commands, URLs, file contents, tool responses, error text,
+  notifications, compaction summaries and unknown future fields) through the whitelist and through
+  the real collector process, and assert that none of the fake secrets appears in what is stored.
+- **A known limit.** A command's first word is kept, as the design says, so a command that
+  *starts* with a secret (`sk-... --flag`) would store that first word. Environment assignments
+  in front of a command are skipped, so `TOKEN=x cmd` stores `cmd`. Set `hooks on --no-tools` to
+  record no tool activity at all.
+- **Local files are private.** `~/.cubiclark` is created with mode 0700 and `events.jsonl` with
+  mode 0600. The state directory holds a copy of the collector that Claude Code runs with your
+  rights on every event, so keep it as private as the directory it is in.
+
+### The collector interfering with Claude Code
+
+- It exits 0 with empty stdout and empty stderr on every path, including malformed input, a
+  full disk and an unwritable state directory, so it adds nothing to any session's context
+  (stdout on some events becomes context) and never turns a failure into a blocked action. An
+  ESLint rule bans `console` in its code.
+- It never prints a decision, and never answers a `PermissionRequest`; it only observes.
+- It keeps out of Claude Code's way: ten of the fourteen events are installed as `async` hooks,
+  so nothing waits for it, and the four synchronous ones have a 5 second timeout.
+  `npm run bench:hook` measures what the collector adds over Node's own start-up and fails above
+  30 ms (about 6 ms on the development machine).
+- A soft-off file (`~/.cubiclark/off`, created by `cubiclark hooks pause`) makes it exit at once
+  without writing anything, with no edit to `settings.json`.
+- Its import graph is three files and `node:` built-ins only; `test/collector-imports.test.ts`
+  fails if a dependency is added.
+
+### `hooks on` corrupting or clobbering Claude Code's `settings.json`
+
+`src/server/hooks-install.ts` is the only code that reads or writes it, and it:
+
+- parses the file first and refuses, changing nothing anywhere, if it does not parse;
+- keeps a backup of the original bytes before the first change;
+- writes through a temp file in the same directory and a rename, so a crash cannot leave a
+  half-written file, keeps the file's mode, and follows a symlinked `settings.json` to its target
+  without replacing the link;
+- touches only handlers that run a file named `cubiclark-collector.js`, and removes only those;
+- restores the original bytes on `hooks off` when the file is exactly what `hooks on` wrote (a
+  SHA-256 recorded at install time decides), and otherwise removes only its own entries and keeps
+  any edit made since;
+- adds its entries once however many times it runs.
+
+`test/hooks-install.test.ts` and `test/hooks/hooks-cli.test.ts` check each of these against
+fixture settings files in temp directories; no test ever touches the real `~/.claude`.
+
+### A malicious line in the events file
+
+`~/.cubiclark/events.jsonl` is read like a transcript: any line that is not valid, or not a shape
+this build knows, is counted (`unparsed`, `unknown hook shapes`) and never reaches the page as
+content, and the page still renders every string with `textContent`.
 
 ## Reporting a vulnerability
 
-This repository is private during phase 1. Once it is public, use GitHub's private vulnerability
+This repository is private for now. Once it is public, use GitHub's private vulnerability
 reporting on the repository instead of opening a public issue.
