@@ -2,11 +2,20 @@
 // or a configuration file may hold escape sequences (window titles, cleared lines, OSC 52), so
 // every C0 and C1 control character is removed before it reaches `doctor` or `hooks status`.
 
+import { reducePaths } from './adapters/task-log.js'
+
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/g
 
 export function printable(text: string): string {
   return text.replace(CONTROL, '')
+}
+
+/** Free text from a file (an API error message) as it may reach the page (S1-16): control
+ * characters removed, paths reduced to their last segment, whitespace collapsed, capped. */
+export function freeText(text: string, max: number): string {
+  const clean = reducePaths(printable(text.replace(/\s+/g, ' '))).trim()
+  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean
 }
 
 /** One printable line per input line. */

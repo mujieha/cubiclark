@@ -1,7 +1,7 @@
 // The task-folders adapter over a copy of the fixture tree (test/fixtures/tasks/, generated from
 // the documented format). STATUS.md mtimes are set by the tests: a checkout's are arbitrary.
 
-import { appendFile, chmod, cp, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { appendFile, chmod, cp, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -212,5 +212,46 @@ describe('detect and watch', () => {
     const missing = new TaskFoldersAdapter({ roots: [join(root, 'nowhere')], orchestratorCwds: [], windowHours: null }, env)
     const stopMissing = missing.watch(() => undefined)
     expect(() => stopMissing()).not.toThrow()
+  })
+})
+
+// S1-10 and S1-16: files are read in bounded pieces, and only regular files are read at all.
+describe('limits on what a task folder can make the adapter read', () => {
+  test('a 6 MB LOG.md is read from its tail and the snapshot stays fast and small', async () => {
+    const ids = Array.from({ length: 100_000 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
+    const text = ids.map((id) => `2026-01-15T10:00:00Z resumed ${id}`).join('\n') + '\n'
+    expect(text.length).toBeGreaterThan(5_000_000)
+    await writeFile(join(root, 'alpha-plan', 'LOG.md'), text)
+    const started = Date.now()
+    const snap = await adapter().snapshot()
+    expect(Date.now() - started).toBeLessThan(2000)
+    const task = byId(snap.tasks)['alpha-plan'] as Task
+    expect(task.sessionIds?.length).toBeLessThanOrEqual(50)
+    expect(task.sessionIds).toContain(ids[ids.length - 1])
+    expect(JSON.stringify(snap.links).length).toBeLessThan(20_000)
+    // the cut first line of the tail is not counted as an unparsed line of its own
+    expect(snap.diagnostics.unparsed).toBe(1) // zeta-noisy's one, unchanged
+  })
+
+  test('TASK.md and STATUS.md are read only up to 64 KiB', async () => {
+    await writeFile(join(root, 'alpha-plan', 'TASK.md'), `# alpha-plan\nGoal: short\n${'x'.repeat(200_000)}\nModel: claude-late-model\n`)
+    const task = byId((await adapter().snapshot()).tasks)['alpha-plan'] as Task
+    expect(task.title).toBe('short')
+    expect(task.model).not.toBe('claude-late-model')
+  })
+
+  test('a symlinked TASK.md or LOG.md is not followed (S1-16)', async () => {
+    await writeFile(join(root, 'secret.md'), '# secret heading\nGoal: leaked goal\n')
+    await rm(join(root, 'alpha-plan', 'TASK.md'))
+    await symlink(join(root, 'secret.md'), join(root, 'alpha-plan', 'TASK.md'))
+    const snap = await adapter().snapshot()
+    expect(byId(snap.tasks)['alpha-plan']).toBeUndefined() // no TASK.md that is a file: not a task
+    expect(JSON.stringify(snap)).not.toContain('leaked goal')
+
+    await writeFile(join(root, 'secret-log.md'), `2026-01-15T10:00:00Z dispatched session ${TASK_SESSIONS.alpha} in demo\n`)
+    await rm(join(root, 'beta-build', 'LOG.md'))
+    await symlink(join(root, 'secret-log.md'), join(root, 'beta-build', 'LOG.md'))
+    const again = byId((await adapter().snapshot()).tasks)['beta-build'] as Task
+    expect(again.timeline.some((entry) => entry.text.includes('demo'))).toBe(false)
   })
 })

@@ -4,9 +4,11 @@
 
 import type { AgentRole, Task, TaskPhase, TaskTimelineEntry, TaskTimelineKind } from '../types.js'
 import type { AgentLink } from './types.js'
-import { cleanText, isSessionId, parseLog, reducePaths } from './task-log.js'
+import { cleanText, isSessionId, parseLog, plainName } from './task-log.js'
 
 export const MAX_TIMELINE_ENTRIES = 200
+/** Session ids a task keeps: the newest ones, in the order they were named. */
+export const MAX_SESSION_IDS = 50
 
 // --- TASK.md ------------------------------------------------------------------------------------
 
@@ -39,14 +41,23 @@ export function parseTaskMd(text: string): TaskMd {
   const goal = fieldValue(lines, 'Goal')
   if (goal) out.goal = cleanText(goal)
   const project = fieldValue(lines, 'Project') ?? fieldValue(lines, 'Project dir')
-  if (project) out.project = reducePaths(project.split(/\s+/)[0] ?? project)
-  const model = fieldValue(lines, 'Model')
-  if (model) out.model = model.split(/\s+/)[0]
-  const planModel = fieldValue(lines, 'PlanModel')
-  if (planModel) out.planModel = planModel.split(/\s+/)[0]
-  const effort = fieldValue(lines, 'Effort')
-  if (effort) out.effort = effort.split(/\s+/)[0]
+  const projectBase = project ? projectBasename(project.split(/\s+/)[0] ?? project) : undefined
+  if (projectBase) out.project = projectBase
+  const model = plainName(fieldValue(lines, 'Model')?.split(/\s+/)[0])
+  if (model) out.model = model
+  const planModel = plainName(fieldValue(lines, 'PlanModel')?.split(/\s+/)[0])
+  if (planModel) out.planModel = planModel
+  const effort = plainName(fieldValue(lines, 'Effort')?.split(/\s+/)[0])
+  if (effort) out.effort = effort
   return out
+}
+
+const MAX_PROJECT_CHARS = 60
+
+/** The last `/` or `\` segment of a `Project:` value, capped (S1-9): a directory name, never a path. */
+function projectBasename(value: string): string | undefined {
+  const last = value.split(/[\\/]/).filter((part) => part !== '' && part !== '~' && part !== '.' && part !== '..').pop()
+  return last === undefined ? undefined : last.slice(0, MAX_PROJECT_CHARS)
 }
 
 // --- STATUS.md ----------------------------------------------------------------------------------
@@ -157,6 +168,16 @@ function statusEntry(status: StatusMd, tsMs: number): TaskTimelineEntry | undefi
   }
 }
 
+/** The last `max` ids of `ids`, in order, with each id in `must` (when it is in `ids`) kept. */
+function keepNewest(ids: readonly string[], max: number, must: readonly (string | undefined)[]): string[] {
+  if (ids.length <= max) return [...ids]
+  const kept = ids.slice(-max)
+  for (const id of must) {
+    if (id !== undefined && !kept.includes(id) && ids.includes(id)) kept.splice(0, 1, id)
+  }
+  return kept
+}
+
 export function buildTask(parts: TaskParts): BuiltTask {
   const taskMd = parseTaskMd(parts.taskMd)
   const status = parts.statusMd === undefined ? undefined : parseStatusMd(parts.statusMd)
@@ -174,8 +195,12 @@ export function buildTask(parts: TaskParts): BuiltTask {
 
   const sessionFileId = parts.sessionFile?.split('\n')[0]?.trim()
   const fileId = sessionFileId && isSessionId(sessionFileId) ? sessionFileId : undefined
-  const sessionIds = [...log.sessions]
-  if (fileId && !sessionIds.includes(fileId)) sessionIds.push(fileId)
+  const all = fileId && !log.sessions.includes(fileId) ? [...log.sessions, fileId] : log.sessions
+  // The newest MAX_SESSION_IDS, and always the session the task is on now (S1-10).
+  const sessionIds = keepNewest(all, MAX_SESSION_IDS, [fileId, log.currentSession])
+  const keptSessions = new Set(sessionIds)
+  const only = (byId: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(Object.entries(byId).filter(([id]) => keptSessions.has(id)))
 
   const newestModel = [...timeline].reverse().find((entry) => entry.model !== undefined)?.model
 
@@ -199,8 +224,8 @@ export function buildTask(parts: TaskParts): BuiltTask {
 
   return {
     task,
-    effortBySession: log.effortBySession,
-    modelBySession: log.modelBySession,
+    effortBySession: only(log.effortBySession),
+    modelBySession: only(log.modelBySession),
     unparsedLogLines: log.unparsed,
     unknownVerbs: log.unknownVerbs,
   }

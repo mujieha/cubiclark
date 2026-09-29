@@ -2,6 +2,7 @@
 // taking the already-JSON-parsed record and returning the AgentEvent(s) it implies. parse.ts
 // dispatches to these; nothing here touches the agent_meta bookkeeping, which parse.ts owns.
 
+import { freeText } from '../printable.js'
 import type { AgentEvent, ErrorKind } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { toolActivity } from './tools.js'
@@ -152,7 +153,7 @@ export function fromAssistant(record: Record<string, unknown>, ctx: ParseCtx, ts
           agentId: ctx.agentId,
           kind: classifyTerminalApiErrorKind(errorField, text),
           retrying: false,
-          message: text ? text.slice(0, 200) : undefined,
+          message: text ? freeText(text, 200) || undefined : undefined,
         },
       ],
     }

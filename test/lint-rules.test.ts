@@ -32,6 +32,17 @@ describe('the HTML-sink ban', () => {
     expect(await ruleIds(code, 'src/client/probe.ts')).toContain('no-restricted-properties')
   })
 
+  // S1-18: the other ways to turn a string into markup.
+  test.each([
+    ['createContextualFragment', 'export function f(r: Range, x: string): void { r.createContextualFragment(x) }\n'],
+    ['DOMParser.parseFromString', "export function f(x: string): void { new DOMParser().parseFromString(x, 'text/html') }\n"],
+    ['setHTMLUnsafe', 'export function f(el: { setHTMLUnsafe(x: string): void }, x: string): void { el.setHTMLUnsafe(x) }\n'],
+    ['srcdoc', 'export function f(el: HTMLIFrameElement, x: string): void { el.srcdoc = x }\n'],
+  ])('%s is an error in the client, and in src/core too', async (_name, code) => {
+    expect(await ruleIds(code, 'src/client/probe.ts')).toContain('no-restricted-properties')
+    expect(await ruleIds(code, 'src/core/office/probe.ts')).toContain('no-restricted-properties')
+  })
+
   test('textContent is fine', async () => {
     expect(await ruleIds('export function f(el: HTMLElement, x: string): void { el.textContent = x }\n', 'src/client/probe.ts')).toEqual([])
   })

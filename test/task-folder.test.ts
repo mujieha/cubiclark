@@ -22,6 +22,50 @@ const TASK_MD = [
   '- Goal: not this one',
 ].join('\n')
 
+// S1-9: model, effort and project reach the page, so they are names, not paths or paragraphs.
+describe('what a hostile TASK.md or LOG.md can put in a name', () => {
+  test('a model, plan model or effort that is not a plain name is dropped', () => {
+    const parsed = parseTaskMd(['Model: /Users/x/y', `PlanModel: ${'m'.repeat(2000)}`, 'Effort: high;rm'].join('\n'))
+    expect(parsed).toEqual({})
+    expect(parseTaskMd('Model: claude-opus-5-5\nEffort: xhigh').model).toBe('claude-opus-5-5')
+  })
+
+  test('Project is its last segment, for / and \\ paths, and is capped', () => {
+    expect(parseTaskMd('Project: work/secret/demo').project).toBe('demo')
+    expect(parseTaskMd('Project: C:\\Users\\someone\\work\\demo').project).toBe('demo')
+    expect(parseTaskMd('Project: /home/user/projects/demo/').project).toBe('demo')
+    expect(parseTaskMd(`Project: ${'p'.repeat(500)}`).project?.length).toBeLessThanOrEqual(60)
+  })
+
+  test('a LOG.md model= or effort= that is not a plain name never reaches the task', () => {
+    const log = [
+      `2026-01-15T10:00:00Z dispatched session ${S1} in demo model=${'z'.repeat(2000)} effort=/etc/passwd`,
+      `2026-01-15T10:05:00Z resumed ${S2} model=/Users/x/y effort=high`,
+    ].join('\n')
+    const built = buildTask({ id: 't', taskMd: '# t', logText: log, nowMs: NOW })
+    expect(built.task.timeline.every((entry) => entry.model === undefined)).toBe(true)
+    expect(built.task.model).toBeUndefined()
+    expect(built.task.effort).toBe('high')
+    expect(JSON.stringify(built.task)).not.toContain('/Users/')
+    expect(JSON.stringify(built.task).length).toBeLessThan(5000)
+  })
+})
+
+// S1-10: a task with an enormous LOG.md keeps a bounded number of session ids.
+describe('a LOG.md naming very many sessions', () => {
+  test('keeps the newest 50 session ids, the current one among them, and parses fast', () => {
+    const ids = Array.from({ length: 20_000 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
+    const lines = ids.map((id, i) => `2026-01-15T10:${String(Math.floor(i / 400) % 60).padStart(2, '0')}:00Z resumed ${id}`)
+    const started = Date.now()
+    const built = buildTask({ id: 't', taskMd: '# t', logText: lines.join('\n'), nowMs: NOW })
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(built.task.sessionIds).toHaveLength(50)
+    expect(built.task.sessionIds).toContain(ids[ids.length - 1])
+    expect(built.task.currentSessionId).toBe(ids[ids.length - 1])
+    expect(Object.keys(built.effortBySession).length).toBeLessThanOrEqual(50)
+  })
+})
+
 describe('parseTaskMd', () => {
   test('goal, project (basename), model, plan model and effort', () => {
     expect(parseTaskMd(TASK_MD)).toEqual({

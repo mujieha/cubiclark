@@ -27,6 +27,26 @@ describe('toolActivity', () => {
     })
   })
 
+  // S1-16: a command that starts with a secret would have stored it as the "verb".
+  test('a first word that looks like a secret is not a target', () => {
+    for (const secret of [
+      'sk-ant-FAKESECRET123',
+      'ghp_FAKEFAKEFAKEFAKE',
+      'xoxb-1234-5678',
+      'AKIAIOSFODNN7EXAMPLE',
+      'user@host',
+      'token:abc',
+      '--key=value',
+      'a'.repeat(41),
+    ]) {
+      expect(toolActivity('Bash', { command: `${secret} --flag` }), secret).toEqual({ state: 'running', target: undefined })
+    }
+    expect(toolActivity('Bash', { command: 'a'.repeat(40) }).target).toBe('a'.repeat(40))
+    for (const verb of ['npm', 'git', 'node', 'python3', 'cargo-nextest', 'my_script.sh']) {
+      expect(toolActivity('Bash', { command: `${verb} run` }).target, verb).toBe(verb)
+    }
+  })
+
   test('Grep never returns the pattern as a target', () => {
     expect(toolActivity('Grep', { pattern: 'password123', path: '/home/user/projects/demo/src' })).toEqual({
       state: 'searching',

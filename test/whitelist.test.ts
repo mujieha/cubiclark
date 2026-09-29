@@ -199,6 +199,12 @@ describe('validation', () => {
     expect(toStoredLine({ ...base, tool_input: { command: 'C:\\tools\\x.exe --flag' } }, TS).target).toBeUndefined()
     expect(toStoredLine({ ...base, tool_input: { command: 'a'.repeat(101) } }, TS).target).toBeUndefined()
     expect(toStoredLine({ ...base, tool_input: { command: 'ok' } }, TS).target).toBe('ok')
+    // S1-16: a command that starts with a credential stores nothing
+    for (const first of ['sk-ant-FAKESECRET123', 'ghp_FAKEFAKEFAKEFAKE', 'AKIAIOSFODNN7EXAMPLE', 'me@host']) {
+      const line = toStoredLine({ ...base, tool_input: { command: `${first} --flag` } }, TS)
+      expect(line.target, first).toBeUndefined()
+      expect(JSON.stringify(line)).not.toContain(first)
+    }
   })
 
   test('a non-object tool_input is treated as empty', () => {

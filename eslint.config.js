@@ -16,6 +16,11 @@ const htmlSinkBan = {
     },
     { object: 'document', property: 'write', message: 'document.write is never used here.' },
     { object: 'document', property: 'writeln', message: 'document.write is never used here.' },
+    { property: 'createContextualFragment', message: 'Parsing markup into nodes is never done here (S1-18).' },
+    { property: 'parseFromString', message: 'DOMParser is never used here: build DOM nodes instead (S1-18).' },
+    { property: 'setHTMLUnsafe', message: 'Use textContent or build DOM nodes; never set HTML (S1-18).' },
+    { property: 'parseHTMLUnsafe', message: 'Use textContent or build DOM nodes; never parse HTML (S1-18).' },
+    { property: 'srcdoc', message: 'An iframe with inline HTML is never used here (S1-18).' },
   ],
 }
 
