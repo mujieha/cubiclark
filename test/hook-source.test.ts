@@ -76,7 +76,8 @@ describe('HookSource', () => {
     const { source, events } = makeSource({ watch: true, pollMs: 5000 })
     await source.start()
     await appendFile(eventsFile, prompt(2))
-    await waitFor(() => prompts(events) === 2)
+    // Just under the 5 s poll: only fs.watch can have delivered this line in time.
+    await waitFor(() => prompts(events) === 2, 4500)
   })
 
   test('a partial trailing line is held back until its newline arrives', async () => {

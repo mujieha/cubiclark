@@ -34,6 +34,7 @@ export class HookSource {
   private pollTimer: ReturnType<typeof setInterval> | undefined
   private stopped = false
   private polling = false
+  private pollAgain = false
   private eventCount = 0
   private lastEventTs: string | undefined
   private error: string | undefined
@@ -61,11 +62,21 @@ export class HookSource {
     this.watcher = undefined
   }
 
+  /** A request that arrives while a poll is running is not dropped: the file may have grown
+   * after that poll's read, and with only a slow timer behind it the change would wait. It
+   * asks for one more pass instead. */
   private async poll(): Promise<void> {
-    if (this.stopped || this.polling) return
+    if (this.stopped) return
+    if (this.polling) {
+      this.pollAgain = true
+      return
+    }
     this.polling = true
     try {
-      await this.pollOnce()
+      do {
+        this.pollAgain = false
+        await this.pollOnce()
+      } while (this.pollAgain && !this.stopped)
     } finally {
       this.polling = false
     }

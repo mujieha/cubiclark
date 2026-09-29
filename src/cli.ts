@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { startApp } from './app.js'
+import { doctorExitCode, formatDoctorReport, runDoctor } from './server/doctor.js'
 import {
   HooksCommandError,
   formatHooksStatus,
@@ -256,6 +257,31 @@ async function runHooks(cmd: HooksCommand): Promise<void> {
   }
 }
 
+async function runDoctorCommand(cmd: DoctorCommand): Promise<void> {
+  const home = homedir()
+  // --fixture-home wins, then --config-dir, then the usual CLAUDE_CONFIG_DIR / ~/.claude.
+  const resolved =
+    cmd.fixtureHome !== undefined
+      ? resolveRoot(cmd.fixtureHome, process.env, home)
+      : cmd.configDir !== undefined
+        ? { root: cmd.configDir, fixtureMode: false }
+        : resolveRoot(undefined, process.env, home)
+  // As in serve: a fixture home never reaches for the real state directory by accident.
+  const stateDir = cmd.stateDir ?? (resolved.fixtureMode ? undefined : resolveStateDir(undefined, process.env, home))
+
+  const report = await runDoctor({
+    root: resolved.root,
+    configDir: cmd.configDir ?? resolved.root,
+    fixtureMode: resolved.fixtureMode,
+    stateDir,
+    sinceHours: cmd.sinceHours,
+    claudeBin: cmd.claudeBin,
+    nowMs: Date.now,
+  })
+  console.log(formatDoctorReport(report))
+  process.exitCode = doctorExitCode(report)
+}
+
 async function runServe(cmd: ServeCommand): Promise<void> {
   const { root, fixtureMode } = resolveRoot(cmd.fixtureHome, process.env, homedir())
 
@@ -319,8 +345,7 @@ async function main(): Promise<void> {
       }
       return
     case 'doctor':
-      console.error('cubiclark: doctor is not implemented yet')
-      process.exitCode = 1
+      await runDoctorCommand(cmd)
       return
     case 'serve':
       await runServe(cmd)
