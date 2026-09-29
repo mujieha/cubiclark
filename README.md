@@ -19,7 +19,7 @@ install, remove and check the collector. A plain list of the same agents is one 
   calls, permission requests, compactions, failures and subagents as they happen. Transcripts stay
   in use for what hooks do not carry (the model, compactions, a manual denial, an interrupt).
 
-Verified against Claude Code **2.1.284** and its hooks reference. `cubiclark doctor` says which
+Verified against Claude Code **2.1.285** and its hooks reference. `cubiclark doctor` says which
 version you run and whether it is the one the hook events were checked on.
 
 ## Hooks
@@ -169,10 +169,10 @@ from transcripts alone reads "waiting for permission? (inferred)".
 - **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always), so
   the model still comes from transcripts.
 - **Background-session detection depends on an undocumented field** (`sessionKind: "bg"`). The key
-  exists in real 2.1.284 transcripts; its value is unverified, and the hooks reference offers no
+  exists in real 2.1.284 and 2.1.285 transcripts; its value is unverified, and the hooks reference offers no
   background marker. If it is wrong, a background worker shows as an ordinary session: wrong, but
   harmless. Every guessed transcript value lives in `src/core/transcript/guesses.ts`.
-- **The transcript format is not documented and is pinned to Claude Code 2.1.284.** Every
+- **The transcript format is not documented and is pinned to Claude Code 2.1.285.** Every
   assumption about it lives under `src/core/transcript/` and is checked against a fixture; an
   unrecognised shape is counted, never guessed at.
 - **Without hooks, the permission wait is a guess and `compacting`/`ended` are never shown.**

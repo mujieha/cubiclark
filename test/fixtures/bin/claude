@@ -1,4 +1,4 @@
 #!/bin/sh
 # A stand-in for the claude executable: `cubiclark doctor --claude-bin` only ever asks it for its
 # version, and tests must never run the real one.
-echo "2.1.284 (Claude Code)"
+echo "2.1.285 (Claude Code)"

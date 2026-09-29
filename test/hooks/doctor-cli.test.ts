@@ -36,7 +36,7 @@ describe('cubiclark doctor', () => {
   test('the fixture home, hooks not installed: exit 0, transcripts live, hooks missing', () => {
     const result = cli('doctor', '--fixture-home', home, '--state-dir', state)
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('2.1.284 — hook events verified')
+    expect(result.stdout).toContain('2.1.285 — hook events verified')
     expect(result.stdout).toMatch(/transcripts {3}live {6}5 transcript files, 5 read/)
     expect(result.stdout).toMatch(/hooks {9}missing {3}not installed/)
     expect(result.stdout).toContain('0 unparsed lines')

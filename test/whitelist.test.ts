@@ -173,6 +173,8 @@ describe('validation', () => {
   test('unknown enum values: reason and error fall back, the others are dropped', () => {
     expect(toStoredLine({ hook_event_name: 'SessionEnd', session_id: 's1', reason: 'because' }, TS).reason).toBe('other')
     expect(toStoredLine({ hook_event_name: 'StopFailure', session_id: 's1', error: 'new_kind' }, TS).err).toBe('unknown')
+    // the reference documents the matcher as `error_type`; the payload spelling is not shown
+    expect(toStoredLine({ hook_event_name: 'StopFailure', session_id: 's1', error_type: 'rate_limit' }, TS).err).toBe('rate_limit')
     const dropped = toStoredLine(
       {
         hook_event_name: 'Notification', session_id: 's1', notification_type: 'made_up',
