@@ -10,7 +10,7 @@ const FIXTURE_HOME = fileURLToPath(new URL('../fixtures/home', import.meta.url))
 test('the table lists all five fixture agents with kind, parent, model, state and current tool', async ({ page }) => {
   const cli = await runCli(['--fixture-home', FIXTURE_HOME, '--no-open', '--port', '0'])
   try {
-    await page.goto(cli.url)
+    await page.goto(`${cli.url}#list`)
     await expect(page.locator('table tbody tr')).toHaveCount(5)
 
     const tableText = await page.locator('table').innerText()
@@ -78,7 +78,7 @@ test('a live append to a transcript updates a row over SSE, with no page reload'
   await cp(FIXTURE_HOME, tempHome, { recursive: true })
   const cli = await runCli(['--fixture-home', tempHome, '--no-open', '--port', '0'])
   try {
-    await page.goto(cli.url)
+    await page.goto(`${cli.url}#list`)
     const backgroundRow = page.locator('tbody tr', { hasText: 'background' })
     await expect(backgroundRow).toContainText('running')
 

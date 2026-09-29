@@ -14,7 +14,7 @@ const FIXTURE_STATE = fileURLToPath(new URL('../fixtures/state', import.meta.url
 test('hook-driven agents appear beside the transcript ones, with observed states and a subagent under its parent', async ({ page }) => {
   const cli = await runCli(['--fixture-home', FIXTURE_HOME, '--state-dir', FIXTURE_STATE, '--no-open', '--port', '0'])
   try {
-    await page.goto(cli.url)
+    await page.goto(`${cli.url}#list`)
     // 5 transcript agents + session ...06 + its subagent + session ...07
     await expect(page.locator('table tbody tr')).toHaveCount(8)
 
@@ -49,7 +49,7 @@ test('a live append to events.jsonl moves a row over SSE, with no page reload', 
   await cp(FIXTURE_STATE, tempState, { recursive: true })
   const cli = await runCli(['--fixture-home', FIXTURE_HOME, '--state-dir', tempState, '--no-open', '--port', '0'])
   try {
-    await page.goto(cli.url)
+    await page.goto(`${cli.url}#list`)
     const waiting = page.locator('tbody tr', { hasText: 'claude-sonnet-5-5' })
     await expect(waiting).toContainText('waiting for permission')
 

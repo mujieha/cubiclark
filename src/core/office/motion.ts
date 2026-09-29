@@ -148,7 +148,7 @@ export function reconcileActors(
 
     if (toBoard) {
       if (before.phase === 'leaving') {
-        const done = nowMs >= before.startMs + before.durationMs
+        const done = reducedMotion || nowMs >= before.startMs + before.durationMs
         result.set(id, done ? { ...before, phase: 'departed', path: [placement.seat], vacatedDesk: keepDesk(before, nowMs) } : { ...before, vacatedDesk: keepDesk(before, nowMs) })
         continue
       }
@@ -169,7 +169,8 @@ export function reconcileActors(
 
     if (isWalking(before.phase)) {
       const end = before.path[before.path.length - 1] as Point
-      const walkDone = nowMs >= before.startMs + before.durationMs
+      // Reduced motion (which can be switched on mid-walk) ends every walk where it stands.
+      const walkDone = reducedMotion || nowMs >= before.startMs + before.durationMs
       if (same(end, placement.seat)) {
         result.set(id, walkDone ? standing(id, 'seated', placement.seat) : before)
       } else if (reducedMotion) {

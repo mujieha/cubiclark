@@ -142,6 +142,12 @@ describe('arrivals', () => {
     expect(actor(again, s(2)).phase).toBe('seated')
   })
 
+  test('reduced motion switched on mid-walk seats the newcomer at once', () => {
+    const still = reconcileActors(actors, l2, l2, { nowMs: 1100, reducedMotion: true, firstSnapshot: false })
+    expect(actor(still, s(2)).phase).toBe('seated')
+    expect(actor(still, sub(1)).phase).toBe('seated')
+  })
+
   test('a walker still on the way keeps walking when nothing else changed', () => {
     const again = reconcileActors(actors, l2, l2, { nowMs: 1100, ...MOVE })
     expect(again.get(s(2))).toBe(actors.get(s(2)))
@@ -198,6 +204,11 @@ describe('departures', () => {
     const still = reconcileActors(first.actors, first.l, l2, { nowMs: 1000, reducedMotion: true, firstSnapshot: false })
     expect(actor(still, s(2)).phase).toBe('departed')
     expect(actor(still, s(2)).vacatedDesk?.untilMs).toBe(1000 + DESK_CLEAR_MS)
+  })
+
+  test('reduced motion switched on mid-walk settles the leaver on the board at once', () => {
+    const still = reconcileActors(actors, l2, l2, { nowMs: 1100, reducedMotion: true, firstSnapshot: false })
+    expect(actor(still, s(2)).phase).toBe('departed')
   })
 
   test('an agent that is on the board when first seen does not walk in only to walk out', () => {

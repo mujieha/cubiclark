@@ -51,7 +51,12 @@ function colourOf(char: string, palette: Palette, subst: Subst): string | undefi
 }
 
 /** RGBA bytes, `w * h * 4`, for a sprite: transparent where the grid says `.`, opaque elsewhere. */
-export function rasterize(def: SpriteDef, palette: Palette, subst: Subst = {}, variant: Variant = 'normal'): Uint8ClampedArray {
+export function rasterize(
+  def: SpriteDef,
+  palette: Palette,
+  subst: Subst = {},
+  variant: Variant = 'normal'
+): Uint8ClampedArray<ArrayBuffer> {
   const bytes = new Uint8ClampedArray(def.w * def.h * 4)
   def.rows.forEach((row, y) => {
     for (let x = 0; x < def.w; x++) {
