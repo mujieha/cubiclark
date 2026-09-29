@@ -28,9 +28,12 @@ function errorCode(err: unknown): string {
     : 'read error'
 }
 
-async function isDirectory(path: string): Promise<boolean> {
+/** A directory that can be listed: one that exists but cannot be read is as good as absent. */
+async function isReadableDirectory(path: string): Promise<boolean> {
   try {
-    return (await stat(path)).isDirectory()
+    if (!(await stat(path)).isDirectory()) return false
+    await readdir(path)
+    return true
   } catch {
     return false
   }
@@ -53,7 +56,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
 
   async detect(): Promise<boolean> {
     try {
-      for (const root of this.config.roots) if (await isDirectory(root)) return true
+      for (const root of this.config.roots) if (await isReadableDirectory(root)) return true
     } catch {
       // never throws
     }
