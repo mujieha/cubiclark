@@ -15,6 +15,7 @@ export default defineConfig({
       HOME: unusedHome,
       CLAUDE_CONFIG_DIR: `${unusedHome}/.claude`,
       CUBICLARK_HOME: `${unusedHome}/.cubiclark`,
+      TZ: 'UTC',
     },
   },
 })

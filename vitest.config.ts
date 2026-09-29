@@ -15,6 +15,8 @@ export default defineConfig({
       HOME: unusedHome,
       CLAUDE_CONFIG_DIR: `${unusedHome}/.claude`,
       CUBICLARK_HOME: `${unusedHome}/.cubiclark`,
+      // LOG.md note lines carry a local date and time; a fixed zone keeps their tests exact.
+      TZ: 'UTC',
     },
   },
 })
