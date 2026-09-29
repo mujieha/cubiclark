@@ -3,7 +3,7 @@
 
 import { UNPARSED_REASONS, type Agent, type AgentState, type LogLine, type UnparsedBreakdown, type World } from './types.js'
 
-const MAX_LOG_LINES = 300
+const MAX_LOG_LINES = 500
 const MAX_SOURCE_ERRORS = 50
 
 export function emptyWorld(nowIso: string, transcriptsRoot: string): World {
