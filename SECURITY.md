@@ -36,6 +36,17 @@ Transcript files are, in principle, attacker-controlled input (anything that can
   `createElement`, never with `innerHTML`, `outerHTML`, `insertAdjacentHTML` or
   `document.write`. This is enforced structurally by an ESLint rule
   (`no-restricted-properties` in `eslint.config.js`), not just by convention.
+- The office puts untrusted text (file names, subagent labels, project names, commands' first
+  words) in three more places, and none of them parses markup: text on the canvas (bubbles, room
+  names, cluster signs) is drawn with `fillText`; the tooltip is built line by line with
+  `textContent`; and each agent's screen-reader label is set as an attribute value. Overlay
+  positions are written through the CSSOM (`element.style`), which the page's
+  `style-src 'self'` policy allows, so the policy stays strict.
+- The lint rule is not taken on trust: `test/lint-rules.test.ts` lints code from memory and fails
+  if `innerHTML`, `outerHTML` or `insertAdjacentHTML` stop being errors, in the client and in
+  `src/core` alike, or if `textContent` is flagged by mistake.
+- Bubble text is cut to 12 characters and tooltips show only fields the World already holds
+  (basenames, never full paths), so a long or hostile string cannot grow the page.
 - A record that is not valid JSON, is not an object, or has an unrecognised `type` is counted as
   a diagnostic and never reaches the page as content.
 
