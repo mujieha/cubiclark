@@ -39,6 +39,7 @@ describe('emptyWorld', () => {
       sourceErrors: [],
       unknownTypes: {},
       versions: [],
+      unparsedBy: {},
     })
     expect(world.sources.transcripts).toEqual({
       status: 'starting',

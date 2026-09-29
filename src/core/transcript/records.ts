@@ -12,6 +12,9 @@ export interface ParseCtx {
 
 export interface HandlerResult {
   events: AgentEvent[]
+  /** Set when the record had the right `type` but not the shape its handler needs; parse.ts
+   * counts it as an unparsed line with reason `handler_rejected`. */
+  rejected?: boolean
 }
 
 /** Record `type` values this parser knows about and deliberately does nothing with (A11):
@@ -87,6 +90,7 @@ export function fromUser(record: Record<string, unknown>, ctx: ParseCtx, ts: str
   if (permissionMode) events.push({ t: 'permission_mode', ts, agentId: ctx.agentId, mode: permissionMode })
 
   if (record.isMeta === true || record.isCompactSummary === true) return { events }
+  if (asRecord(record.message) === undefined) return { events, rejected: true }
 
   const results = toolResultBlocks(record.message)
   if (results.length > 0) {
@@ -122,7 +126,7 @@ export function fromUser(record: Record<string, unknown>, ctx: ParseCtx, ts: str
  * as absent, never propagated. */
 export function fromAssistant(record: Record<string, unknown>, ctx: ParseCtx, ts: string): HandlerResult {
   const message = asRecord(record.message)
-  if (!message) return { events: [] }
+  if (!message) return { events: [], rejected: true }
 
   const rawModel = typeof message.model === 'string' ? message.model : undefined
   const model = rawModel && rawModel !== '<synthetic>' ? rawModel : undefined
@@ -224,7 +228,7 @@ export function fromSystem(record: Record<string, unknown>, ctx: ParseCtx, ts: s
 /** A10: a dedicated permission-mode record. */
 export function fromPermissionMode(record: Record<string, unknown>, ctx: ParseCtx, ts: string): HandlerResult {
   const mode = typeof record.permissionMode === 'string' ? record.permissionMode : undefined
-  return { events: mode ? [{ t: 'permission_mode', ts, agentId: ctx.agentId, mode }] : [] }
+  return { events: mode ? [{ t: 'permission_mode', ts, agentId: ctx.agentId, mode }] : [], rejected: mode ? undefined : true }
 }
 
 /** A11: a background worker's display label. */

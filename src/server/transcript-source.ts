@@ -7,7 +7,7 @@
 import { watch as fsWatch } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
-import type { AgentEvent, TranscriptSourceStatus } from '../core/types.js'
+import type { AgentEvent, TranscriptSourceStatus, UnparsedBreakdown } from '../core/types.js'
 import { parseSubagentMeta } from '../core/transcript/meta.js'
 import { classifyPath } from '../core/transcript/paths.js'
 import { type ParseCtx, type ParseState, initialParseState, parseLine } from '../core/transcript/parse.js'
@@ -219,6 +219,7 @@ export class TranscriptSource {
     const events: AgentEvent[] = []
     let unparsed = 0
     const unknownTypes: Record<string, number> = {}
+    const unparsedBy: UnparsedBreakdown = {}
     for (const line of result.lines) {
       const parsed = parseLine(line, entry.ctx, entry.state)
       entry.state = parsed.state
@@ -227,6 +228,10 @@ export class TranscriptSource {
         unparsed += 1
         if (parsed.unknownType !== undefined) {
           unknownTypes[parsed.unknownType] = (unknownTypes[parsed.unknownType] ?? 0) + 1
+        }
+        if (parsed.reason !== undefined && parsed.recordType !== undefined) {
+          const byType = (unparsedBy[parsed.reason] ??= {})
+          byType[parsed.recordType] = (byType[parsed.recordType] ?? 0) + 1
         }
       }
     }
@@ -237,7 +242,7 @@ export class TranscriptSource {
       }
     }
     if (unparsed > 0) {
-      events.push({ t: 'diagnostics', ts: this.nowIso(), unparsed, unknownTypes, versions: [] })
+      events.push({ t: 'diagnostics', ts: this.nowIso(), unparsed, unknownTypes, unparsedBy, versions: [] })
     }
     if (events.length > 0) this.opts.onEvents(events)
   }

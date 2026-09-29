@@ -136,6 +136,22 @@ export interface LogLine {
   text: string
 }
 
+/** Why a transcript line was not turned into events. Names only, never values. */
+export const UNPARSED_REASONS = [
+  'not_json',
+  'not_object',
+  'no_type',
+  'no_timestamp',
+  'unknown_type',
+  'unknown_subtype',
+  'handler_rejected',
+] as const
+
+export type UnparsedReason = (typeof UNPARSED_REASONS)[number]
+
+/** reason -> record type ('(none)' when there is no string type) -> count. */
+export type UnparsedBreakdown = Partial<Record<UnparsedReason, Record<string, number>>>
+
 export interface Diagnostics {
   unparsedLines: number
   unknownHookShapes: number
@@ -145,6 +161,8 @@ export interface Diagnostics {
   unknownTypes: Record<string, number>
   /** NEW: distinct Claude Code versions seen in transcript records, a format-drift signal. */
   versions: string[]
+  /** NEW in phase 4: the unparsed lines by reason, then by record type. */
+  unparsedBy: UnparsedBreakdown
 }
 
 export interface TranscriptSourceStatus {
@@ -316,6 +334,7 @@ export interface DiagnosticsEvent {
   versions: string[]
   sourceError?: string
   unknownHookShapes?: number
+  unparsedBy?: UnparsedBreakdown
 }
 
 // Hook-sourced events (phase 2), produced by core/hooks/normalise.ts.

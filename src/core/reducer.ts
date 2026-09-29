@@ -26,7 +26,7 @@ import type {
   TurnEndEvent,
   World,
 } from './types.js'
-import { ensureAgent, noteVersion, pushLog, pushSourceError, setState, updateAgent } from './world.js'
+import { ensureAgent, mergeUnparsedBy, noteVersion, pushLog, pushSourceError, setState, updateAgent } from './world.js'
 
 function roleFromAgentType(agentType: string | undefined): AgentRole | undefined {
   if (!agentType) return undefined
@@ -264,6 +264,9 @@ function applyDiagnostics(world: World, event: Extract<AgentEvent, { t: 'diagnos
         unknownTypes: { ...next.diagnostics.unknownTypes, [type]: (next.diagnostics.unknownTypes[type] ?? 0) + count },
       },
     }
+  }
+  if (event.unparsedBy) {
+    next = { ...next, diagnostics: { ...next.diagnostics, unparsedBy: mergeUnparsedBy(next.diagnostics.unparsedBy, event.unparsedBy) } }
   }
   for (const version of event.versions) next = noteVersion(next, version)
   if (event.sourceError) next = pushSourceError(next, event.sourceError)
