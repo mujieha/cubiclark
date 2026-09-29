@@ -84,6 +84,8 @@ const STATE_LABELS: Record<AgentState, string> = {
 
 export interface AgentRow {
   id: string
+  /** The raw state, so the list and the office can be compared on the same value. */
+  state: AgentState
   /** 0 for a top-level agent, 1+ for a subagent/teammate, one level per nesting step. */
   depth: number
   kind: Agent['kind']
@@ -103,18 +105,19 @@ export interface AgentRow {
 // The *last* 8 characters, not the first: every synthetic id in this codebase (and, in
 // practice, every real Claude Code session id) shares a long common prefix, so a prefix-based
 // "short id" would render identically for every agent. The tail is what actually varies.
-function shortId(id: string): string {
+export function shortId(id: string): string {
   return id.length > 8 ? id.slice(-8) : id
 }
 
-function stateLabelFor(agent: Agent): string {
+/** The state as text, shared by the list, the office's tooltips and its screen-reader labels. */
+export function agentStateLabel(agent: Agent): string {
   const base = STATE_LABELS[agent.state]
   if (agent.stateEvidence !== 'inferred') return base
   // A guess is worded as one: "waiting for permission?" and never shown by text alone.
   return `${agent.state === 'waiting_permission' ? `${base}?` : base} (inferred)`
 }
 
-function relativeSince(sinceIso: string, nowMs: number): string {
+export function relativeSince(sinceIso: string, nowMs: number): string {
   const sinceMs = Date.parse(sinceIso)
   if (Number.isNaN(sinceMs)) return ''
   const deltaSec = Math.max(0, Math.round((nowMs - sinceMs) / 1000))
@@ -134,12 +137,13 @@ function toRow(agent: Agent, world: World, depth: number, nowMs: number): AgentR
   const parent = agent.parentId ? world.agents[agent.parentId] : undefined
   return {
     id: agent.id,
+    state: agent.state,
     depth,
     kind: agent.kind,
     parentLabel: parent ? `${shortId(parent.id)}${parent.label ? ` ${parent.label}` : ''}` : undefined,
     project: agent.project,
     model: agent.model,
-    stateLabel: stateLabelFor(agent),
+    stateLabel: agentStateLabel(agent),
     since: relativeSince(agent.stateSince, nowMs),
     currentTool: currentToolText(agent),
   }
@@ -188,6 +192,35 @@ export function sourcesLine(world: World): string {
     hooksText = `live (${hooks.events} events${last})`
   }
   return `transcripts: ${transcriptsText} · hooks: ${hooksText}`
+}
+
+const BUSY_STATES: ReadonlySet<AgentState> = new Set([
+  'starting',
+  'thinking',
+  'reading',
+  'editing',
+  'running',
+  'searching',
+  'browsing',
+  'delegating',
+  'compacting',
+])
+
+/** Above this many agents the office is too crowded to read and the status line says so. */
+export const BUSY_OFFICE_AGENTS = 50
+
+/** The office's status line, e.g. "12 agents · 7 busy · 2 waiting for permission · 1 rate limited".
+ * Waiting for permission is counted here on purpose (design §6): it is the state a person must act on. */
+export function officeStatusLine(world: World): string {
+  const agents = Object.values(world.agents)
+  const busy = agents.filter((agent) => BUSY_STATES.has(agent.state)).length
+  const waiting = agents.filter((agent) => agent.state === 'waiting_permission').length
+  const limited = agents.filter((agent) => agent.state === 'rate_limited').length
+  const parts = [`${agents.length} ${agents.length === 1 ? 'agent' : 'agents'}`, `${busy} busy`]
+  if (waiting > 0) parts.push(`${waiting} waiting for permission`)
+  if (limited > 0) parts.push(`${limited} rate limited`)
+  if (agents.length > BUSY_OFFICE_AGENTS) parts.push('busy office: the list view may be easier')
+  return parts.join(' · ')
 }
 
 /** One line summarizing the World's diagnostics, e.g. "unparsed 3 · unknown types 2 · versions

@@ -4,9 +4,10 @@ A local view of live Claude Code agents and their states, read from transcripts 
 from a small hooks collector. Runs entirely on your machine, on `127.0.0.1`; it never calls a
 model and never sends anything off the machine.
 
-The project so far is the data spine (a transcript parser, a hook collector, a state reducer, two
-tailing sources that merge into one world), a plain list page, and the commands to install,
-remove and check the collector. The pixel-art office described in the design comes later.
+The page is a pixel-art office: every agent is a character at a desk, and what it is doing shows
+in its pose, its speech bubble and its desk lamp. Behind it are a transcript parser, a hook
+collector, a state reducer and two tailing sources that merge into one world, plus the commands to
+install, remove and check the collector. A plain list of the same agents is one click away.
 
 ## Two ways to see agents
 
@@ -78,7 +79,8 @@ npm run typecheck
 npm run lint
 npm run build         # tsc + vite; writes dist/
 npm run test:hooks    # builds, then spawns the real collector and CLI against fixture dirs
-npm run test:e2e      # builds, then runs the Playwright end-to-end tests
+npm run test:e2e      # builds, then runs the Playwright end-to-end tests (Chromium)
+npm run test:e2e:firefox   # optional: the behaviour specs in Firefox, screenshots ignored
 npm run bench:hook    # collector overhead over Node's own start-up
 npm run fixtures        # regenerate the synthetic fixtures under test/fixtures/
 npm run fixtures:check  # verify the checked-in fixtures still match the generator
@@ -92,15 +94,68 @@ directory (`test/fixtures/home` is one), and `--state-dir <dir>` at a stand-in s
 (`test/fixtures/state`). Fixture mode disables the age window and freezes the page's clock at the
 newest record found, so a fixture world never looks stale just because the checkout is old.
 
-## What the page shows
+## The office
 
-A table of every agent (kind, parent, project, model, state, since, current tool), a line naming
-each source and its health, a diagnostics line (unparsed lines, unknown record types and hook
-shapes, Claude Code versions seen, source errors), and four distinct empty screens: no data yet,
-the transcripts folder is unreadable, no transcripts found and no collector installed, or no
-agents active right now. A subagent appears under the agent that started it, and a permission
-wait reported by a hook reads "waiting for permission" while a guess from transcripts alone reads
-"waiting for permission? (inferred)".
+The page opens on the office; the button in the header (or `#list` at the end of the URL) switches
+to the list. Both show the same World, and an end-to-end test compares them agent by agent.
+
+**Rooms.** An orchestrator (a session that started background sessions, or one an adapter names)
+sits in the *manager's office*; a planner (or an agent whose task is in its planning phase) in the
+*planning room*; a reviewer in the *review corner*. Everyone else sits at a desk on the *project
+floor*, one cluster of desks per project. A subagent or teammate sits on a *stool* beside its
+parent's desk (three stools per desk, then a bench); a subagent of a subagent sits beside the
+top-level agent. An agent that has finished or ended walks out of the door and leaves a tag on the
+board in the *lobby*, so nobody the list shows is missing from the office. Seats stay put as the
+world changes: an agent that leaves does not make everyone shuffle up.
+
+**Characters.** The shirt colour is the model family (Opus purple, Sonnet blue, Haiku green, Fable
+pink, anything else grey); the accessory is the role (a tie for an orchestrator, a clipboard for a
+planner, a magnifier for a reviewer, headphones for a builder, a cap for an explorer). New agents
+walk in from the door, and a subagent walks to the stool beside its parent.
+
+**What each state looks like.** No two states look alike, and the shape of the bubble icon (not
+only its colour) tells them apart:
+
+| State | Character | Bubble | Desk |
+|---|---|---|---|
+| starting | settles in, looks around | spark | screen still dark |
+| thinking | types slowly, head bobs | `…` | |
+| reading, searching, browsing | leans toward the screen | book, magnifier or globe, and the file or host | |
+| editing | types fast | pencil and the file | |
+| running | types | `>_` and the command's first word | screen flickers |
+| delegating | turns toward the helper's stool | arrow toward it, and its label | |
+| waiting for permission | stands and waves | red `?`, pulsing | red lamp |
+| waiting for you | leans back, hands behind the head | none | amber lamp |
+| compacting | shuffles papers | stack | |
+| stuck | frozen, dimmed | grey `!` and how long it has been quiet | |
+| rate limited | asleep | `zzz` and the time until the quota resets | dark screen |
+| failed | slumped | red cross | red screen |
+| finished, ended | walks out | none | a check or an exit tag on the lobby board |
+
+The status line under the office counts agents, busy ones, permission waits and rate limits. Above
+50 agents it suggests the list view.
+
+**Around the picture.** Hover an agent, or Tab to it, for a tooltip with who it is, its state, its
+tool and its model; Escape dismisses it. Every agent is a real button over the canvas with a screen
+reader label in the list view's own words. The four empty screens are four different empty offices
+(lights out, a padlocked cabinet, an unplugged cable, an open door), each with its message.
+
+**Reduced motion.** With the operating system's "reduce motion" setting on, nothing moves: the
+office draws once when the world changes, characters hold their first frame, nobody walks and the
+bubble does not pulse. The states are still told apart by pose, bubble and lamp. Changing the
+setting while the page is open takes effect at once.
+
+**Performance.** The canvas is capped at 30 frames a second, pauses while the tab is hidden, draws
+at a whole-number scale (so pixels stay crisp) and stops entirely while the list is showing. With
+50 agents a draw takes about a millisecond.
+
+## What else the page shows
+
+A line naming each source and its health, a diagnostics line (unparsed lines, unknown record types
+and hook shapes, Claude Code versions seen, source errors), and the list: a table of every agent
+(kind, parent, project, model, state, since, current tool). A subagent appears under the agent that
+started it, and a permission wait reported by a hook reads "waiting for permission" while a guess
+from transcripts alone reads "waiting for permission? (inferred)".
 
 ## Known limits
 
@@ -122,13 +177,29 @@ wait reported by a hook reads "waiting for permission" while a guess from transc
   unrecognised shape is counted, never guessed at.
 - **Without hooks, the permission wait is a guess and `compacting`/`ended` are never shown.**
 - **File paths are never shown in full**, only basenames.
+- **The office's screenshot baselines are macOS and Chromium.** The tests compare canvas pixels with
+  no tolerance, and the system font behind the text in bubbles and signs decides some of them. On
+  another system, regenerate them with `npx playwright test --update-snapshots` and look at them
+  before committing. Only Chromium is in CI; `npm run test:e2e:firefox` is a manual extra.
+- **Bubble text is cut to 12 characters** with an ellipsis, and is drawn in the system monospace
+  font, not a pixel font. The full text is in the tooltip.
+- **The wall meter and whiteboard are drawn but empty of data** until a later phase feeds them: the
+  meter needs quota samples and the whiteboard a task timeline.
 - **Tested on macOS and Linux.** Windows is untested.
 
 ## Development
 
 TypeScript, ESM, Node 22.12+, no runtime dependencies. `node:http` and Server-Sent Events for the
-server (no web framework); Vite for the client; Vitest for tests; ESLint with a rule banning
-`innerHTML`, `outerHTML`, `insertAdjacentHTML` and `document.write`, and another banning `console`
-in the collector. See `SECURITY.md` for the threat model.
+server (no web framework); Vite and Canvas 2D for the client; Vitest for tests; ESLint with a rule
+banning `innerHTML`, `outerHTML`, `insertAdjacentHTML` and `document.write` (and a test that proves
+it fires), another banning `console` in the collector, and another keeping `src/core` pure (no DOM,
+no `Date.now`). See `SECURITY.md` for the threat model.
+
+The office is drawn entirely in code, with no image files: sprites are grids of characters over one
+16-colour palette (`src/client/office/art/`), baked to canvases at load. What is drawn where is
+decided by pure functions in `src/core/office/` (`layout`, the state table, motion, the tile map),
+which the unit tests check without a browser; `src/client/office/` only draws what they decide.
+The end-to-end tests feed fixture worlds (`test/fixtures/worlds/`, generated by
+`scripts/world-fixture-lib.ts`) to the real page through a fake `EventSource`.
 
 MIT licensed; see `LICENSE`.
