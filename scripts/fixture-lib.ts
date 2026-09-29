@@ -349,7 +349,11 @@ export function exploreScenario(
   )
 
   subagentLines.push(userPromptRecord(subChain, sat(), lorem(6)))
-  const globId = toolUseId(1)
+  // Offset from the parent's own tool ids (spawnId = toolUseId(1)): a subagent's transcript is
+  // a separate file, but real tool_use ids are globally unique, and PLAN.md's reducer rule for
+  // matching a parent's tool_end to a subagent by spawnToolUseId would be trivially (and
+  // wrongly) satisfied by an accidental collision here.
+  const globId = toolUseId(101)
   subagentLines.push(
     assistantRecord(subChain, sat(), [toolUseBlock(globId, 'Glob', { pattern: '**/*.ts' })], {
       stopReason: 'tool_use',
@@ -358,7 +362,7 @@ export function exploreScenario(
 
   if (opts.full) {
     subagentLines.push(userToolResultRecord(subChain, sat(), globId, lorem(8)))
-    const readId = toolUseId(2)
+    const readId = toolUseId(102)
     subagentLines.push(
       assistantRecord(subChain, sat(), [toolUseBlock(readId, 'Read', { file_path: `${cwd}/src/index.ts` })], {
         stopReason: 'tool_use',
