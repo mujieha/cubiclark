@@ -119,6 +119,34 @@ test('the session log follows the task filter, and a row selects its agent', asy
   }
 })
 
+test('the log is usable by keyboard: its scroll area and each row\'s agent take focus, and Enter selects that agent', async ({ page }) => {
+  const stop = await openDay(page)
+  try {
+    const list = page.locator('#hud-log .hud-log-list')
+    await expect(list).toHaveAttribute('tabindex', '0')
+    await expect(list).toHaveAttribute('aria-label', 'Session log')
+    const button = page.locator('#hud-log .hud-log-row .log-agent').first()
+    const agentId = await page.locator('#hud-log .hud-log-row').first().getAttribute('data-agent-id')
+    await button.focus()
+    await expect(button).toBeFocused()
+    await page.keyboard.press('Enter')
+    // selected exactly once: the row's own click handler did not select a second time (which would clear it)
+    await expect(page.locator('#hud-card')).toHaveAttribute('data-agent-id', agentId ?? '')
+    await expect(page.locator('#hud-card')).not.toContainText('Select an agent')
+    // Space does the same on another row, and selects that one
+    const other = page.locator('#hud-log .hud-log-row .log-agent').last()
+    const otherId = await page.locator('#hud-log .hud-log-row').last().getAttribute('data-agent-id')
+    await other.focus()
+    await page.keyboard.press('Space')
+    await expect(page.locator('#hud-card')).toHaveAttribute('data-agent-id', otherId ?? '')
+    // a click on the button selects once too
+    await page.locator('#hud-log .hud-log-row .log-agent').first().click()
+    await expect(page.locator('#hud-card')).toHaveAttribute('data-agent-id', agentId ?? '')
+  } finally {
+    await stop()
+  }
+})
+
 test('the rooms the adapters put agents in: orchestrator, planner, reviewer and builder', async ({ page }) => {
   const stop = await openDay(page)
   try {
