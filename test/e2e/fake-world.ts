@@ -87,7 +87,24 @@ export async function loadWorld(name: string): Promise<World> {
 /** Sends a World to the page as if the server had pushed it, then lets `settleMs` of page time pass (with a paused clock). */
 export async function pushWorld(page: Page, world: World, settleMs = 100): Promise<void> {
   await page.evaluate((data) => (window as unknown as { __cubiclarkPush: (d: string) => void }).__cubiclarkPush(data), JSON.stringify(world))
-  if (clockedPages.has(page)) await page.clock.runFor(settleMs)
+  if (clockedPages.has(page)) {
+    // A new World can change the size of the office, and the page's ResizeObserver then clears the canvas
+    // and asks for a frame. The page clock is paused, so that frame only comes from `runFor`: if a busy
+    // machine ran the observer *after* the frames, the picture stayed blank. A new observer's first
+    // callback runs after the page's own in the same rendering step, so waiting for it (on the real
+    // clock, no page time passes) puts every resize before the frames that follow.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const observer = new ResizeObserver(() => {
+            observer.disconnect()
+            resolve()
+          })
+          observer.observe(document.body)
+        })
+    )
+    await page.clock.runFor(settleMs)
+  }
 }
 
 export interface AgentView {
