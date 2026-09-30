@@ -10,6 +10,10 @@ import type { OfficeLayout, Placement } from './layout.js'
 export const BUBBLE_H = 13
 /** An icon-only bubble: 4 + 9 + 4. */
 export const COMPACT_W = 17
+/** The widest a desk's bubble may be: its 12-character text in a 6 px font is about 44 px, so the
+ * real ones are at most 64. The renderer never draws one wider, which is what lets Morty's map
+ * (mascot-map.ts) keep clear of every bubble without knowing the text. */
+export const DESK_BUBBLE_MAX_W = 72
 
 export interface BubbleRequest {
   agentId: string
@@ -39,7 +43,7 @@ function deskRect(p: Placement, width: number, cols: number): Rect {
 const clampTail = (rect: Rect, headX: number): number => Math.max(rect.x + 3, Math.min(rect.x + rect.w - 4, headX))
 
 /** The places a helper's bubble may go, best first, each with where its tail points. */
-function candidates(p: Placement, width: number, cols: number): { rect: Rect; tailX: number }[] {
+export function helperCandidates(p: Placement, width: number, cols: number): { rect: Rect; tailX: number }[] {
   const box = p.boxPx
   const inside = (x: number): number => Math.max(0, Math.min(cols * TILE - width, x))
   const right: Rect = { x: box.x + box.w + 1, y: box.y + 1, w: width, h: BUBBLE_H }
@@ -88,7 +92,7 @@ export function placeBubbles(layout: OfficeLayout, requests: readonly BubbleRequ
     }
     let best: { rect: Rect; tailX: number } | undefined
     let bestCost = Number.POSITIVE_INFINITY
-    for (const candidate of candidates(p, width, cols)) {
+    for (const candidate of helperCandidates(p, width, cols)) {
       const c = cost(candidate.rect)
       if (c < bestCost) {
         best = candidate

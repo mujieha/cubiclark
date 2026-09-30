@@ -6,10 +6,10 @@
 
 import { TILE, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
-import { BUBBLE_H, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
+import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
-import { deskObjects, type TileId, type TileMap } from '../../core/office/tilemap.js'
+import { deskObjects, deskPropRects, type TileId, type TileMap } from '../../core/office/tilemap.js'
 import { whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
@@ -378,9 +378,9 @@ export class OfficeRenderer {
               : PROPS.monitor_on
     const lamp = lampFor(agent)
     const lampSprite = lamp === 'red' ? PROPS.lamp_red : lamp === 'amber' ? PROPS.lamp_amber : PROPS.lamp_off
-    const top = (cell.y + 2) * TILE
-    ctx.drawImage(this.cache.get(`prop:monitor:${screen}:${screen === 'flicker' ? Math.floor(nowMs / 100) % 2 : 0}`, monitor), cell.x * TILE + 4, top - 3)
-    ctx.drawImage(this.cache.get(`prop:lamp:${lamp}`, lampSprite), (cell.x + 2) * TILE + 5, top - 3)
+    const props = deskPropRects(cell)
+    ctx.drawImage(this.cache.get(`prop:monitor:${screen}:${screen === 'flicker' ? Math.floor(nowMs / 100) % 2 : 0}`, monitor), props.monitor.x, props.monitor.y)
+    ctx.drawImage(this.cache.get(`prop:lamp:${lamp}`, lampSprite), props.lamp.x, props.lamp.y)
   }
 
   private drawWalker(ctx: CanvasRenderingContext2D, agent: Agent, point: Point, facing: Direction, nowMs: number): void {
@@ -411,7 +411,7 @@ export class OfficeRenderer {
   private bubbleWidth(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble): number {
     const withText = placement.kind === 'desk' && bubble.text !== undefined
     const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
-    return 4 + 9 + (withText ? 3 + textWidth : 0) + 4
+    return Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + (withText ? 3 + textWidth : 0) + 4)
   }
 
   private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
@@ -462,7 +462,8 @@ export class OfficeRenderer {
     if (withText) {
       ctx.fillStyle = this.colour(style.text)
       ctx.textBaseline = 'middle'
-      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5)
+      // `width - 20` is the room the text has: the icon and the padding take the rest.
+      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5, width - 20)
     }
     ctx.restore()
   }
