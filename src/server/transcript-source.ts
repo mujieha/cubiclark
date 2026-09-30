@@ -130,6 +130,10 @@ export class TranscriptSource {
   private readonly readdir: ReaddirFn
   private readonly watchFn: WatchFn
   private scansInFlight = 0
+  /** Set while a pass runs: the guard. */
+  private passLoop: Promise<void> | undefined
+  /** A request arrived during a pass. */
+  private again = false
   private scanDirs = 0
   private scanFiles = 0
   private readonly scanStarts: number[] = []
@@ -158,7 +162,7 @@ export class TranscriptSource {
 
   /** Resolves when no pass is running (tests, and anything that must read after a settle). */
   async whenIdle(): Promise<void> {
-    return Promise.resolve()
+    while (this.passLoop) await this.passLoop
   }
 
   private trimScanStarts(): void {
@@ -179,14 +183,11 @@ export class TranscriptSource {
   }
 
   async start(): Promise<void> {
-    try {
-      await this.scan()
-    } catch (err) {
-      this.report(`transcript scan: unexpected error: ${errorCode(err)}`)
-    }
+    this.requestPass()
+    await this.whenIdle()
     if (this.opts.watch) this.setupWatch()
     this.pollTimer = setInterval(() => {
-      void this.pollAll()
+      this.requestPass()
     }, this.opts.pollMs)
   }
 
@@ -291,8 +292,14 @@ export class TranscriptSource {
       else otherFiles.push(absPath)
     }
 
-    for (const absPath of otherFiles) await this.maybeRegister(absPath)
-    for (const absPath of metaFiles) await this.maybeRegister(absPath)
+    for (const absPath of otherFiles) {
+      if (this.stopped) return
+      await this.maybeRegister(absPath)
+    }
+    for (const absPath of metaFiles) {
+      if (this.stopped) return
+      await this.maybeRegister(absPath)
+    }
   }
 
   /** One directory's entries; [] when it is gone, is not a directory, or cannot be read (a folder
@@ -434,17 +441,39 @@ export class TranscriptSource {
     return result.more
   }
 
-  /** Never throws: it runs from timers and watch callbacks, where nothing would catch it. */
-  private async pollAll(): Promise<void> {
+  /** Asks for a pass. Only one runs at a time (a walk that starts before the last one ended is what
+   * once grew the heap to gigabytes); a request that arrives during a pass is not dropped, since a
+   * file may have grown after that pass read it, but asks for exactly one more. Never throws: it
+   * runs from timers and watch callbacks, where nothing would catch it. */
+  private requestPass(): void {
     if (this.stopped) return
+    if (this.passLoop) {
+      this.again = true
+      return
+    }
+    this.passLoop = this.runPasses().finally(() => {
+      this.passLoop = undefined
+    })
+  }
+
+  private async runPasses(): Promise<void> {
     try {
-      await this.scan() // discovers new files; a no-op for ones already registered or excluded
-      for (const absPath of this.tailers.keys()) {
-        if (this.stopped) return
-        await this.pollOne(absPath)
-      }
+      do {
+        this.again = false
+        await this.pass()
+      } while (this.again && !this.stopped)
     } catch (err) {
       this.report(`transcript scan: unexpected error: ${errorCode(err)}`)
+    }
+  }
+
+  private async pass(): Promise<void> {
+    // Files registered by the scan were read by it; only the ones known before need a poll.
+    const known = [...this.tailers.keys()]
+    await this.scan() // discovers new files; a no-op for ones already registered or excluded
+    for (const absPath of known) {
+      if (this.stopped) return
+      await this.pollOne(absPath)
     }
   }
 
@@ -471,7 +500,7 @@ export class TranscriptSource {
     const watcher = this.watchFn(this.opts.root, () => {
       if (this.stopped) return
       this.stats.watchEvents += 1
-      void this.pollAll()
+      this.requestPass()
     })
     if (watcher) this.watchers.push(watcher)
   }

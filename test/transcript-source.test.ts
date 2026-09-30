@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { TranscriptSource, type ReaddirFn } from '../src/server/transcript-source.js'
+import { TranscriptSource, type ReaddirFn, type WatchFn } from '../src/server/transcript-source.js'
 import type { AgentEvent } from '../src/core/types.js'
 
 let dir: string
@@ -45,6 +45,44 @@ function spyReaddir(): { readdir: ReaddirFn; listed: string[] } {
       listed.push(path)
       return readdir(path, options)
     },
+  }
+}
+
+/** A watch the test drives by hand: `fire('projects/…')` is a file-system event. */
+function fakeWatch(): { watchFn: WatchFn; fire: (filename: string | null) => void; closed: () => boolean } {
+  let listener: ((filename: string | null) => void) | undefined
+  let closed = false
+  return {
+    watchFn: (_root, l) => {
+      listener = l
+      return { close: () => void (closed = true) }
+    },
+    fire: (filename) => listener?.(filename),
+    closed: () => closed,
+  }
+}
+
+/** A listing that can be held shut: while the gate is closed every readdir waits for it. */
+function gatedReaddir(root: string): { readdir: ReaddirFn; close: () => void; open: () => void; rootListings: () => number } {
+  let gate: Promise<void> | undefined
+  let release: (() => void) | undefined
+  let rootListings = 0
+  return {
+    readdir: async (path, options) => {
+      if (path === root) rootListings += 1
+      if (gate) await gate
+      return readdir(path, options)
+    },
+    close: () => {
+      gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+    },
+    open: () => {
+      release?.()
+      gate = undefined
+    },
+    rootListings: () => rootListings,
   }
 }
 
@@ -429,5 +467,95 @@ describe('TranscriptSource walks only where transcripts live', () => {
 
     expect(spy.listed).toEqual([dir, join(dir, 'projects')])
     expect(events.some((e) => e.t === 'prompt')).toBe(false)
+  })
+})
+
+describe('TranscriptSource runs one pass at a time', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const SESSION_EVENT = `projects/-tmp-demo/${SID}.jsonl`
+
+  async function seed(): Promise<void> {
+    await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
+    await writeFile(join(dir, 'projects', '-tmp-demo', `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+  }
+
+  function slowSource(
+    io: ReturnType<typeof gatedReaddir>,
+    watch: ReturnType<typeof fakeWatch>,
+    onEvents: (events: AgentEvent[]) => void,
+    pollMs = 60_000
+  ): TranscriptSource {
+    return new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: true,
+      pollMs,
+      onEvents,
+      nowMs: () => Date.now(),
+      rescanMs: 0, // every pass is a full scan: the guard is what is under test
+      readdir: io.readdir,
+      watchFn: watch.watchFn,
+    })
+  }
+
+  test('requests during a pass ask for exactly one more, not one each', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const source = slowSource(io, watch, () => undefined)
+    await source.start()
+    expect(io.rootListings()).toBe(1)
+
+    io.close()
+    watch.fire(SESSION_EVENT)
+    await waitFor(() => io.rootListings() === 2) // the second scan has begun and is held
+    for (let i = 0; i < 10; i++) watch.fire(SESSION_EVENT)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(io.rootListings()).toBe(2)
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+
+    io.open()
+    await source.whenIdle()
+    expect(io.rootListings()).toBe(3) // one more pass for the ten requests
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+    source.stop()
+  })
+
+  test('a timer tick during a pass is coalesced the same way', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const source = slowSource(io, watch, () => undefined, 20)
+    await source.start()
+    io.close()
+    await waitFor(() => io.rootListings() >= 2) // a tick began a scan, which is now held
+    await new Promise((resolve) => setTimeout(resolve, 200)) // about ten more ticks meanwhile
+    expect(io.rootListings()).toBe(2)
+    source.stop()
+    io.open()
+    await source.whenIdle()
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+  })
+
+  test('stop() during a held pass: it ends, and reads and reports nothing afterwards', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const { events, onEvents } = collector()
+    const source = slowSource(io, watch, onEvents)
+    await source.start()
+    const seen = events.length
+
+    const later = '00000000-0000-4000-8000-000000000002'
+    await writeFile(join(dir, 'projects', '-tmp-demo', `${later}.jsonl`), promptLine(later, '/tmp/demo', '2026-01-15T10:00:05.000Z') + '\n')
+    io.close()
+    watch.fire(SESSION_EVENT)
+    await waitFor(() => io.rootListings() === 2)
+    source.stop()
+    expect(watch.closed()).toBe(true)
+    io.open()
+    await source.whenIdle()
+    expect(events.length).toBe(seen)
   })
 })
