@@ -179,10 +179,11 @@ export class OfficeRenderer {
     return layer
   }
 
-  /** His basket on the floor of its tile, his bowl in the corner of the project floor. */
+  /** His basket on the floor of its tile; his bowl at the bottom of its tile and a little into the
+   * next, where he stands to drink, so that his head is at the water. */
   private drawMascotProps(ctx: CanvasRenderingContext2D, spots: MascotSpots): void {
     ctx.drawImage(this.mascotCache.get('prop:basket', MORTY_PROPS.basket), spots.basket.x * TILE, spots.basket.y * TILE + 8)
-    ctx.drawImage(this.mascotCache.get('prop:bowl', MORTY_PROPS.bowl), spots.bowl.x * TILE + 3, spots.bowl.y * TILE + 11)
+    ctx.drawImage(this.mascotCache.get('prop:bowl', MORTY_PROPS.bowl), spots.bowl.x * TILE + 3, spots.bowl.y * TILE + 15)
   }
 
   /** The whiteboard (two tiles wide, in the planning room): the task's short id, its four stages

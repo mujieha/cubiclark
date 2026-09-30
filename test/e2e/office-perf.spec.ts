@@ -18,6 +18,8 @@ for (const [name, agents] of [
       const canvas = page.locator('canvas.office-canvas')
       await expect(page.locator('button.office-agent')).toHaveCount(agents)
       await expect(canvas).toHaveAttribute('data-actors', String(agents))
+      // Morty is in the office while it is measured: he is on by default, and costs a frame nothing it cannot spare.
+      await expect(canvas).not.toHaveAttribute('data-mascot', 'off')
 
       // Let the loop run and the loop's own statistics fill their 90-frame window.
       await page.waitForTimeout(3000)

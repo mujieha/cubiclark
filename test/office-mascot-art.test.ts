@@ -60,8 +60,15 @@ describe('Morty\'s frames', () => {
     expect(MORTY_FRAMES.carry_ball.rows[y]?.[x]).toBe('1')
   })
 
-  test('a sleeping dog is lower than a standing one: nothing in the top five rows', () => {
-    for (const name of ['sleep_a', 'sleep_b'] as const) expect(MORTY_FRAMES[name].rows.slice(0, 5).join('').replace(/\./g, ''), name).toBe('')
+  test('a sleeping dog is lower than a standing one: nothing in the top three rows, ears above the rest', () => {
+    for (const name of ['sleep_a', 'sleep_b'] as const) {
+      expect(MORTY_FRAMES[name].rows.slice(0, 3).join('').replace(/\./g, ''), name).toBe('')
+      expect(MORTY_FRAMES[name].rows[3], `${name} has its ear tips on row 3`).not.toBe('.'.repeat(16))
+    }
+  })
+
+  test('a sleeping dog has his eye shut and his nose out: a dark line in the head and the nose colour at the front', () => {
+    for (const name of ['sleep_a', 'sleep_b'] as const) expect(pixels(MORTY_FRAMES[name].rows), name).toContain('i')
   })
 })
 

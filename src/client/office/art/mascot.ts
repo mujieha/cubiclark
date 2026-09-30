@@ -94,14 +94,26 @@ const SIT = [
   '..0000000000000.',
 ]
 
-// --- Asleep: a loaf, head down on the paws, the back rises and falls ---------------------------
+// --- Asleep: lying down, the head on the paws with the ears up and the eye shut, the back rises and falls
 
-const SLEEP_BODY = [
-  '..00gggggggg0g0.',
-  '.0gggggggggg0gg0',
-  '.0gggggggggg00gi',
+const SLEEP_LOW = [
+  '..........0..0..',
+  '.........0g00g0.',
+  '.........0gggg0.',
+  '..0000000gg00gh0',
+  '.0gggggg0gghhhhi',
+  '0ggggggg0hhhhhh0',
+  '.0ggggggghhhhhh0',
   '.0hhhhhhhhhhhhh0',
-  '.000000000000000',
+  '..00000000000000',
+]
+
+/** The breath in: the back one row higher, the head where it was. */
+const SLEEP_HIGH = [
+  ...SLEEP_LOW.slice(0, 2),
+  '..000000.0gggg0.',
+  '.0gggggg0gg00gh0',
+  ...SLEEP_LOW.slice(4),
 ]
 
 export const MORTY_FRAMES: Record<MortyFrame, SpriteDef> = {
@@ -138,11 +150,11 @@ export const MORTY_FRAMES: Record<MortyFrame, SpriteDef> = {
       [2, 8, '0'],
     ])
   ),
-  sleep_a: frame([...blank(6), '....000000000...', ...SLEEP_BODY]),
-  sleep_b: frame([...blank(5), '....000000000...', '..00gggggggg0...', ...SLEEP_BODY]),
+  sleep_a: frame([...blank(3), ...SLEEP_LOW]),
+  sleep_b: frame([...blank(3), ...SLEEP_HIGH]),
   // Drinking, seen from behind with the head down at the bowl (up the page); the second frame dips.
-  drink_a: frame([...blank(2), ...BACK_TOP.slice(0, 2), '...0gggggggg0...', ...DRINK_BODY(4), ...BOTH_LEGS]),
-  drink_b: frame([...blank(3), ...BACK_TOP.slice(0, 2), '...0gggggggg0...', ...DRINK_BODY(3), ...BOTH_LEGS]),
+  drink_a: frame([...blank(1), ...BACK_TOP.slice(0, 2), '...0gggggggg0...', ...DRINK_BODY(5), ...BOTH_LEGS]),
+  drink_b: frame([...blank(2), ...BACK_TOP.slice(0, 2), '...0gggggggg0...', ...DRINK_BODY(4), ...BOTH_LEGS]),
   // Sniffing the wall: standing, seen from behind, the head nudging from side to side.
   sniff_a: frame([...BACK_TOP, ...BOTH_LEGS]),
   sniff_b: frame([...shiftRight(BACK_TOP.slice(0, 7), 1), ...BACK_TOP.slice(7), ...BOTH_LEGS]),
@@ -166,18 +178,18 @@ export const MORTY_FRAMES: Record<MortyFrame, SpriteDef> = {
 export const MORTY_MOUTH: Point = { x: 14, y: 5 }
 
 export const MORTY_PROPS = {
-  /** His basket: wood, a cream cushion. */
+  /** His bed: a dark weave and a cream cushion, so that an orange dog asleep in it is seen. */
   basket: {
     w: 16,
     h: 8,
     rows: [
-      '..666666666666..',
-      '.06hhhhhhhhhh60.',
-      '.6hhhhhhhhhhhh6.',
-      '0767676767676760',
-      '0676767676767670',
-      '0767676767676760',
-      '0676767676767670',
+      '..555555555555..',
+      '.05hhhhhhhhhh50.',
+      '.5hhhhhhhhhhhh5.',
+      '0545454545454540',
+      '0454545454545450',
+      '0545454545454540',
+      '0454545454545450',
       '.00000000000000.',
     ],
   },

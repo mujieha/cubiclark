@@ -35,7 +35,8 @@ async function labels(page: Page): Promise<{ list: Record<string, string>; offic
   })
 }
 
-for (const name of ['all-states', 'rooms', 'crowd-50', 'crowd-100']) {
+// Morty is on in every one of these (he is, by default): he is not an agent, so parity is exact with him there.
+for (const name of ['all-states', 'rooms', 'crowd-50', 'crowd-100', 'mascot-play']) {
   test(`office and list report the same agents and states: ${name}`, async ({ page }) => {
     const cli = await openWithFakeWorld(page)
     try {
@@ -43,6 +44,7 @@ for (const name of ['all-states', 'rooms', 'crowd-50', 'crowd-100']) {
       const expected = truth(world)
       await pushWorld(page, world)
       await expect(page.locator('button.office-agent')).toHaveCount(expected.length)
+      await expect(page.locator('canvas.office-canvas')).not.toHaveAttribute('data-mascot', 'off')
 
       expect(idAndState(await officeAgents(page))).toEqual(expected)
       expect(idAndState(await listAgents(page))).toEqual(expected)
