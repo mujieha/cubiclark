@@ -28,7 +28,7 @@ import {
 
 const VERSION = '0.1.0'
 
-const HELP_TEXT = `cubiclark ${VERSION}
+export const HELP_TEXT = `cubiclark ${VERSION}
 
 Usage:
   cubiclark [--port <n>] [--no-open] [--since-hours <n>] [--fixture-home <dir>] [--state-dir <dir>]
@@ -53,6 +53,7 @@ Usage:
   --assets <file>      Custom-assets manifest (default <state dir>/assets/manifest.json; none is
                        read from a --fixture-home without --state-dir). doctor checks it and
                        exits 1 when it is invalid
+  --no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)
   --claude-bin <path>  doctor only: the claude executable (default claude)
   --port <n>           Port to listen on (0 picks a free one). Default 4789.
   --since-hours <n>    How far back to read transcripts. Default 12. Ignored with
@@ -77,6 +78,8 @@ export interface ServeCommand {
   config?: string
   /** The custom-assets manifest (default `<state dir>/assets/manifest.json`). */
   assets?: string
+  /** Morty, the office corgi, is in the page (off with `--no-mascot`). */
+  mascot: boolean
 }
 
 export interface HooksCommand {
@@ -115,6 +118,7 @@ export interface ReplayCommand {
   stateDir?: string
   config?: string
   assets?: string
+  mascot: boolean
 }
 
 export type Command =
@@ -131,10 +135,10 @@ type CommandKind = 'serve' | 'hooks' | 'doctor' | 'replay'
 // Which flags each command accepts. A flag given to a command that ignores it is an error rather
 // than a silent no-op: `cubiclark hooks off --no-tools` should not look like it did something.
 const ALLOWED_FLAGS: Record<CommandKind, readonly string[]> = {
-  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'assets', 'help', 'version'],
+  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'assets', 'no-mascot', 'help', 'version'],
   hooks: ['config-dir', 'state-dir', 'no-tools', 'purge', 'help', 'version'],
   doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'assets', 'help', 'version'],
-  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'help', 'version'],
+  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'no-mascot', 'help', 'version'],
 }
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
@@ -168,6 +172,7 @@ export function parseCli(argv: readonly string[]): Command {
         config: { type: 'string' },
         assets: { type: 'string' },
         adapters: { type: 'boolean' },
+        'no-mascot': { type: 'boolean' },
         'no-tools': { type: 'boolean' },
         purge: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -246,6 +251,7 @@ export function parseCli(argv: readonly string[]): Command {
       stateDir: str('state-dir'),
       config: str('config'),
       assets: str('assets'),
+      mascot: values['no-mascot'] !== true,
     }
   }
 
@@ -258,6 +264,7 @@ export function parseCli(argv: readonly string[]): Command {
     stateDir: str('state-dir'),
     config: str('config'),
     assets: str('assets'),
+    mascot: values['no-mascot'] !== true,
   }
 }
 
@@ -386,7 +393,7 @@ async function runServe(cmd: ServeCommand): Promise<void> {
     // (and without --config) reads none, so the real one is never touched by accident.
     const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
     const assetsPath = cmd.assets ?? (stateDir === undefined ? undefined : defaultAssetsPath(stateDir))
-    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath, assetsPath })
+    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath, assetsPath, mascot: cmd.mascot })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {
@@ -436,6 +443,7 @@ async function runReplay(cmd: ReplayCommand): Promise<void> {
       speed: cmd.speed,
       port: cmd.port,
       open: cmd.open,
+      mascot: cmd.mascot,
     })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined

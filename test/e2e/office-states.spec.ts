@@ -27,7 +27,8 @@ test.describe('the 16 states', () => {
       // A fresh context per state: each gets its own paused clock, starting from the same instant.
       const context = await browser.newContext()
       const page = await context.newPage()
-      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+      // Compared with a pre-Morty baseline: Morty off.
+      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
       try {
         await pushWorld(page, await loadWorld(`state-${state}`), 400)
         const crop = await cropAround(page, worldSessionId(1))
@@ -50,7 +51,8 @@ test.describe('the 16 states', () => {
 })
 
 test('all 16 states in one office, against a baseline', async ({ page }) => {
-  const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+  // Compared with a pre-Morty baseline: Morty off.
+  const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
   try {
     await pushWorld(page, await loadWorld('all-states'), 400)
     const canvas = page.locator('canvas.office-canvas')

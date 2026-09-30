@@ -129,7 +129,8 @@ test.describe('the whole page in each theme', () => {
   for (const id of ['day', 'night'] as const) {
     test(`${id}, against a baseline`, async ({ page }) => {
       await page.addInitScript((choice) => localStorage.setItem('cubiclark.theme', choice), id)
-      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+      // Compared with a pre-Morty baseline: Morty off.
+      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
       try {
         await pushWorld(page, await loadWorld('rooms'), 400)
         expect(await theme(page)).toBe(id)

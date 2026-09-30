@@ -43,6 +43,9 @@ export interface OpenOptions {
   clockAt?: string
   /** More arguments for the CLI, e.g. `['--assets', file]`. */
   args?: string[]
+  /** Morty, the office corgi, is in the page (the default). `false` starts the CLI with
+   * `--no-mascot`: the page of every pixel baseline that was committed before he existed. */
+  mascot?: boolean
 }
 
 /** Pages that openWithFakeWorld gave a paused clock: only there does pushWorld advance time. */
@@ -55,7 +58,7 @@ export interface FakeWorldPage extends RunningCli {
 /** Opens the built page over an empty fixture home with the fake EventSource, and optionally a paused clock. */
 export async function openWithFakeWorld(page: Page, opts: OpenOptions = {}): Promise<FakeWorldPage> {
   const home = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-fake-'))
-  const cli = await runCli(['--fixture-home', home, '--no-open', '--port', '0', ...(opts.args ?? [])])
+  const cli = await runCli(['--fixture-home', home, '--no-open', '--port', '0', ...(opts.mascot === false ? ['--no-mascot'] : []), ...(opts.args ?? [])])
   await page.addInitScript(FAKE_EVENT_SOURCE)
   if (opts.clockAt) await page.clock.install({ time: new Date(opts.clockAt) })
   await page.goto(`${cli.url}${opts.hash ?? ''}`)

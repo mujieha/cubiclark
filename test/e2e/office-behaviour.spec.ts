@@ -178,7 +178,8 @@ test.describe('the keyboard, the mouse and the toggle', () => {
 })
 
 test('the rooms, as one picture', async ({ page }) => {
-  const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+  // Compared with a pre-Morty baseline: Morty off.
+  const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
   try {
     await pushWorld(page, await loadWorld('rooms'), 400)
     const canvas = page.locator('canvas.office-canvas')
@@ -204,7 +205,8 @@ test.describe('the four empty screens', () => {
     for (const [world, screen] of SCREENS) {
       const context = await browser.newContext()
       const page = await context.newPage()
-      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+      // Compared with pre-Morty baselines: Morty off.
+      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
       try {
         await pushWorld(page, await loadWorld(world), 200)
         const empty = page.locator('[data-empty]')

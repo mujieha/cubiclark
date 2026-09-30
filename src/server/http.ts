@@ -23,6 +23,14 @@ export interface HttpServerOptions {
   maxClientBytes?: number
   /** A valid custom-assets manifest's palettes and sprites, served at `custom-assets.json`. */
   customAssets?: PublicAssets
+  /** What the page is told about how it was started: only ever this one boolean (`--no-mascot`). */
+  pageOptions?: PageOptions
+}
+
+/** Served at `page-options.json`. */
+export interface PageOptions {
+  /** Morty, the office corgi, may be drawn. False with `--no-mascot`. */
+  mascot: boolean
 }
 
 export interface RunningHttpServer {
@@ -188,6 +196,14 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(isHead ? undefined : body)
+      return
+    }
+
+    if (subPath === 'page-options.json') {
+      const options: PageOptions = { mascot: opts.pageOptions?.mascot ?? true }
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(isHead ? undefined : JSON.stringify(options))
       return
     }
 

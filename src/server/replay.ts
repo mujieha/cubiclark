@@ -36,6 +36,8 @@ export interface ReplayOptions {
   speed: number
   port: number
   open: boolean
+  /** Morty, the office corgi, is in the page. Default true; `--no-mascot` turns it off. */
+  mascot?: boolean
   /** Test seams: the real clock, and stepping by hand instead of a timer. */
   realNowMs?: () => number
   manual?: boolean
@@ -184,7 +186,15 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
 
   const token = randomBytes(32).toString('base64url')
   const clientDir = fileURLToPath(new URL('../client/', import.meta.url))
-  const http = await createHttpServer({ token, port: o.port, clientDir, store, home: o.home, customAssets: assets.overrides })
+  const http = await createHttpServer({
+    token,
+    port: o.port,
+    clientDir,
+    store,
+    home: o.home,
+    customAssets: assets.overrides,
+    pageOptions: { mascot: o.mascot ?? true },
+  })
   if (o.open) openBrowser(http.url)
 
   return {

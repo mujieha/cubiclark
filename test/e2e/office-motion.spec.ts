@@ -25,7 +25,8 @@ async function cropAround(page: Page, agentId: string): Promise<Buffer> {
 test.describe('reduced motion', () => {
   test('renders without animation: no frames after it settles, and the picture never changes', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    const cli = await openWithFakeWorld(page)
+    // Compared with a pre-Morty baseline: Morty off.
+    const cli = await openWithFakeWorld(page, { mascot: false })
     try {
       await pushWorld(page, await loadWorld('all-states'))
       const canvas = page.locator('canvas.office-canvas')
@@ -93,7 +94,8 @@ test.describe('reduced motion', () => {
     for (const state of AGENT_STATES) {
       const context = await browser.newContext({ reducedMotion: 'reduce' })
       const page = await context.newPage()
-      const cli = await openWithFakeWorld(page)
+      // Compared pixel for pixel with the other states: Morty off.
+      const cli = await openWithFakeWorld(page, { mascot: false })
       try {
         await pushWorld(page, await loadWorld(`state-${state}`))
         await drawnOnce(page.locator('canvas.office-canvas'))

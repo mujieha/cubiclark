@@ -5,6 +5,7 @@ import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
 import { assetsText, type PublicAssets } from '../core/assets/status.js'
 import { applyPageTheme, fetchCustomAssets, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
+import { fetchPageOptions, type PageOptions } from './mascot-choice.js'
 import { OfficeView, browserEnv } from './office/office-view.js'
 import './style.css'
 
@@ -79,7 +80,9 @@ class App {
 
   constructor(
     private readonly root: HTMLElement,
-    private readonly custom: PublicAssets
+    private readonly custom: PublicAssets,
+    // How the server was started; Morty's button arrives in a later step.
+    readonly options: PageOptions
   ) {
     const header = el('header', { className: 'header' })
     header.appendChild(el('span', { className: 'title', text: 'Cubiclark' }))
@@ -333,7 +336,8 @@ function viewFromHash(): ViewName {
 const appRoot = document.getElementById('app')
 if (appRoot) {
   // The valid pack, fetched before the first frame so the office is never drawn in art it is about to replace.
-  const app = new App(appRoot, await fetchCustomAssets())
+  const [custom, options] = await Promise.all([fetchCustomAssets(), fetchPageOptions()])
+  const app = new App(appRoot, custom, options)
 
   const source = new EventSource('./events')
   source.addEventListener('open', () => app.setConnection('live'))
