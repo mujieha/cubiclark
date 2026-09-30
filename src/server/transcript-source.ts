@@ -1,5 +1,6 @@
 // Discovers transcript files under a Claude config root, tails each one, and turns new lines
-// (and each subagent's one-shot sidecar meta file) into AgentEvents. `fs.watch(recursive)` is
+// (and each subagent's one-shot sidecar meta file, but only when the sibling transcript is inside
+// the age window) into AgentEvents. `fs.watch(recursive)` is
 // used when available to react quickly, but a polling loop always runs underneath it — watch is
 // unreliable on some file systems (PLAN.md's risk list), so it is only ever a speed-up, never
 // the only way new content is found.
@@ -304,10 +305,10 @@ export class TranscriptSource {
       }
     }
 
-    // Transcript files first, sidecar meta files second: readMeta()'s subagent_link event gets
-    // its timestamp from latestContentTsMs (see nowIso()), which only reflects reality once at
-    // least one transcript file has actually been read — directory listing order does not
-    // otherwise guarantee that happens first.
+    // Transcript files first, sidecar meta files second: a meta file is read only once its sibling
+    // transcript is registered, and readMeta()'s subagent_link event gets its timestamp from
+    // latestContentTsMs (see nowIso()), which only reflects reality once at least one transcript
+    // file has actually been read — directory listing order does not otherwise guarantee either.
     const metaFiles: string[] = []
     const otherFiles: string[] = []
     for (const absPath of files) {
@@ -345,6 +346,12 @@ export class TranscriptSource {
 
     if (classification.kind === 'subagent-meta') {
       if (this.metaSeen.has(absPath)) return
+      // A sidecar is read only for a transcript that is being read (inside the window). An old meta
+      // file whose transcript is excluded, or not written yet, must not invent an agent that nothing
+      // will ever update. It is not marked seen, so a meta file written before its transcript is
+      // linked on a later pass, once the transcript is registered.
+      const sibling = `${absPath.slice(0, -'.meta.json'.length)}.jsonl`
+      if (!this.tailers.has(sibling)) return
       this.metaSeen.add(absPath)
       await this.readMeta(absPath, classification.parentId, classification.agentId)
       return
