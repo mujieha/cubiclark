@@ -110,6 +110,11 @@ describe('withCollector and withoutCollector', () => {
     const model = desired.find((d) => d.event === 'PostModelSwitch')
     expect(model?.handler).toMatchObject({ type: 'command', async: true, timeout: 5 })
     expect(desired.some((d) => (d.event as string) === 'PreModelSwitch')).toBe(false)
+    // the README and SECURITY.md say: eleven of the fifteen are async, the four synchronous ones fire at teardown
+    const sync = desired.filter((d) => d.handler.async === undefined).map((d) => d.event).sort()
+    expect(desired.filter((d) => d.handler.async === true)).toHaveLength(11)
+    expect(sync).toEqual(['SessionEnd', 'Stop', 'StopFailure', 'SubagentStop'])
+    expect(desired.every((d) => d.handler.timeout === 5)).toBe(true)
     expect(lifecycleOnly.some((d) => d.event.endsWith('ToolUse') || d.event === 'PostToolUseFailure')).toBe(false)
   })
 

@@ -99,9 +99,10 @@ npm run bench:hook    # collector overhead over Node's own start-up
 npm run fixtures        # regenerate the synthetic fixtures under test/fixtures/
 npm run fixtures:check  # verify the checked-in fixtures still match the generator
 
-node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>]
-node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>]
+node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>]
+node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>]
 node dist/cli.js doctor --adapters --fixture-home test/fixtures/day/home --state-dir test/fixtures/day/state
+node dist/cli.js doctor --fixture-home <an empty folder> --assets <manifest.json>   # checks a custom-assets pack; exit 1 if invalid
 ```
 
 Every test uses fixture directories under a temp dir and never reads or writes the real
@@ -163,7 +164,27 @@ setting while the page is open takes effect at once.
 
 **Performance.** The canvas is capped at 30 frames a second, pauses while the tab is hidden, draws
 at a whole-number scale (so pixels stay crisp) and stops entirely while the list is showing. With
-50 agents a draw takes about a millisecond.
+50 agents a draw takes about a millisecond, and with 100 (`test/e2e/office-perf.spec.ts`, which fails
+under 30 frames a second) about two.
+
+**Themes.** The button at the left of the header cycles *Auto*, *Day* and *Night*. Auto follows the
+operating system's light or dark setting, and changes while the page is open when the setting does.
+Day is a light page around the office as it has always been drawn; night is a dark page and an office
+with the lights turned down (darker walls and wood; the lamps, marks and shirts stay bright so every
+state is still told apart). The choice is remembered per browser; with storage blocked the page still
+works and the choice lasts until it is closed. Each theme is one file (`src/core/theme/day.ts`,
+`night.ts`) and must pass the same contrast and distinctness rules as a custom palette.
+
+**Custom assets.** `cubiclark --assets <manifest.json>` (or `~/.cubiclark/assets/manifest.json`)
+changes the office's colours per theme and redraws characters, accessories and floors, from a JSON
+file that is checked as data. `docs/assets.md` has the format, the ids and the rules,
+`schema/assets-manifest.v1.json` the JSON Schema and `examples/assets/sunny-office/` an example.
+Errors are shown on the page and by `cubiclark doctor --assets <file>`; a manifest with any error is
+not applied at all.
+
+**The first run.** With no transcripts folder yet (or none with anything in it) and no collector
+installed, the page shows a setup screen instead of an empty office: it explains the two ways of
+seeing agents above and gives the command for the second (`cubiclark hooks on`).
 
 ## The panel
 
@@ -226,7 +247,7 @@ permission" while a guess from transcripts alone reads "waiting for permission? 
 
 **When lines do not parse.** `cubiclark doctor` prints an `unparsed by` line: how many transcript
 lines were not turned into events, by reason (`not_json`, `not_object`, `no_type`, `no_timestamp`,
-`unknown_type`, `unknown_subtype`, `handler_rejected`) and by record type, never any value from the
+`unknown_type`, `unknown_subtype`, `handler_rejected`, `too_long`) and by record type, never any value from the
 lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, `last-prompt`,
 `permission-mode`, ...) borrow the file's newest one, so they do not count.
 
@@ -270,7 +291,29 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   the panel goes under the office.
 - **A replay of adapter data is approximate.** A task's timeline is cut at the replay clock, but a
   file's contents are read as they are now.
-- **Tested on macOS and Linux.** Windows is untested.
+- **Developed and tested on macOS** (the CI runner is a Mac). Linux and Windows are untested.
+- **Helper bubbles can still touch a long desk bubble.** A helper's bubble now sits beside its
+  stool, clear of the cluster's sign and of the neighbouring helper's head, but in a packed cluster
+  there is sometimes no free place, and it then covers part of a desk's bubble (in the two crowded
+  test worlds, 2 of 43 and 6 of 86 bubbles). The tooltip and the list always have the full text.
+- **The accessibility checks cover the panel, the list view and the setup screen**, with axe-core in
+  both themes (`test/e2e/a11y.spec.ts`: no violations of any impact). The office canvas is decoration
+  (`aria-hidden`); its agents are the buttons over it, labelled as the list is, and the
+  contrast of text drawn on the canvas is set by the palette rules, not measured by axe.
+- **The theme choice is per browser**, and a custom-assets manifest or a configuration file is read
+  once, at start: change it and restart.
+- **`StopFailure`'s payload is not shown in the hooks reference** (only its matcher, `error_type`),
+  so the collector reads the field as `error` or `error_type`. It is unverified on a real failing
+  session. `PostModelSwitch`'s `to_model` is read from the reference's prose in the same way.
+- **Cubiclark assumes a single-user machine.** The run token is in the URL, so the browser's command
+  line and history show it to other local accounts (`SECURITY.md`).
+- **A command's first word is kept unless it looks like a credential** (over 40 characters, `=`, `:`
+  or `@` in it, `sk-`, `ghp_`, `xox`, `AKIA`, ...): a secret that does not look like one and is typed
+  where a command goes would still be stored. `hooks on --no-tools` stores no tool activity.
+- **`hooks on` writes `settings.json` through a temp file and a rename**, so its mode is what the
+  umask leaves and its owner, group and hard links are those of the new file.
+- **A very large transcript is read in full on a first start**, in bounded pieces: memory stays
+  bounded, the time it takes does not.
 
 ## Development
 
@@ -281,7 +324,7 @@ it fires), another banning `console` in the collector, and another keeping `src/
 no `Date.now`). See `SECURITY.md` for the threat model.
 
 The office is drawn entirely in code, with no image files: sprites are grids of characters over one
-16-colour palette (`src/client/office/art/`), baked to canvases at load. What is drawn where is
+16-colour palette per theme (`src/core/theme/`, `src/client/office/art/`), baked to canvases at load. What is drawn where is
 decided by pure functions in `src/core/office/` (`layout`, the state table, motion, the tile map),
 which the unit tests check without a browser; `src/client/office/` only draws what they decide.
 The end-to-end tests feed fixture worlds (`test/fixtures/worlds/`, generated by
