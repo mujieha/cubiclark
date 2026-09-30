@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hooksSourceStatus } from './core/hooks/status.js'
 import { AdapterHost } from './server/adapters/host.js'
+import { loadAssets } from './server/assets-file.js'
 import { createAdapters, type AdapterDeps } from './server/adapters/registry.js'
 import { loadConfig } from './server/config-file.js'
 import { HookSource } from './server/hook-source.js'
@@ -32,6 +33,8 @@ export interface AppOptions {
   configPath?: string
   /** What `~` in the configuration expands to. Default: the user's home directory. */
   home?: string
+  /** The custom-assets manifest. Undefined means none (a missing file is the same). */
+  assetsPath?: string
   /** Test seam: how the claude-agents adapter runs its program. */
   adapterDeps?: AdapterDeps
 }
@@ -125,9 +128,12 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     configWarnings: loaded.warnings,
   })
 
+  // The custom-assets manifest is read once, at start: a change needs a restart (docs/assets.md).
+  const assets = await loadAssets(options.assetsPath)
+
   const mergeSourceStatus = async (): Promise<void> => {
     try {
-      store.mergeSources({ transcripts: source.getStatus(), hooks: await hooksStatus(), adapters: adapterHost.statuses() })
+      store.mergeSources({ transcripts: source.getStatus(), hooks: await hooksStatus(), adapters: adapterHost.statuses(), assets: assets.status })
     } catch {
       // A status refresh must never take the server down; the next tick tries again.
     }
@@ -147,7 +153,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   store.start()
 
   const clientDir = fileURLToPath(new URL('./client/', import.meta.url))
-  const http = await createHttpServer({ token, port: options.port, clientDir, store })
+  const http = await createHttpServer({ token, port: options.port, clientDir, store, home, customAssets: assets.overrides })
 
   const statusTimer = setInterval(() => {
     void mergeSourceStatus()

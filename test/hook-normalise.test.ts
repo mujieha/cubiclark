@@ -30,6 +30,16 @@ describe('one row per event', () => {
     expect(r.unknownShape).toBe(false)
   })
 
+  test('PostModelSwitch: hook_seen and a model_changed with the new model; with no usable model, just hook_seen', () => {
+    const r = norm({ hook_event_name: 'PostModelSwitch', session_id: 's1', from_model: 'claude-opus-5-5', to_model: 'claude-sonnet-5-5' })
+    expect(kinds(r.events)).toEqual(['hook_seen', 'model_changed'])
+    expect(r.events[1]).toMatchObject({ agentId: 's1', model: 'claude-sonnet-5-5', ts: T(0) })
+    expect(kinds(norm({ hook_event_name: 'PostModelSwitch', session_id: 's1', to_model: 'not a model' }).events)).toEqual(['hook_seen'])
+    // a subagent's switch belongs to the subagent
+    const sub = norm({ hook_event_name: 'PostModelSwitch', session_id: 's1', agent_id: 'agent-a1', agent_type: 'Explore', to_model: 'claude-haiku-4-5' })
+    expect(sub.events[1]).toMatchObject({ t: 'model_changed', agentId: 'a1' })
+  })
+
   test('UserPromptSubmit: hook_seen, prompt', () => {
     expect(kinds(norm({ hook_event_name: 'UserPromptSubmit', session_id: 's1' }).events)).toEqual(['hook_seen', 'prompt'])
   })

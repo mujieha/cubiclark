@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "name": "minimal-pack",
+  "palettes": {
+    "day": {
+      "7": "#d9a86c"
+    }
+  },
+  "sprites": {
+    "accessory:cap": {
+      "rows": [
+        "...000000...",
+        "..0bbbbbb0..",
+        ".0bbbbbbbb0.",
+        "0bbbbbbbbb00"
+      ]
+    }
+  }
+}

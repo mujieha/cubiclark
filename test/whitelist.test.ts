@@ -17,10 +17,38 @@ const ALLOWED_KEYS = new Set([
 ])
 
 describe('the event lists', () => {
-  test('fourteen events in total, three of them tool events', () => {
-    expect(HOOK_EVENT_NAMES).toHaveLength(14)
+  test('fifteen events in total, three of them tool events', () => {
+    expect(HOOK_EVENT_NAMES).toHaveLength(15)
     expect(TOOL_HOOK_EVENTS).toEqual(['PreToolUse', 'PostToolUse', 'PostToolUseFailure'])
-    expect(LIFECYCLE_HOOK_EVENTS).toHaveLength(11)
+    expect(LIFECYCLE_HOOK_EVENTS).toHaveLength(12)
+  })
+
+  test('PostModelSwitch is installed and PreModelSwitch never is (it can block a model switch)', () => {
+    expect(HOOK_EVENT_NAMES).toContain('PostModelSwitch')
+    expect(HOOK_EVENT_NAMES as readonly string[]).not.toContain('PreModelSwitch')
+  })
+})
+
+describe('PostModelSwitch', () => {
+  const base = { hook_event_name: 'PostModelSwitch', session_id: 's1' }
+
+  test('only to_model is stored, as the model', () => {
+    const line = toStoredLine({ ...base, from_model: 'claude-opus-5-5', to_model: 'claude-sonnet-5-5' }, TS)
+    expect(line).toEqual({ v: 1, ts: TS, e: 'PostModelSwitch', sid: 's1', model: 'claude-sonnet-5-5' })
+    expect(JSON.stringify(line)).not.toContain('opus')
+  })
+
+  test('a to_model that is not a plain name is dropped', () => {
+    for (const bad of ['has a space', 'x'.repeat(101), '', 5, null, { a: 1 }, 'a/b', 'sk-ant\nline']) {
+      expect(toStoredLine({ ...base, to_model: bad }, TS).model, String(bad)).toBeUndefined()
+    }
+    expect(toStoredLine({ ...base, model: 'claude-sonnet-5-5' }, TS).model).toBeUndefined() // only to_model is read
+  })
+
+  test('nothing else of the payload is stored, whatever it holds', () => {
+    const line = toStoredLine({ ...base, to_model: 'claude-sonnet-5-5', from_model: 'SECRET-FROM', prompt: 'SECRET-PROMPT', extra: { deep: 'SECRET-DEEP' } }, TS)
+    expect(Object.keys(line).sort()).toEqual(['e', 'model', 'sid', 'ts', 'v'])
+    expect(JSON.stringify(line)).not.toContain('SECRET')
   })
 })
 
@@ -199,6 +227,12 @@ describe('validation', () => {
     expect(toStoredLine({ ...base, tool_input: { command: 'C:\\tools\\x.exe --flag' } }, TS).target).toBeUndefined()
     expect(toStoredLine({ ...base, tool_input: { command: 'a'.repeat(101) } }, TS).target).toBeUndefined()
     expect(toStoredLine({ ...base, tool_input: { command: 'ok' } }, TS).target).toBe('ok')
+    // S1-16: a command that starts with a credential stores nothing
+    for (const first of ['sk-ant-FAKESECRET123', 'ghp_FAKEFAKEFAKEFAKE', 'AKIAIOSFODNN7EXAMPLE', 'me@host']) {
+      const line = toStoredLine({ ...base, tool_input: { command: `${first} --flag` } }, TS)
+      expect(line.target, first).toBeUndefined()
+      expect(JSON.stringify(line)).not.toContain(first)
+    }
   })
 
   test('a non-object tool_input is treated as empty', () => {

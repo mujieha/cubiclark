@@ -5,6 +5,7 @@
 // text that leaves this module has had its absolute paths reduced to their last segment and is
 // capped, so no filesystem path reaches the page.
 
+import { bump, countKey } from '../keys.js'
 import type { TaskTimelineEntry, TaskTimelineKind } from '../types.js'
 
 export const MAX_ENTRY_TEXT = 160
@@ -21,10 +22,23 @@ export function isSessionId(value: string): boolean {
 /** Every path-looking token becomes its last segment (`/home/user/projects/demo` -> `demo`),
  * so a filesystem path never reaches the World. */
 export function reducePaths(text: string): string {
-  return text.replace(/(?<![A-Za-z0-9_.])(?:~|\.{1,2})?\/[^\s'"`,;)]+/g, (token) => {
-    const last = token.split('/').filter((part) => part !== '' && part !== '~' && part !== '.' && part !== '..').pop()
-    return last ?? token
-  })
+  return text
+    .replace(/(?<![A-Za-z0-9_.])(?:~|\.{1,2})?\/[^\s'"`,;)]+/g, (token) => {
+      const last = token.split('/').filter((part) => part !== '' && part !== '~' && part !== '.' && part !== '..').pop()
+      return last ?? token
+    })
+    // Windows paths (`C:\Users\x\y`, `\\server\share\y`): their last segment too.
+    .replace(/(?<![A-Za-z0-9_.])(?:[A-Za-z]:|\\\\[^\s\\'"`,;)]+)\\[^\s'"`,;)]*/g, (token) => {
+      const last = token.split('\\').filter((part) => part !== '' && !/^[A-Za-z]:$/.test(part)).pop()
+      return last ?? token
+    })
+}
+
+const PLAIN_NAME = /^[A-Za-z0-9._:[\]-]{1,64}$/
+
+/** A model, effort or permission-mode name as it may reach the World: a short plain name, else undefined. */
+export function plainName(value: string | undefined): string | undefined {
+  return value !== undefined && PLAIN_NAME.test(value) ? value : undefined
 }
 
 function cap(text: string): string {
@@ -68,9 +82,13 @@ function keyValues(rest: string): KeyValues {
   const effort = /(?:^|\s)effort=(\S+)/.exec(rest)
   const perms = /(?:^|\s)perms=(\S+)/.exec(rest)
   const compactions = /\(compactions=(\d+)\)/.exec(rest)
-  if (model) out.model = model[1]
-  if (effort) out.effort = effort[1]
-  if (perms) out.perms = perms[1]
+  // A model or effort is a plain name (S1-9); anything else is dropped, still off the note's text.
+  const modelName = plainName(model?.[1])
+  if (modelName) out.model = modelName
+  const effortName = plainName(effort?.[1])
+  if (effortName) out.effort = effortName
+  const permsName = plainName(perms?.[1])
+  if (permsName) out.perms = permsName
   if (compactions) out.compactions = Number(compactions[1])
   out.note = rest
     .replace(/(?:^|\s)(?:model|effort|perms)=\S+/g, ' ')
@@ -178,6 +196,7 @@ export interface ParsedLog {
 export function parseLog(text: string): ParsedLog {
   const out: ParsedLog = { entries: [], sessions: [], effortBySession: {}, modelBySession: {}, unparsed: 0, unknownVerbs: {} }
   let newestEffortMs = Number.NEGATIVE_INFINITY
+  const namedSessions = new Set<string>()
 
   for (const line of text.split('\n')) {
     const parsed = parseLogLine(line)
@@ -187,7 +206,12 @@ export function parseLog(text: string): ParsedLog {
       continue
     }
     out.entries.push(parsed.entry)
-    for (const id of parsed.sessions) if (!out.sessions.includes(id)) out.sessions.push(id)
+    for (const id of parsed.sessions) {
+      if (!namedSessions.has(id)) {
+        namedSessions.add(id)
+        out.sessions.push(id)
+      }
+    }
     if (parsed.currentSession) {
       out.currentSession = parsed.currentSession
       if (parsed.effort) out.effortBySession[parsed.currentSession] = parsed.effort
@@ -200,8 +224,8 @@ export function parseLog(text: string): ParsedLog {
         out.newestEffort = parsed.effort
       }
     }
-    if (parsed.unknownVerb && (parsed.verb in out.unknownVerbs || Object.keys(out.unknownVerbs).length < 20)) {
-      out.unknownVerbs[parsed.verb] = (out.unknownVerbs[parsed.verb] ?? 0) + 1
+    if (parsed.unknownVerb && (Object.hasOwn(out.unknownVerbs, countKey(parsed.verb)) || Object.keys(out.unknownVerbs).length < 20)) {
+      bump(out.unknownVerbs, parsed.verb)
     }
   }
   return out

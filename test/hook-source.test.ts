@@ -153,4 +153,24 @@ describe('HookSource', () => {
     await writeFile(eventsFile, prompt(1))
     await waitFor(() => prompts(events) === 1)
   })
+
+  // S1-5: the poll runs from a timer, so a consumer that throws must not reject out of it.
+  test('a consumer that throws is a reported error, and the next line is still delivered', async () => {
+    await writeFile(eventsFile, prompt(1))
+    const seen: AgentEvent[] = []
+    let failures = 1
+    const { source } = makeSource({
+      onEvents: (batch) => {
+        if (failures > 0) {
+          failures -= 1
+          throw new Error('reducer bug')
+        }
+        seen.push(...batch)
+      },
+    })
+    await expect(source.start()).resolves.toBeUndefined()
+    expect(source.getStats().error).toMatch(/unexpected error/)
+    await appendFile(eventsFile, prompt(2))
+    await waitFor(() => prompts(seen) >= 1)
+  })
 })

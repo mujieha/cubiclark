@@ -5,7 +5,8 @@
 
 import { agentCard, LEGEND, logFilterOptions, logRows, statusBar, timelineView, type LogFilter, type StageState } from '../core/hud.js'
 import type { Task, World } from '../core/types.js'
-import { PALETTE, shirtKey } from './office/palette.js'
+import type { ModelFamily } from '../core/office/roles.js'
+import { PALETTE, shirtKey, type Palette } from './office/palette.js'
 
 export interface HudHandlers {
   /** A task chosen in the timeline's select, or undefined for "auto". */
@@ -77,6 +78,7 @@ export class Hud {
   private readonly taskSelect = el('select', { id: 'hud-timeline-task' })
   private readonly timelineBody = el('div', { className: 'hud-timeline-body' })
   private readonly statusEl = el('footer', { className: 'hud-status', id: 'hud-status' })
+  private readonly swatches = new Map<ModelFamily, HTMLElement>()
   private logKey = ''
   private filter: LogFilter = {}
 
@@ -89,13 +91,16 @@ export class Hud {
     for (const { family, label } of LEGEND.models) {
       const item = el('span', { className: 'legend-item', text: label })
       const swatch = el('span', { className: `legend-swatch legend-${family}` })
-      swatch.style.backgroundColor = PALETTE[shirtKey(family)] ?? '#5b6470'
       item.prepend(swatch)
       legend.appendChild(item)
+      this.swatches.set(family, swatch)
     }
+    this.setPalette(PALETTE)
     for (const { role, accessory } of LEGEND.roles) legend.appendChild(el('span', { className: 'legend-item legend-role', text: `${role}: ${accessory}` }))
     title.appendChild(legend)
 
+    this.logList.tabIndex = 0
+    this.logList.setAttribute('aria-label', 'Session log')
     this.projectSelect.setAttribute('aria-label', 'Filter the log by project')
     this.taskFilterSelect.setAttribute('aria-label', 'Filter the log by task')
     this.taskSelect.setAttribute('aria-label', 'Task shown in the timeline')
@@ -124,6 +129,11 @@ export class Hud {
 
     this.element.append(title, this.cardEl, this.logSection, this.timelineSection, this.statusEl)
     this.update(undefined, { selectedAgentId: undefined, taskId: undefined, taskChosen: false, filter: {} })
+  }
+
+  /** The legend's shirt swatches in the colours of the theme in use. */
+  setPalette(palette: Palette): void {
+    for (const [family, swatch] of this.swatches) swatch.style.backgroundColor = palette[shirtKey(family)] ?? '#5b6470'
   }
 
   update(world: World | undefined, state: HudState): void {
@@ -172,8 +182,16 @@ export class Hud {
       const item = el('li', { className: 'hud-log-row' })
       item.dataset.agentId = row.agentId
       item.dataset.event = row.event
-      item.append(el('time', { text: timeOf(row.ts) }), el('span', { className: 'log-agent', text: row.agent }), el('span', { className: 'log-event', text: row.event }), el('span', { className: 'log-result', text: row.result }))
-      item.addEventListener('click', () => this.handlers.onSelectAgent(row.agentId))
+      // The agent is a button: the log is usable by keyboard (Tab, then Enter or Space). A click on
+      // the button selects once; a click anywhere else on the row selects too, for the mouse.
+      const agent = el('button', { className: 'log-agent', text: row.agent })
+      agent.type = 'button'
+      agent.addEventListener('click', () => this.handlers.onSelectAgent(row.agentId))
+      item.append(el('time', { text: timeOf(row.ts) }), agent, el('span', { className: 'log-event', text: row.event }), el('span', { className: 'log-result', text: row.result }))
+      item.addEventListener('click', (event) => {
+        if (event.target instanceof Node && agent.contains(event.target)) return
+        this.handlers.onSelectAgent(row.agentId)
+      })
       this.logList.appendChild(item)
     }
     if (atBottom) this.logList.scrollTop = this.logList.scrollHeight
@@ -205,7 +223,10 @@ export class Hud {
     }
     this.timelineBody.appendChild(stages)
 
+    // A scrollable list must be reachable by keyboard, so it can be scrolled without a mouse.
     const entries = el('ol', { className: 'hud-entries' })
+    entries.tabIndex = 0
+    entries.setAttribute('aria-label', 'Task timeline entries')
     for (const entry of view.entries) {
       const item = el('li')
       item.dataset.kind = entry.kind

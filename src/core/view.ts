@@ -4,6 +4,7 @@
 // core/ — the client passes in `world.clock` (or its own idea of "now") rather than this module
 // ever reading a clock itself.
 
+import { assetsText } from './assets/status.js'
 import { projectName } from './transcript/paths.js'
 import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, type UnparsedReason, type World } from './types.js'
 
@@ -11,7 +12,7 @@ import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, 
  * viewer and are a needless thing to leak, and a full cwd would show more of the filesystem
  * than the page needs (design §4/§9: file paths are shown as basenames unless the user turns
  * full paths on — full paths are a later phase; for now the raw cwd never leaves the server). */
-export function publicWorld(world: World): World {
+export function publicWorld(world: World, home?: string): World {
   const agents: Record<string, Agent> = {}
   for (const [id, agent] of Object.entries(world.agents)) {
     agents[id] = {
@@ -22,7 +23,31 @@ export function publicWorld(world: World): World {
       openTools: agent.openTools.map((tool) => ({ ...tool, id: '' })),
     }
   }
-  return { ...world, agents }
+  const { transcripts, hooks } = world.sources
+  return {
+    ...world,
+    agents,
+    diagnostics: { ...world.diagnostics, sourceErrors: world.diagnostics.sourceErrors.map((error) => tildePath(error, home)) },
+    sources: {
+      ...world.sources,
+      transcripts: {
+        ...transcripts,
+        root: tildePath(transcripts.root, home),
+        ...(transcripts.error !== undefined ? { error: tildePath(transcripts.error, home) } : {}),
+      },
+      hooks: { ...hooks, ...(hooks.eventsFile !== undefined ? { eventsFile: tildePath(hooks.eventsFile, home) } : {}) },
+    },
+  }
+}
+
+/** The text with the home directory written as `~` (S1-15): what leaves the machine, as a
+ * screenshot, a `world.json` or a HAR file, names no user directory. */
+export function tildePath(text: string, home: string | undefined): string {
+  if (home === undefined || home.length < 2) return text
+  const trimmed = home.replace(/\/+$/, '')
+  if (trimmed.length < 2) return text
+  const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return text.replace(new RegExp(`${escaped}(?![A-Za-z0-9_.-])`, 'g'), '~')
 }
 
 // --- The four empty screens (design §3.1, PLAN.md §1.9) ------------------------------------
@@ -58,6 +83,47 @@ export function emptyScreenText(id: EmptyScreenId, world: World | undefined): st
       const olderText = older > 0 ? ` (${older} older transcript${older === 1 ? '' : 's'} not shown)` : ''
       return `No agents active ${windowText}${olderText}`
     }
+  }
+}
+
+// --- The first run (design §3.1: "no collector" is not "no agents") ------------------------------
+
+export interface SetupMode {
+  id: 'transcripts' | 'hooks'
+  title: string
+  body: string
+  /** The command that turns the mode on, when there is one. */
+  command?: string
+}
+
+export interface SetupScreen {
+  title: string
+  intro: string
+  modes: SetupMode[]
+  footer: string
+}
+
+/** What the page says when there is nothing to show and nothing installed: how to begin, with the
+ * two ways of seeing agents explained. The claims here are the README's and are what the code does. */
+export function setupScreen(world: World | undefined): SetupScreen {
+  const root = world?.sources.transcripts.root
+  return {
+    title: 'Welcome to Cubiclark',
+    intro: `No Claude Code transcripts in ${root ?? 'the Claude Code folder'} yet, and the live collector is not installed. Cubiclark can watch your agents in two ways:`,
+    modes: [
+      {
+        id: 'transcripts',
+        title: 'Transcripts only — nothing to install',
+        body: 'Start Claude Code in any project. Cubiclark reads the transcript files Claude Code writes and shows each session within a few seconds. No settings are changed. It cannot see a permission prompt, a compaction in progress or a session ending.',
+      },
+      {
+        id: 'hooks',
+        title: 'With hooks — live and precise',
+        command: 'cubiclark hooks on',
+        body: "Adds a small collector to Claude Code's settings.json, after backing the file up. It records event names, ids and reduced targets (a file's basename, a command's first word), never prompt text or file contents. Permission prompts, compactions, failures and session ends then show as they happen. cubiclark hooks off puts settings.json back.",
+      },
+    ],
+    footer: 'cubiclark doctor checks both. This page updates by itself.',
   }
 }
 
@@ -197,7 +263,8 @@ export function sourcesLine(world: World): string {
     .filter((adapter) => adapter.status !== 'off' || adapter.detail.includes('config:'))
     .map((adapter) => ` · ${adapter.id}: ${adapter.status === 'live' ? '' : `${adapter.status} — `}${adapter.detail}`)
     .join('')
-  return `transcripts: ${transcriptsText} · hooks: ${hooksText}${adapters}`
+  const assets = world.sources.assets && world.sources.assets.status !== 'none' ? ` · assets: ${assetsText(world.sources.assets)}` : ''
+  return `transcripts: ${transcriptsText} · hooks: ${hooksText}${adapters}${assets}`
 }
 
 export const BUSY_STATES: ReadonlySet<AgentState> = new Set([

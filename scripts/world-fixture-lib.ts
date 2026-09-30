@@ -219,6 +219,52 @@ export function crowdWorld(): World {
   return buildWorld({ agents, withQuota: true })
 }
 
+const CROWD_PROJECTS_100 = ['demo', 'shop', 'blog', 'api', 'docs', 'ops', 'web', 'cli'] as const
+
+/** 100 agents (phase 5): 60 live sessions over 8 projects, 30 subagents under 20 of them (two each
+ * under the first ten, one each under the next ten), 10 that left. */
+export function crowd100World(): World {
+  const agents: AgentSpec[] = []
+  for (let i = 0; i < 60; i++) {
+    const state = LIVE_STATES[i % LIVE_STATES.length] as AgentState
+    const role: AgentRole = i === 10 ? 'orchestrator' : i === 11 ? 'planner' : i === 12 ? 'reviewer' : 'builder'
+    agents.push({
+      ...specForState(worldSessionId(i + 1), state),
+      role,
+      project: CROWD_PROJECTS_100[i % CROWD_PROJECTS_100.length],
+      model: CROWD_MODELS[i % CROWD_MODELS.length],
+    })
+  }
+  let next = 1
+  for (let parent = 1; parent <= 20; parent++) {
+    const count = parent <= 10 ? 2 : 1
+    for (let k = 0; k < count; k++) {
+      const state = HELPER_STATES[next % HELPER_STATES.length] as AgentState
+      agents.push({
+        id: worldSubagentId(next),
+        kind: 'subagent',
+        parentId: worldSessionId(parent),
+        project: CROWD_PROJECTS_100[(parent - 1) % CROWD_PROJECTS_100.length],
+        label: 'Explore',
+        role: 'explorer',
+        state,
+        tool: TOOL_FOR_STATE[state],
+      })
+      next++
+    }
+  }
+  for (let i = 0; i < 10; i++) {
+    agents.push({
+      id: worldSessionId(61 + i),
+      state: i % 2 === 0 ? 'finished' : 'ended',
+      role: 'builder',
+      project: CROWD_PROJECTS_100[i % CROWD_PROJECTS_100.length],
+      quietMs: (10 + i) * 60_000,
+    })
+  }
+  return buildWorld({ agents, withQuota: true })
+}
+
 /** The four worlds `emptyScreen` maps to its four screens. */
 export function emptyWorlds(): Record<'starting' | 'unreadable' | 'no-collector' | 'no-agents', World> {
   const base = emptyWorld(WORLD_CLOCK, TRANSCRIPTS_ROOT)
@@ -283,6 +329,7 @@ export const WORLD_FIXTURES: Record<string, () => World> = {
   'all-states': allStatesWorld,
   rooms: roomsWorld,
   'crowd-50': crowdWorld,
+  'crowd-100': crowd100World,
   'empty-starting': () => emptyWorlds().starting,
   'empty-unreadable': () => emptyWorlds().unreadable,
   'empty-no-collector': () => emptyWorlds()['no-collector'],

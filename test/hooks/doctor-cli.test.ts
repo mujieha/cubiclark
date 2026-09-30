@@ -43,6 +43,28 @@ describe('cubiclark doctor', () => {
     expect(result.stdout).toMatch(/unparsed by {3}none/)
   })
 
+  test('--assets: the example pack is ok (exit 0); an invalid manifest exits 1 and lists every error; a missing one is none', () => {
+    const example = fileURLToPath(new URL('../../examples/assets/sunny-office/manifest.json', import.meta.url))
+    const ok = cli('doctor', '--fixture-home', home, '--assets', example)
+    expect(ok.status).toBe(0)
+    expect(ok.stdout).toMatch(/assets {8}ok — sunny-office: 2 palettes, 2 sprites/)
+
+    const bad = cli('doctor', '--fixture-home', home, '--assets', join(FIXTURES, 'assets', 'invalid.json'))
+    expect(bad.status).toBe(1)
+    expect(bad.stdout).toMatch(/assets {8}invalid — 9 errors/)
+    expect(bad.stdout).toContain('/version: must be 1')
+    expect(bad.stdout).toContain('/sprites/tile:floor_wood/rows/0: is 5 characters wide, needs exactly 16')
+
+    const none = cli('doctor', '--fixture-home', home)
+    expect(none.status).toBe(0)
+    expect(none.stdout).toMatch(/assets {8}none/)
+  })
+
+  test('a fixture home without --state-dir reads no manifest from the real state directory', () => {
+    // no default path is built from a state dir that was never given
+    expect(cli('doctor', '--fixture-home', home).stdout).toMatch(/assets {8}none/)
+  })
+
   test('after hooks on it reports the hooks live; with the collector copy deleted it fails with exit 1', async () => {
     const on = spawnSync(process.execPath, [CLI, 'hooks', 'on', '--config-dir', home, '--state-dir', state], { encoding: 'utf8' })
     expect(on.status).toBe(0)
@@ -50,7 +72,7 @@ describe('cubiclark doctor', () => {
 
     const live = cli('doctor', '--fixture-home', home, '--config-dir', home, '--state-dir', state)
     expect(live.status).toBe(0)
-    expect(live.stdout).toMatch(/hooks {9}live {6}14 events \(tools on\)/)
+    expect(live.stdout).toMatch(/hooks {9}live {6}15 events \(tools on\)/)
 
     await rm(join(state, 'bin'), { recursive: true })
     const failing = cli('doctor', '--fixture-home', home, '--config-dir', home, '--state-dir', state)

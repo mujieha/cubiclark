@@ -13,6 +13,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serialiseStoredLine, toStoredLine } from '../src/core/hooks/whitelist.js'
+import { assetsFixtureFiles, exampleFiles, schemaFiles } from './assets-fixture-lib.js'
 import { hookFixtureEvents } from './hook-fixture-lib.js'
 import { dayFixture } from './day-fixture-lib.js'
 import { agentsFixtureText, quotaFixtureFiles, taskTreeFiles } from './task-fixture-lib.js'
@@ -32,6 +33,7 @@ import {
   permissionWaitLines,
   rateLimitLines,
   recordTypes2185Lines,
+  bookkeepingTypesLines,
   resetFixtureSequence,
   sessionId,
   subagentId,
@@ -184,6 +186,8 @@ function buildFixtures(): {
 
   // The fixture day (phase 4), built after everything else for the same reason.
   const day = dayFixture()
+  // After the day, for the same reason: it draws record uuids from the shared counter.
+  transcripts.set('bookkeeping-types.jsonl', jsonlText(bookkeepingTypesLines(START + 11 * HOUR, sessionId('d'), DEMO_CWD)))
 
   return { transcripts, home, state, worlds, tasks, quota, bin, dayHome: day.home, dayState: day.state, dayTasks: day.tasks }
 }
@@ -229,6 +233,10 @@ async function main(): Promise<void> {
     [join(DAY_DIR, 'home'), built.dayHome],
     [join(DAY_DIR, 'state'), built.dayState],
     [join(DAY_DIR, 'tasks'), built.dayTasks],
+    // The custom-assets manifest (phase 5): fixtures, the example pack and the JSON Schema.
+    [join(REPO_ROOT, 'test/fixtures/assets'), assetsFixtureFiles()],
+    [join(REPO_ROOT, 'examples/assets/sunny-office'), exampleFiles()],
+    [join(REPO_ROOT, 'schema'), schemaFiles()],
   ]
   const total = sets.reduce((sum, [, files]) => sum + files.size, 0)
 

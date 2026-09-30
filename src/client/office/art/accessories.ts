@@ -36,13 +36,15 @@ export const ACCESSORIES: Record<Exclude<Accessory, 'none'>, AccessoryArt> = {
     dy: -3,
   },
   headphones: {
+    // A band over the head and closed cups that are dark, like the band: light cups beside the head
+    // read as ears at 2x (phase 5).
     sprite: art([
-      '.....0000.....',
-      '...00....00...',
-      '..0........0..',
-      '..0........0..',
-      '.022......220.',
-      '.022......220.',
+      '....000000....',
+      '...03333330...',
+      '..03......30..',
+      '..03......30..',
+      '.0330....0330.',
+      '.0330....0330.',
       '..00......00..',
     ]),
     anchor: 'head',

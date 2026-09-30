@@ -62,7 +62,7 @@ export function rasterize(
     for (let x = 0; x < def.w; x++) {
       const hex = colourOf(row[x] ?? '.', palette, subst)
       if (hex === undefined) continue
-      const [r, g, b] = hexToRgb(toneFor(hex, variant))
+      const [r, g, b] = hexToRgb(toneFor(hex, variant, palette))
       const at = (y * def.w + x) * 4
       bytes[at] = r
       bytes[at + 1] = g

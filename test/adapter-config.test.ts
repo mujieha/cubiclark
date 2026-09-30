@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { normalisePath, parentDir, parseConfig, resolveConfigPath } from '../src/core/adapters/config.js'
-import { loadConfig } from '../src/server/config-file.js'
+import type { Stats } from 'node:fs'
+import { loadConfig, untrustedReason } from '../src/server/config-file.js'
 
 const O = { baseDir: '/cfg', home: '/home/user', fixtureMode: false }
 
@@ -132,6 +133,47 @@ describe('loadConfig', () => {
     expect(r.config.taskFolders).toBeDefined()
     expect(r.config.claudeAgents).toBeUndefined()
     expect(r.warnings).toContain('config.json is writable by others; claude-agents stays off')
+  })
+
+  // S1-7: mode bits alone are not enough.
+  test('a file owned by another user, or in a directory others can change, drops claude-agents', async () => {
+    const file = join(dir, 'config.json')
+    await writeFile(file, ENABLED, { mode: 0o600 })
+    await chmod(file, 0o600)
+    const me = process.getuid?.() ?? 1000
+
+    const foreign = await loadConfig(file, { home: '/h', fixtureMode: false, uid: me + 1 })
+    expect(foreign.config.claudeAgents).toBeUndefined()
+    expect(foreign.config.taskFolders).toBeDefined()
+    expect(foreign.warnings).toContain('config.json is owned by another user; claude-agents stays off')
+
+    await chmod(dir, 0o777)
+    const loose = await loadConfig(file, { home: '/h', fixtureMode: false })
+    await chmod(dir, 0o700)
+    expect(loose.config.claudeAgents).toBeUndefined()
+    expect(loose.warnings).toContain('the directory holding config.json can be changed by others; claude-agents stays off')
+
+    const fine = await loadConfig(file, { home: '/h', fixtureMode: false })
+    expect(fine.config.claudeAgents).toBeDefined()
+    expect(fine.warnings).toEqual([])
+  })
+
+  test('untrustedReason: a sticky directory owned by root is fine, a loose one owned by someone else is not', () => {
+    const stats = (mode: number, uid: number): Stats => ({ mode, uid }) as unknown as Stats
+    const file = stats(0o100600, 501)
+    expect(untrustedReason(file, stats(0o41777, 0), 501)).toBeUndefined() // /tmp-like
+    expect(untrustedReason(file, stats(0o40777, 0), 501)).toMatch(/directory/)
+    expect(untrustedReason(file, stats(0o40755, 502), 501)).toMatch(/directory/)
+    expect(untrustedReason(file, stats(0o40755, 0), 501)).toBeUndefined()
+    expect(untrustedReason(stats(0o100600, 502), undefined, 501)).toMatch(/owned by another user/)
+    expect(untrustedReason(stats(0o100640, 501), stats(0o40700, 501), 501)).toBeUndefined()
+    expect(untrustedReason(stats(0o100660, 501), stats(0o40700, 501), 501)).toMatch(/writable by others/)
+  })
+
+  test('the config is read from the descriptor that was checked: a directory is not a config file', async () => {
+    const r = await loadConfig(dir, { home: '/h', fixtureMode: false })
+    expect(r.config).toEqual({})
+    expect(r.warnings[0]).toContain('cannot read the config file')
   })
 
   test('an unreadable path is a warning, not a throw', async () => {

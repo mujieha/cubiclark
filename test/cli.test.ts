@@ -207,6 +207,17 @@ describe('parseCli: --config', () => {
   })
 })
 
+describe('parseCli: --assets', () => {
+  test('serve, doctor and replay take it; hooks does not', () => {
+    expect(parseCli(['--assets', '/a.json'])).toMatchObject({ command: 'serve', assets: '/a.json' })
+    expect(parseCli(['doctor', '--assets', '/a.json'])).toMatchObject({ command: 'doctor', assets: '/a.json' })
+    expect(parseCli(['replay', '--since', '3h', '--assets', '/a.json'])).toMatchObject({ command: 'replay', assets: '/a.json' })
+    expect(parseCli([])).toMatchObject({ assets: undefined })
+    expect(() => parseCli(['hooks', 'on', '--assets', '/a.json'])).toThrow(/not valid for hooks/)
+    expect(() => parseCli(['--assets'])).toThrow(/invalid arguments/)
+  })
+})
+
 describe('resolveRoot', () => {
   test('--fixture-home wins outright, and turns on fixture mode', () => {
     expect(resolveRoot('/tmp/fixture-home', { CLAUDE_CONFIG_DIR: '/should/not/matter' }, '/home/someone')).toEqual({

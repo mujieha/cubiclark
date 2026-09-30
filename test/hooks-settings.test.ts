@@ -103,18 +103,26 @@ describe('isCollectorHandler', () => {
 describe('withCollector and withoutCollector', () => {
   const desired = desiredEntries(COLLECTOR, undefined, true)
 
-  test('desiredEntries: 14 events with tools, 11 without', () => {
-    expect(desired).toHaveLength(14)
+  test('desiredEntries: 15 events with tools, 12 without; PostModelSwitch is one of them and async', () => {
+    expect(desired).toHaveLength(15)
     const lifecycleOnly = desiredEntries(COLLECTOR, undefined, false)
-    expect(lifecycleOnly).toHaveLength(11)
+    expect(lifecycleOnly).toHaveLength(12)
+    const model = desired.find((d) => d.event === 'PostModelSwitch')
+    expect(model?.handler).toMatchObject({ type: 'command', async: true, timeout: 5 })
+    expect(desired.some((d) => (d.event as string) === 'PreModelSwitch')).toBe(false)
+    // the README and SECURITY.md say: eleven of the fifteen are async, the four synchronous ones fire at teardown
+    const sync = desired.filter((d) => d.handler.async === undefined).map((d) => d.event).sort()
+    expect(desired.filter((d) => d.handler.async === true)).toHaveLength(11)
+    expect(sync).toEqual(['SessionEnd', 'Stop', 'StopFailure', 'SubagentStop'])
+    expect(desired.every((d) => d.handler.timeout === 5)).toBe(true)
     expect(lifecycleOnly.some((d) => d.event.endsWith('ToolUse') || d.event === 'PostToolUseFailure')).toBe(false)
   })
 
-  test('adds 14 entries to canonical and leaves the foreign groups first and intact', () => {
+  test('adds 15 entries to canonical and leaves the foreign groups first and intact', () => {
     const original = parseSettings(fixture('canonical'))
     const { settings, changed } = withCollector(original, desired)
     expect(changed).toBe(true)
-    expect(collectorEntries(settings)).toHaveLength(14)
+    expect(collectorEntries(settings)).toHaveLength(15)
     const hooks = settings.hooks as Record<string, unknown[]>
     expect((hooks.PostToolUse as unknown[])[0]).toEqual((original.hooks as Record<string, unknown[]>).PostToolUse?.[0])
     expect((hooks.Stop as unknown[])[0]).toEqual((original.hooks as Record<string, unknown[]>).Stop?.[0])
@@ -127,15 +135,25 @@ describe('withCollector and withoutCollector', () => {
     const twice = withCollector(once, desired)
     expect(twice.changed).toBe(false)
     expect(twice.settings).toBe(once)
-    expect(collectorEntries(twice.settings)).toHaveLength(14)
+    expect(collectorEntries(twice.settings)).toHaveLength(15)
+  })
+
+  test('an install made before PostModelSwitch existed gains that one entry and nothing else changes', () => {
+    const withoutModel = desired.filter((d) => d.event !== 'PostModelSwitch')
+    const old = withCollector(parseSettings(fixture('canonical')), withoutModel).settings
+    expect(collectorEntries(old)).toHaveLength(14)
+    const upgraded = withCollector(old, desired)
+    expect(upgraded.changed).toBe(true)
+    expect(collectorEntries(upgraded.settings)).toHaveLength(15)
+    expect(collectorEntries(upgraded.settings).map((entry) => entry.event)).toContain('PostModelSwitch')
   })
 
   test('switching from lifecycle-only to all events adds the tool entries once', () => {
     const lifecycle = withCollector(parseSettings(fixture('empty')), desiredEntries(COLLECTOR, undefined, false)).settings
-    expect(collectorEntries(lifecycle)).toHaveLength(11)
+    expect(collectorEntries(lifecycle)).toHaveLength(12)
     const all = withCollector(lifecycle, desired)
     expect(all.changed).toBe(true)
-    expect(collectorEntries(all.settings)).toHaveLength(14)
+    expect(collectorEntries(all.settings)).toHaveLength(15)
   })
 
   for (const name of PARSEABLE_FIXTURES) {
@@ -143,7 +161,7 @@ describe('withCollector and withoutCollector', () => {
       const original = parseSettings(fixture(name))
       const added = withCollector(original, desired).settings
       const removed = withoutCollector(added)
-      expect(removed.removed).toBe(14)
+      expect(removed.removed).toBe(15)
       expect(removed.settings).toEqual(original)
     })
   }

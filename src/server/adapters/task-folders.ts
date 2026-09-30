@@ -5,7 +5,7 @@
 // diagnostics.errors (task and file name only, never an absolute path).
 
 import { watch as fsWatch, type FSWatcher } from 'node:fs'
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { lstat, open, readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { buildTask, taskLinks } from '../../core/adapters/task-folder.js'
@@ -21,6 +21,29 @@ interface CachedFile {
 }
 
 const WATCH_DEBOUNCE_MS = 300
+
+/** How much of a file is read (S1-10): the start of TASK.md, STATUS.md and `session`, the end of
+ * LOG.md (its newest lines matter, and it only grows). */
+interface ReadLimit {
+  bytes: number
+  tail: boolean
+}
+const HEAD_LIMIT: ReadLimit = { bytes: 64 * 1024, tail: false }
+const LOG_LIMIT: ReadLimit = { bytes: 1024 * 1024, tail: true }
+
+async function readBounded(path: string, size: number, limit: ReadLimit): Promise<string> {
+  if (size <= limit.bytes) return readFile(path, 'utf8')
+  const handle = await open(path, 'r')
+  try {
+    const buffer = Buffer.alloc(limit.bytes)
+    const { bytesRead } = await handle.read(buffer, 0, limit.bytes, limit.tail ? size - limit.bytes : 0)
+    const text = buffer.toString('utf8', 0, bytesRead)
+    // A tail begins in the middle of a line: that line is dropped, not misread.
+    return limit.tail ? text.slice(text.indexOf('\n') + 1) : text
+  } finally {
+    await handle.close()
+  }
+}
 
 function errorCode(err: unknown): string {
   return err instanceof Error && 'code' in err && typeof (err as NodeJS.ErrnoException).code === 'string'
@@ -65,10 +88,11 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
 
   /** The file's text, from the cache when its mtime and size are unchanged. Undefined when the
    * file does not exist; an unreadable file adds an error and is also undefined. */
-  private async readCached(path: string, label: string, seen: Set<string>, errors: string[]): Promise<string | undefined> {
+  private async readCached(path: string, label: string, seen: Set<string>, errors: string[], limit: ReadLimit = HEAD_LIMIT): Promise<string | undefined> {
     let info
     try {
-      info = await stat(path)
+      // lstat: a symlink is not followed, so a task folder cannot pull in any file the user can read (S1-16).
+      info = await lstat(path)
     } catch (err) {
       const code = errorCode(err)
       if (code !== 'ENOENT' && code !== 'ENOTDIR') errors.push(`cannot read ${label}: ${code}`)
@@ -80,7 +104,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
     if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) return cached.text
     try {
       this.readCount += 1
-      const text = await readFile(path, 'utf8')
+      const text = await readBounded(path, info.size, limit)
       this.cache.set(path, { mtimeMs: info.mtimeMs, size: info.size, text })
       return text
     } catch (err) {
@@ -121,10 +145,10 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
         const statusMd = await this.readCached(statusPath, `${entry.name}/STATUS.md`, seenPaths, errors)
         let statusMtimeMs: number | undefined
         if (statusMd !== undefined) statusMtimeMs = this.cache.get(statusPath)?.mtimeMs
-        const logText = await this.readCached(join(dir, 'LOG.md'), `${entry.name}/LOG.md`, seenPaths, errors)
+        const logText = await this.readCached(join(dir, 'LOG.md'), `${entry.name}/LOG.md`, seenPaths, errors, LOG_LIMIT)
         const sessionFile = await this.readCached(join(dir, 'session'), `${entry.name}/session`, seenPaths, errors)
 
-        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs: wallMs })
+        const built = buildTask({ id: entry.name, taskMd, statusMd, statusMtimeMs, logText, sessionFile, nowMs: wallMs, phaseNowMs: nowMs })
         const lastMs = built.task.lastActivity ? Date.parse(built.task.lastActivity) : Number.NEGATIVE_INFINITY
         if (Math.max(lastMs, statusMtimeMs ?? Number.NEGATIVE_INFINITY) < windowStart) continue
 

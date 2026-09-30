@@ -2,6 +2,8 @@
 // each marked NEW. Nothing here does I/O: no fs, no http, no Date.now(). Time always arrives as
 // an argument, so every function below stays pure and testable without a clock or a filesystem.
 
+import type { AssetsStatus } from './assets/status.js'
+
 export type AgentKind = 'session' | 'background' | 'subagent' | 'teammate'
 
 // The 16 states from design §6. Not every state is reachable from transcripts alone in this
@@ -178,6 +180,8 @@ export const UNPARSED_REASONS = [
   'unknown_type',
   'unknown_subtype',
   'handler_rejected',
+  /** NEW in phase 5: a line longer than the tailer's cap, dropped without being parsed. */
+  'too_long',
 ] as const
 
 export type UnparsedReason = (typeof UNPARSED_REASONS)[number]
@@ -208,6 +212,8 @@ export interface TranscriptSourceStatus {
   inWindow: number
   /** null in fixture mode, where the window is disabled. */
   windowHours: number | null
+  /** NEW in phase 5: the folder does not exist (yet): a first run, `live` with no files. */
+  rootMissing?: boolean
 }
 
 export interface HooksSourceStatus {
@@ -253,6 +259,8 @@ export interface SourcesStatus {
   hooks: HooksSourceStatus
   /** NEW in phase 4: one entry per known adapter, once the host has started. */
   adapters?: AdapterStatus[]
+  /** NEW in phase 5: the custom-assets manifest, when there is one. */
+  assets?: AssetsStatus
 }
 
 export interface Quota {
@@ -445,6 +453,14 @@ export interface CompactedEvent {
   trigger?: 'auto' | 'manual'
 }
 
+/** NEW in phase 5: the model of a running session changed (the PostModelSwitch hook). */
+export interface ModelChangedEvent {
+  t: 'model_changed'
+  ts: string
+  agentId: string
+  model: string
+}
+
 export type AgentEvent =
   | AgentMetaEvent
   | SubagentLinkEvent
@@ -464,3 +480,4 @@ export type AgentEvent =
   | PermissionWaitEvent
   | CompactingEvent
   | CompactedEvent
+  | ModelChangedEvent

@@ -44,11 +44,23 @@ function basename(path: string): string {
   return idx === -1 ? trimmed : trimmed.slice(idx + 1)
 }
 
+const MAX_VERB_CHARS = 40
+/** Prefixes of well-known credentials: sk- (API keys), ghp_/gho_/ghs_ (GitHub), xox (Slack), AKIA (AWS). */
+const SECRET_PREFIX = /^(?:sk-|gh[pousr]_|xox|AKIA|ASIA|AIza|glpat-|npm_)/
+
+/** A command's first word is kept only when it looks like a program name (S1-16): a word that
+ * is long, holds `=`, `:` or `@`, or starts like a credential is more likely a secret typed where
+ * a command goes, so nothing is kept. */
+function looksLikeVerb(word: string): boolean {
+  return word.length <= MAX_VERB_CHARS && !/[=:@]/.test(word) && !SECRET_PREFIX.test(word)
+}
+
 function bashTarget(command: string): string | undefined {
   const tokens = command.trim().split(/\s+/).filter(Boolean)
   for (const token of tokens) {
     if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(token)) continue // skip VAR=value assignments
-    return basename(token)
+    const verb = basename(token)
+    return looksLikeVerb(verb) ? verb : undefined
   }
   return undefined
 }

@@ -156,6 +156,23 @@ describe('fromAssistant', () => {
     ])
   })
 
+  // S1-16: free text from a transcript reaches the card and the tooltip, so it is cleaned first.
+  test('an API error message has no control characters or absolute paths, and is capped', () => {
+    const text = `API Error\u001b]0;TITLE\u0007 at /Users/someone/work/x.ts:1\n${'y'.repeat(400)}`
+    const result = fromAssistant(
+      { isApiErrorMessage: true, error: 'x', message: { role: 'assistant', model: '<synthetic>', content: [{ type: 'text', text }] } },
+      ctx,
+      ts
+    )
+    const message = result.events[0]?.t === 'api_error' ? result.events[0].message : undefined
+    expect(message).toBeDefined()
+    // eslint-disable-next-line no-control-regex
+    expect(message).not.toMatch(/[\u0000-\u001f\u007f-\u009f]/)
+    expect(message).not.toContain('/Users/')
+    expect(message?.length).toBeLessThanOrEqual(200)
+    expect(message?.startsWith('API Error')).toBe(true)
+  })
+
   test('isApiErrorMessage: true with an unrecognized error field falls back to "other"', () => {
     const result = fromAssistant(
       {

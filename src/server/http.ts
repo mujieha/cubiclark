@@ -7,6 +7,8 @@ import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { NO_ASSETS, type PublicAssets } from '../core/assets/status.js'
+import type { World } from '../core/types.js'
 import { publicWorld } from '../core/view.js'
 import type { Store } from './store.js'
 
@@ -15,6 +17,12 @@ export interface HttpServerOptions {
   port: number
   clientDir: string
   store: Store
+  /** The home directory: written as `~` wherever a path leaves in the World (S1-15). */
+  home?: string
+  /** A test seam for the slow-client limit; default MAX_CLIENT_BYTES. */
+  maxClientBytes?: number
+  /** A valid custom-assets manifest's palettes and sprites, served at `custom-assets.json`. */
+  customAssets?: PublicAssets
 }
 
 export interface RunningHttpServer {
@@ -57,14 +65,39 @@ async function listAssetFiles(clientDir: string): Promise<Set<string>> {
   }
 }
 
-function sendSse(req: IncomingMessage, res: ServerResponse, store: Store): void {
+/** A client whose unsent output passes this is dropped (S1-14): it stopped reading. */
+export const MAX_CLIENT_BYTES = 8 * 1024 * 1024
+
+/** The World as the page gets it, serialised once per World however many clients are listening. */
+export class WorldText {
+  private last: { world: World; text: string } | undefined
+  constructor(private readonly home: string | undefined) {}
+  of(world: World): string {
+    if (this.last?.world !== world) this.last = { world, text: JSON.stringify(publicWorld(world, this.home)) }
+    return this.last.text
+  }
+}
+
+export function sendSse(
+  req: Pick<IncomingMessage, 'on'>,
+  res: ServerResponse,
+  store: Store,
+  text: WorldText,
+  maxClientBytes = MAX_CLIENT_BYTES
+): void {
   res.statusCode = 200
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
   res.setHeader('Connection', 'keep-alive')
   res.flushHeaders()
 
-  const send = (world: Parameters<typeof publicWorld>[0]): void => {
-    res.write(`event: world\ndata: ${JSON.stringify(publicWorld(world))}\n\n`)
+  const send = (world: World): void => {
+    if (res.writableLength > maxClientBytes) {
+      // A reader that stalled (a suspended process, a paused tab): Node would buffer every
+      // snapshot for it. It reconnects on its own if it comes back.
+      res.destroy()
+      return
+    }
+    res.write(`event: world\ndata: ${text.of(world)}\n\n`)
   }
   send(store.getWorld())
   const unsubscribe = store.subscribe(send)
@@ -85,6 +118,7 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
   const assetFiles = await listAssetFiles(opts.clientDir)
   const indexHtml = await readFile(join(opts.clientDir, 'index.html'))
   const tokenPrefix = `/${opts.token}`
+  const worldText = new WorldText(opts.home)
 
   // opts.port is 0 for an ephemeral port; every Host/Origin/URL check below must use the port
   // the OS actually bound, which is only known once listen() resolves.
@@ -120,7 +154,7 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
       return
     }
 
-    if (pathname === tokenPrefix) {
+    if (timingSafeStringEqual(pathname, tokenPrefix)) {
       res.statusCode = 301
       res.setHeader('Location', `${tokenPrefix}/`)
       res.end()
@@ -148,8 +182,17 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
       return
     }
 
+    if (subPath === 'custom-assets.json') {
+      // What a valid custom-assets manifest holds (docs/assets.md), or nothing: only ever data.
+      const body = JSON.stringify(opts.customAssets ?? NO_ASSETS)
+      res.statusCode = 200
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(isHead ? undefined : body)
+      return
+    }
+
     if (subPath === 'world.json') {
-      const body = JSON.stringify(publicWorld(opts.store.getWorld()))
+      const body = worldText.of(opts.store.getWorld())
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(isHead ? undefined : body)
@@ -162,7 +205,7 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
         res.end()
         return
       }
-      sendSse(req, res, opts.store)
+      sendSse(req, res, opts.store, worldText, opts.maxClientBytes)
       return
     }
 

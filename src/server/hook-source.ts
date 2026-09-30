@@ -77,6 +77,10 @@ export class HookSource {
         this.pollAgain = false
         await this.pollOnce()
       } while (this.pollAgain && !this.stopped)
+    } catch {
+      // Runs from timers and watch callbacks, where nothing would catch it (S1-5): a consumer
+      // that throws is a source error the page shows, and the next poll runs as usual.
+      this.error = 'unexpected error while reading the events file'
     } finally {
       this.polling = false
     }

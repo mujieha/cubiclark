@@ -114,6 +114,10 @@ describe('no filesystem path reaches an entry', () => {
     expect(reducePaths('(/abs/path)')).toBe('(path)')
     expect(reducePaths('and/or stays')).toBe('and/or stays')
     expect(reducePaths('no path here')).toBe('no path here')
+    // Windows paths, drive or UNC (S1-9); a relative path with a slash is a documented gap (docs/adapters.md)
+    expect(reducePaths('in C:\\Users\\someone\\work\\demo now')).toBe('in demo now')
+    expect(reducePaths('\\\\server\\share\\dir\\file.txt')).toBe('file.txt')
+    expect(reducePaths('projects/demo stays')).toBe('projects/demo stays')
     expect(reducePaths('https://host/path')).toBe('https:path')
   })
   test('cleanText also collapses spaces and caps at 160 characters', () => {

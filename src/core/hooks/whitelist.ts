@@ -25,6 +25,11 @@ export const HOOK_EVENT_NAMES = [
   'SubagentStop',
   'PreCompact',
   'PostCompact',
+  // Live model changes (hooks reference, checked 2026-09-30): fires after the model changed,
+  // with `from_model` and `to_model`; it cannot block. Only `to_model` is stored.
+  // `PreModelSwitch` is deliberately NOT installed: a hook on it can block a model switch, and a
+  // hook that times out there blocks it (design §3.3: it never interferes with Claude Code).
+  'PostModelSwitch',
   'SessionEnd',
 ] as const
 
@@ -204,6 +209,11 @@ export function toStoredLine(payload: unknown, tsIso: string): StoredLine {
     const src = oneOf(payload.source, SESSION_SOURCES)
     if (src) line.src = src
     const model = matching(payload.model, MODEL_RE)
+    if (model) line.model = model
+  }
+
+  if (event === 'PostModelSwitch') {
+    const model = matching(payload.to_model, MODEL_RE)
     if (model) line.model = model
   }
 

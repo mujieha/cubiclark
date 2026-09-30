@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -68,3 +68,86 @@ describe('LineTailer', () => {
     expect(result.error).toBeUndefined()
   })
 })
+
+// S1-2: a file is read in bounded pieces, and a line that never ends is dropped, not accumulated.
+describe('LineTailer limits', () => {
+  test('a line longer than the cap is dropped and counted; the next line still comes through', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, `${'x'.repeat(300)}\nnormal\n`, 'utf8')
+    const tailer = new LineTailer(file, { maxLineBytes: 100, chunkBytes: 64 })
+    const result = await collect(tailer)
+    expect(result.lines).toEqual(['normal'])
+    expect(result.tooLong).toBe(1)
+  })
+
+  test('a long line that ends in a later poll is counted once and does not swallow the next line', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'x'.repeat(250), 'utf8')
+    const tailer = new LineTailer(file, { maxLineBytes: 100, chunkBytes: 64 })
+    const first = await collect(tailer)
+    expect(first.lines).toEqual([])
+    expect(first.tooLong).toBe(1)
+    await appendFile(file, `${'y'.repeat(50)}\nnext\n`, 'utf8')
+    const second = await collect(tailer)
+    expect(second.lines).toEqual(['next'])
+    expect(second.tooLong).toBe(0)
+  })
+
+  test('a pending partial line never grows past the cap', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'x'.repeat(10_000), 'utf8')
+    const tailer = new LineTailer(file, { maxLineBytes: 100, chunkBytes: 64 })
+    await collect(tailer)
+    expect(tailer.pendingBytes()).toBeLessThanOrEqual(100)
+  })
+
+  test('a poll reads at most maxPollBytes and says there is more', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'aaaa\n'.repeat(100), 'utf8')
+    const tailer = new LineTailer(file, { chunkBytes: 50, maxPollBytes: 100 })
+    const first = await tailer.poll()
+    expect(first.more).toBe(true)
+    expect(first.lines.length).toBeLessThanOrEqual(20)
+    const rest = await collect(tailer)
+    expect(first.lines.length + rest.lines.length).toBe(100)
+  })
+
+  test('a multi-byte character split by a chunk boundary comes out whole', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'héllo wörld ünï\n', 'utf8')
+    const tailer = new LineTailer(file, { chunkBytes: 3 })
+    const result = await collect(tailer)
+    expect(result.lines).toEqual(['héllo wörld ünï'])
+  })
+
+  test('a symlink to a directory is an error result, not a throw', async () => {
+    const target = join(dir, 'a-directory')
+    await mkdir(target)
+    const link = join(dir, 'link.jsonl')
+    await symlink(target, link)
+    const result = await new LineTailer(link).poll()
+    expect(result.lines).toEqual([])
+    expect(result.error).toMatch(/not a regular file/)
+  })
+
+  test('a read that fails is an error result, not a throw', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'one\n', 'utf8')
+    const failure = Object.assign(new Error(`EIO: boom at ${file}`), { code: 'EIO' })
+    const tailer = new LineTailer(file, { open: async () => { throw failure } })
+    const result = await tailer.poll()
+    expect(result.error).toBe('cannot open: EIO')
+    expect(result.error).not.toContain(dir)
+  })
+})
+
+async function collect(tailer: LineTailer): Promise<{ lines: string[]; tooLong: number }> {
+  const lines: string[] = []
+  let tooLong = 0
+  for (;;) {
+    const result = await tailer.poll()
+    lines.push(...result.lines)
+    tooLong += result.tooLong
+    if (!result.more) return { lines, tooLong }
+  }
+}

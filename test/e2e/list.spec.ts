@@ -1,4 +1,4 @@
-import { cp, mkdtemp, rm, appendFile } from 'node:fs/promises'
+import { cp, mkdtemp, rm, appendFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -62,12 +62,26 @@ test('an empty fixture home (no transcripts at all) shows the no-collector scree
   }
 })
 
-test('a missing fixture home shows the unreadable screen', async ({ page }) => {
+test('a fixture home that cannot be listed (it is a file) shows the unreadable screen', async ({ page }) => {
+  const dir = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-file-'))
+  const file = join(dir, 'not-a-folder')
+  await writeFile(file, 'x')
+  const cli = await runCli(['--fixture-home', file, '--no-open', '--port', '0'])
+  try {
+    await page.goto(cli.url)
+    await expect(page.locator('[data-empty]')).toHaveAttribute('data-empty', 'unreadable')
+  } finally {
+    await cli.stop()
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('a fixture home that does not exist is a first run, not an unreadable folder', async ({ page }) => {
   const missing = join(tmpdir(), 'cubiclark-e2e-missing-does-not-exist')
   const cli = await runCli(['--fixture-home', missing, '--no-open', '--port', '0'])
   try {
     await page.goto(cli.url)
-    await expect(page.locator('[data-empty]')).toHaveAttribute('data-empty', 'unreadable')
+    await expect(page.locator('[data-empty]')).toHaveAttribute('data-empty', 'no-collector')
   } finally {
     await cli.stop()
   }

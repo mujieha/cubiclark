@@ -22,6 +22,50 @@ const TASK_MD = [
   '- Goal: not this one',
 ].join('\n')
 
+// S1-9: model, effort and project reach the page, so they are names, not paths or paragraphs.
+describe('what a hostile TASK.md or LOG.md can put in a name', () => {
+  test('a model, plan model or effort that is not a plain name is dropped', () => {
+    const parsed = parseTaskMd(['Model: /Users/x/y', `PlanModel: ${'m'.repeat(2000)}`, 'Effort: high;rm'].join('\n'))
+    expect(parsed).toEqual({})
+    expect(parseTaskMd('Model: claude-opus-5-5\nEffort: xhigh').model).toBe('claude-opus-5-5')
+  })
+
+  test('Project is its last segment, for / and \\ paths, and is capped', () => {
+    expect(parseTaskMd('Project: work/secret/demo').project).toBe('demo')
+    expect(parseTaskMd('Project: C:\\Users\\someone\\work\\demo').project).toBe('demo')
+    expect(parseTaskMd('Project: /home/user/projects/demo/').project).toBe('demo')
+    expect(parseTaskMd(`Project: ${'p'.repeat(500)}`).project?.length).toBeLessThanOrEqual(60)
+  })
+
+  test('a LOG.md model= or effort= that is not a plain name never reaches the task', () => {
+    const log = [
+      `2026-01-15T10:00:00Z dispatched session ${S1} in demo model=${'z'.repeat(2000)} effort=/etc/passwd`,
+      `2026-01-15T10:05:00Z resumed ${S2} model=/Users/x/y effort=high`,
+    ].join('\n')
+    const built = buildTask({ id: 't', taskMd: '# t', logText: log, nowMs: NOW })
+    expect(built.task.timeline.every((entry) => entry.model === undefined)).toBe(true)
+    expect(built.task.model).toBeUndefined()
+    expect(built.task.effort).toBe('high')
+    expect(JSON.stringify(built.task)).not.toContain('/Users/')
+    expect(JSON.stringify(built.task).length).toBeLessThan(5000)
+  })
+})
+
+// S1-10: a task with an enormous LOG.md keeps a bounded number of session ids.
+describe('a LOG.md naming very many sessions', () => {
+  test('keeps the newest 50 session ids, the current one among them, and parses fast', () => {
+    const ids = Array.from({ length: 20_000 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`)
+    const lines = ids.map((id, i) => `2026-01-15T10:${String(Math.floor(i / 400) % 60).padStart(2, '0')}:00Z resumed ${id}`)
+    const started = Date.now()
+    const built = buildTask({ id: 't', taskMd: '# t', logText: lines.join('\n'), nowMs: NOW })
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(built.task.sessionIds).toHaveLength(50)
+    expect(built.task.sessionIds).toContain(ids[ids.length - 1])
+    expect(built.task.currentSessionId).toBe(ids[ids.length - 1])
+    expect(Object.keys(built.effortBySession).length).toBeLessThanOrEqual(50)
+  })
+})
+
 describe('parseTaskMd', () => {
   test('goal, project (basename), model, plan model and effort', () => {
     expect(parseTaskMd(TASK_MD)).toEqual({
@@ -91,6 +135,27 @@ describe('taskPhase: first match wins', () => {
   test('5. done without a verified line is review, with or without a PR', () => {
     expect(taskPhase({ status: { state: 'done', pr: 12 }, entries: [at('10:00', 'dispatched')] })).toBe('review')
     expect(taskPhase({ status: { state: 'done' }, entries: [at('10:00', 'dispatched')] })).toBe('review')
+  })
+  test('5a. done, not verified, with nothing new for more than 24 hours is done, not review', () => {
+    const entries = [at('10:00', 'dispatched'), at('12:00', 'pr')]
+    const hours = (h: number): number => Date.parse('2026-01-15T12:00:00Z') + h * 3_600_000
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(23) })).toBe('review')
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(24) })).toBe('review') // exactly 24 h is not more
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries, nowMs: hours(25) })).toBe('done')
+    expect(taskPhase({ status: { state: 'done' }, entries: [at('10:00', 'dispatched')], nowMs: hours(30) })).toBe('done')
+    // no clock passed: the rule cannot apply, so it stays review (as in a plain unit call)
+    expect(taskPhase({ status: { state: 'done', pr: 12 }, entries })).toBe('review')
+  })
+  test('5b. the age rule only touches done: blocked, planned and in_progress stay as they are, however old', () => {
+    const entries = [at('10:00', 'dispatched')]
+    const later = Date.parse('2026-01-20T00:00:00Z')
+    expect(taskPhase({ status: { state: 'blocked' }, entries, nowMs: later })).toBe('blocked')
+    expect(taskPhase({ status: { state: 'planned' }, entries, nowMs: later })).toBe('planning')
+    expect(taskPhase({ status: { state: 'in_progress' }, entries, nowMs: later })).toBe('building')
+  })
+  test('5c. a dispatch after an old done STATUS is newer activity, so the task is review again, not done', () => {
+    const entries = [at('12:00', 'pr'), { ...at('13:00', 'dispatched'), ts: '2026-01-16T20:00:00Z' }]
+    expect(taskPhase({ status: { state: 'done', pr: 1 }, entries, nowMs: Date.parse('2026-01-16T21:00:00Z') })).toBe('review')
   })
   test('6. no STATUS.md: the newest start decides, by the plan model', () => {
     const entries = [at('10:00', 'dispatched', 'claude-opus-5-5')]

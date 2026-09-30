@@ -1,3 +1,5 @@
+/* These are the night theme's values, so the first paint is dark; the page's script then sets every
+   one of them from the theme in force (src/client/theme.ts, src/core/theme/). */
 :root {
   color-scheme: dark;
   --bg: #0b0f10;
@@ -7,6 +9,9 @@
   --accent: #6fd6a8;
   --warn: #e0b84a;
   --err: #e07a6f;
+  --panel-bg: #0d1312;
+  --row-hover: #14201c;
+  --canvas-bg: #16161d;
 }
 
 * {
@@ -68,6 +73,7 @@ body {
   margin-right: auto;
 }
 
+#theme-toggle,
 #view-toggle,
 #hud-toggle {
   font: inherit;
@@ -80,11 +86,13 @@ body {
   cursor: pointer;
 }
 
+#theme-toggle:hover,
 #view-toggle:hover,
 #hud-toggle:hover {
   border-color: var(--accent);
 }
 
+#theme-toggle:focus-visible,
 #view-toggle:focus-visible,
 #hud-toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -111,7 +119,7 @@ body {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  background: #16161d;
+  background: var(--canvas-bg);
 }
 
 .office-status {
@@ -178,12 +186,75 @@ body {
   color: var(--err);
 }
 
+/* The problems in a custom-assets manifest: shown above everything, with the error colour. */
+.asset-errors {
+  margin: 0 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--err);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.asset-errors-title {
+  margin: 0 0 4px;
+  color: var(--err);
+  font-weight: 700;
+}
+
+.asset-errors-list {
+  margin: 0;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
+
 .empty {
   border: 1px dashed var(--line);
   border-radius: 4px;
   padding: 24px;
   color: var(--dim);
   max-width: 60ch;
+}
+
+/* The first-run screen: the two ways of seeing agents, side by side when there is room. */
+.empty:has(.setup) {
+  border-style: solid;
+  max-width: 80ch;
+}
+
+.setup-title {
+  margin: 0 0 8px;
+  color: var(--fg);
+  font-size: 18px;
+}
+
+.setup-mode {
+  margin: 12px 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.setup-mode h3 {
+  margin: 0 0 4px;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.setup-mode p {
+  margin: 0 0 6px;
+}
+
+.setup-command {
+  display: inline-block;
+  padding: 2px 8px;
+  color: var(--fg);
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+}
+
+.setup-footer {
+  margin: 8px 0 0;
 }
 
 table {
@@ -234,7 +305,7 @@ tbody tr:focus-visible {
 }
 
 tbody tr[aria-current='true'] {
-  background: #14201c;
+  background: var(--row-hover);
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -248,7 +319,7 @@ tbody tr[aria-current='true'] {
   overflow-y: auto;
   font-size: 12px;
   line-height: 1.45;
-  background: #0d1312;
+  background: var(--panel-bg);
   border: 1px solid var(--line);
   border-radius: 4px;
 }
@@ -371,7 +442,7 @@ tbody tr[aria-current='true'] {
 }
 
 .hud-log-row:hover {
-  background: #14201c;
+  background: var(--row-hover);
 }
 
 .hud-log-row time,
@@ -382,10 +453,36 @@ tbody tr[aria-current='true'] {
 }
 
 .hud-log-row span,
+.hud-log-row .log-agent,
 .hud-entries span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The agent in a log row is a button that looks like the text it replaced. */
+.hud-log-row .log-agent {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.hud-log-row .log-agent:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.hud-log-row .log-agent:focus-visible,
+.hud-log-list:focus-visible,
+.hud-entries:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .hud-stages {

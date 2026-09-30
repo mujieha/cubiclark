@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import type { AgentEvent } from '../src/core/types.js'
 import { Store } from '../src/server/store.js'
 
 beforeEach(() => {
@@ -67,6 +68,60 @@ describe('Store', () => {
     vi.advanceTimersByTime(1000)
     expect(notifications).toBe(1)
 
+    store.stop()
+  })
+})
+
+// S1-5: one bad event, tick or subscriber never stops the store.
+describe('Store error boundary', () => {
+  const poison = (): never => {
+    throw new Error('reducer bug')
+  }
+
+  test('an event that makes the reducer throw is skipped and counted; the next one is applied', () => {
+    const store = new Store({ nowMs: () => Date.now(), transcriptsRoot: '/root' })
+    const bad = { t: 'prompt', ts: 't0', get agentId(): string { return poison() } } as unknown as AgentEvent
+    store.applyEvents([bad, { t: 'prompt', ts: 't1', agentId: 'good' }])
+    expect(store.getWorld().agents.good?.counters.prompts).toBe(1)
+    expect(store.getWorld().diagnostics.sourceErrors).toContain('an event could not be applied and was skipped')
+    store.applyTranscriptEvents([bad, { t: 'prompt', ts: 't2', agentId: 'good' }])
+    expect(store.getWorld().agents.good?.counters.prompts).toBe(2)
+    store.stop()
+  })
+
+  test('a clock tick that throws leaves the World and the timer alone', () => {
+    let clock = Date.parse('2026-01-15T10:00:00.000Z')
+    let broken = true
+    const store = new Store({
+      nowMs: () => clock,
+      transcriptsRoot: '/root',
+      get stuckAfterMs(): number {
+        if (broken) throw new Error('bad option')
+        return 600_000
+      },
+    })
+    expect(() => store.tickNow()).not.toThrow()
+    expect(store.getWorld().diagnostics.sourceErrors).toContain('a clock tick failed and was skipped')
+    broken = false
+    clock += 1000
+    store.tickNow()
+    expect(store.getWorld().clock).toBe(new Date(clock).toISOString())
+    store.stop()
+  })
+
+  test('a subscriber that throws is dropped and the others still hear', () => {
+    const store = new Store({ nowMs: () => Date.now(), transcriptsRoot: '/root', throttleMs: 0 })
+    let heard = 0
+    store.subscribe(() => {
+      throw new Error('socket closed')
+    })
+    store.subscribe(() => {
+      heard += 1
+    })
+    expect(() => store.applyEvents([{ t: 'prompt', ts: 't0', agentId: 'a1' }])).not.toThrow()
+    expect(heard).toBe(1)
+    store.applyEvents([{ t: 'prompt', ts: 't1', agentId: 'a1' }])
+    expect(heard).toBe(2)
     store.stop()
   })
 })

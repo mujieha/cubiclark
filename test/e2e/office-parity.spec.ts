@@ -35,7 +35,7 @@ async function labels(page: Page): Promise<{ list: Record<string, string>; offic
   })
 }
 
-for (const name of ['all-states', 'rooms', 'crowd-50']) {
+for (const name of ['all-states', 'rooms', 'crowd-50', 'crowd-100']) {
   test(`office and list report the same agents and states: ${name}`, async ({ page }) => {
     const cli = await openWithFakeWorld(page)
     try {

@@ -114,3 +114,119 @@ describe('the reducer merges breakdowns', () => {
     expect(total(merged)).toBe(MAX_UNPARSED_TYPE_NAMES + 3)
   })
 })
+
+// Records that come before the file has shown any time wait for the first one.
+describe('records before the first timestamp', () => {
+  const held = (mode: string): string => JSON.stringify({ type: 'permission-mode', permissionMode: mode })
+  const prompt = JSON.stringify({ type: 'user', timestamp: TS, cwd: '/a/demo', message: { role: 'user', content: 'x' } })
+
+  test('the 17th such record is no_timestamp, as before; the first 16 wait', () => {
+    const lines = Array.from({ length: 17 }, (_, i) => held(i % 2 === 0 ? 'plan' : 'default'))
+    const result = parseTranscript([...lines, prompt].join('\n'), ctx)
+    expect(result.unparsed).toBe(1)
+    expect(result.unparsedBy).toEqual({ no_timestamp: { 'permission-mode': 1 } })
+    expect(result.events.filter((event) => event.t === 'permission_mode')).toHaveLength(16)
+  })
+
+  test('a permission-mode without a mode is handler_rejected, not held', () => {
+    const result = parseTranscript(`{"type":"permission-mode"}\n${prompt}`, ctx)
+    expect(result.unparsedBy).toEqual({ handler_rejected: { 'permission-mode': 1 } })
+  })
+
+  test('a file that never gets a timestamp keeps them pending, uncounted', () => {
+    const result = parseTranscript(`${held('plan')}\n${held('default')}`, ctx)
+    expect(result.unparsed).toBe(0)
+    expect(result.deferred).toBe(2)
+    expect(result.events).toEqual([])
+  })
+
+  test('the held events come out in file order, all with the first timestamp, after the record\'s agent_meta', () => {
+    const result = parseTranscript(`${held('plan')}\n${held('acceptEdits')}\n${prompt}`, ctx)
+    expect(result.events.map((event) => [event.t, event.ts, 'mode' in event ? event.mode : undefined])).toEqual([
+      ['agent_meta', TS, undefined],
+      ['permission_mode', TS, 'plan'],
+      ['permission_mode', TS, 'acceptEdits'],
+      ['prompt', TS, undefined],
+    ])
+  })
+
+  test('the three types from a real home are known and ignored', () => {
+    for (const type of ['bridge-session', 'artifact-autoreact-ledger', 'artifact-comment-monitor']) {
+      expect(one(JSON.stringify({ type })), type).toMatchObject({ unparsed: false })
+      expect(one(JSON.stringify({ type, timestamp: TS })), type).toMatchObject({ unparsed: false })
+    }
+  })
+})
+
+// S1-3: what a transcript says is never printed raw and never grows the World without bound.
+describe('escape sequences and unbounded names in a transcript', () => {
+  const ESC = '\u001b'
+  const hostile = {
+    type: `${ESC}]0;TITLE${'\u0007'}${ESC}[2K${ESC}[1Gfuture`,
+    subtype: `${ESC}[32mgreen`,
+    version: `2.1.285${ESC}[31m RED ${ESC}[0m`,
+  }
+
+  test('an unknown type and subtype travel as printable names', () => {
+    const type = one(JSON.stringify({ type: hostile.type, timestamp: TS }))
+    expect(type.unknownType).toBe('(invalid)')
+    const subtype = one(JSON.stringify({ type: 'system', subtype: hostile.subtype, timestamp: TS }))
+    expect(subtype.unknownType).toBe('(invalid)')
+  })
+
+  test('a version that is not a version number is (invalid)', () => {
+    const result = one(JSON.stringify({ type: 'user', timestamp: TS, cwd: '/a/b', version: hostile.version, message: { role: 'user', content: 'x' } }))
+    const meta = result.events.find((event) => event.t === 'agent_meta')
+    expect(meta && meta.t === 'agent_meta' ? meta.version : 'none').toBe('(invalid)')
+    const good = one(JSON.stringify({ type: 'user', timestamp: TS, cwd: '/a/b', version: '2.1.285', message: { role: 'user', content: 'x' } }))
+    const goodMeta = good.events.find((event) => event.t === 'agent_meta')
+    expect(goodMeta && goodMeta.t === 'agent_meta' ? goodMeta.version : 'none').toBe('2.1.285')
+  })
+
+  test('unknownTypes and versions keep at most 50 names, the rest under (other)', () => {
+    let world = emptyWorld(TS, '/root')
+    const unknownTypes: Record<string, number> = {}
+    for (let i = 0; i < 60; i++) unknownTypes[`t${i}`] = 1
+    world = reduce(world, { t: 'diagnostics', ts: TS, unparsed: 60, unknownTypes, versions: [] })
+    expect(Object.keys(world.diagnostics.unknownTypes)).toHaveLength(51)
+    expect(world.diagnostics.unknownTypes['(other)']).toBe(10)
+    const versions = Array.from({ length: 60 }, (_, i) => `2.1.${i}`)
+    world = reduce(world, { t: 'diagnostics', ts: TS, unparsed: 0, unknownTypes: {}, versions })
+    expect(world.diagnostics.versions).toHaveLength(51)
+    expect(world.diagnostics.versions.at(-1)).toBe('(other)')
+  })
+
+  test('no control character reaches the doctor report, from any field', async () => {
+    const { formatDoctorReport } = await import('../src/server/doctor.js')
+    const { formatHooksStatus } = await import('../src/server/hooks-install.js')
+    const report = formatDoctorReport({
+      claude: { version: `2.1.285${ESC}[31m`, verified: false },
+      hookEvents: { verifiedOn: '2.1.285', events: ['A'] },
+      transcripts: { status: 'live', reason: `read ${ESC}]0;TITLE\u0007 files` },
+      hooks: { status: 'missing', reason: 'x' },
+      diagnostics: {
+        unparsedLines: 1,
+        unknownHookShapes: 0,
+        unknownTypes: { [`a${ESC}[2Kb`]: 1 },
+        unparsedBy: {},
+        versions: [`v${ESC}[1G`],
+        sourceErrors: [`first\nfake line ${ESC}`],
+      },
+    })
+    // eslint-disable-next-line no-control-regex
+    expect(report).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/)
+    expect(report.split('\n')).toHaveLength(6)
+    const status = formatHooksStatus({
+      settingsPath: `/x${ESC}[2J`,
+      settingsState: 'unparseable',
+      parseError: `bad${ESC}]52;c;AAAA\u0007`,
+      events: [],
+      tools: true,
+      collectorExists: false,
+      paused: false,
+      eventsFile: `/y${ESC}c`,
+    })
+    // eslint-disable-next-line no-control-regex
+    expect(status).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/)
+  })
+})

@@ -7,8 +7,13 @@ import {
   emptyScreenText,
   officeStatusLine,
   publicWorld,
+  setupScreen,
   sourcesLine,
+  tildePath,
 } from '../src/core/view.js'
+import { invalidManifest, sunnyOffice } from '../scripts/assets-fixture-lib.js'
+import { validateManifest } from '../src/core/assets/manifest.js'
+import { assetsStatusOf } from '../src/core/assets/status.js'
 import type { Agent, World } from '../src/core/types.js'
 import { emptyWorld, ensureAgent, setState, updateAgent } from '../src/core/world.js'
 
@@ -267,6 +272,21 @@ describe('sourcesLine', () => {
       expect(sourcesLine(withSources({ status: 'live' }, { status: 'not_installed', events: 0 }))).toBe('transcripts: live · hooks: not installed')
     })
   })
+
+  describe('with custom assets', () => {
+    const withAssets = (assets: NonNullable<World['sources']['assets']>): World => {
+      const world = withSources({ status: 'live' }, { status: 'not_installed', events: 0 })
+      return { ...world, sources: { ...world.sources, assets } }
+    }
+
+    test('a valid pack is named with its counts; none adds nothing; an invalid one says how many errors', () => {
+      const ok = assetsStatusOf(validateManifest(sunnyOffice()), 'manifest.json')
+      expect(sourcesLine(withAssets(ok))).toBe('transcripts: live · hooks: not installed · assets: ok — sunny-office: 2 palettes, 2 sprites')
+      expect(sourcesLine(withAssets(assetsStatusOf(undefined, undefined)))).toBe('transcripts: live · hooks: not installed')
+      const bad = assetsStatusOf(validateManifest(invalidManifest()), 'bad.json')
+      expect(sourcesLine(withAssets(bad))).toBe('transcripts: live · hooks: not installed · assets: invalid — 9 errors')
+    })
+  })
 })
 
 describe('publicWorld', () => {
@@ -287,6 +307,57 @@ describe('publicWorld', () => {
     let world = emptyWorld('t0', '/root')
     world = withAgent(world, 'a1', { closedToolIds: ['toolu_fx000003'] })
     expect(publicWorld(world).agents.a1?.closedToolIds).toBeUndefined()
+  })
+
+  test('writes the home directory as ~ in the root, the events file, the root error and source errors (S1-15)', () => {
+    const home = '/Users/someone'
+    let world = emptyWorld('t0', `${home}/.claude`)
+    world = {
+      ...world,
+      sources: {
+        transcripts: { ...world.sources.transcripts, status: 'unreadable', error: `ENOENT scandir '${home}/.claude'` },
+        hooks: { status: 'live', events: 0, eventsFile: `${home}/.cubiclark/events.jsonl` },
+      },
+      diagnostics: { ...world.diagnostics, sourceErrors: [`cannot read ${home}/x/y`] },
+    }
+    const pub = publicWorld(world, home)
+    expect(JSON.stringify(pub)).not.toContain(home)
+    expect(pub.sources.transcripts.root).toBe('~/.claude')
+    expect(pub.sources.hooks.eventsFile).toBe('~/.cubiclark/events.jsonl')
+    expect(emptyScreenText('no-collector', pub)).toContain('~/.claude')
+  })
+
+  test('tildePath does not eat a longer directory name, and does nothing without a usable home', () => {
+    expect(tildePath('/Users/ann/x and /Users/anna/y', '/Users/ann')).toBe('~/x and /Users/anna/y')
+    expect(tildePath('/Users/ann/x', undefined)).toBe('/Users/ann/x')
+    expect(tildePath('/Users/ann/x', '/')).toBe('/Users/ann/x')
+    expect(tildePath('/Users/ann', '/Users/ann/')).toBe('~')
+  })
+})
+
+describe('setupScreen: the first run', () => {
+  test('names the root, and explains both ways of seeing agents, with the command for the second', () => {
+    const setup = setupScreen(emptyWorld('t0', '~/.claude'))
+    expect(setup.title).toBe('Welcome to Cubiclark')
+    expect(setup.intro).toBe('No Claude Code transcripts in ~/.claude yet, and the live collector is not installed. Cubiclark can watch your agents in two ways:')
+    expect(setup.modes.map((mode) => mode.id)).toEqual(['transcripts', 'hooks'])
+    expect(setup.modes[0]).toMatchObject({ title: 'Transcripts only — nothing to install' })
+    expect(setup.modes[0]?.command).toBeUndefined()
+    expect(setup.modes[0]?.body).toContain('No settings are changed')
+    expect(setup.modes[1]).toMatchObject({ title: 'With hooks — live and precise', command: 'cubiclark hooks on' })
+    expect(setup.modes[1]?.body).toContain('never prompt text or file contents')
+    expect(setup.modes[1]?.body).toContain('cubiclark hooks off puts settings.json back')
+    expect(setup.footer).toBe('cubiclark doctor checks both. This page updates by itself.')
+  })
+
+  test('without a world it still reads: the root is "the Claude Code folder"', () => {
+    expect(setupScreen(undefined).intro).toContain('No Claude Code transcripts in the Claude Code folder yet')
+  })
+
+  test('is what the no-collector screen shows: a live source with no files and no collector', () => {
+    const world = emptyWorld('t0', '/r')
+    const first = { ...world, sources: { ...world.sources, transcripts: { ...world.sources.transcripts, status: 'live' as const, files: 0, rootMissing: true } } }
+    expect(emptyScreen(first)).toBe('no-collector')
   })
 })
 

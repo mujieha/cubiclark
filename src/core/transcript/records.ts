@@ -2,6 +2,7 @@
 // taking the already-JSON-parsed record and returning the AgentEvent(s) it implies. parse.ts
 // dispatches to these; nothing here touches the agent_meta bookkeeping, which parse.ts owns.
 
+import { freeText } from '../printable.js'
 import type { AgentEvent, ErrorKind } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { toolActivity } from './tools.js'
@@ -40,6 +41,10 @@ export const IGNORED_TYPES = new Set([
   'update', // a version-update notice
   'continued-in', // "this session continues in another" (`continuedInSessionId`)
   'pr-link', // a pull request the session opened
+  // Seen on a real home after phase 4 (2026-09-30); bookkeeping with no bearing on agent state:
+  'bridge-session', // remote-control bridge bookkeeping
+  'artifact-autoreact-ledger', // the artifact auto-react ledger
+  'artifact-comment-monitor', // the artifact comment monitor's state
 ])
 
 /** system.subtype values that are known and deliberately ignored, alongside the three that
@@ -152,7 +157,7 @@ export function fromAssistant(record: Record<string, unknown>, ctx: ParseCtx, ts
           agentId: ctx.agentId,
           kind: classifyTerminalApiErrorKind(errorField, text),
           retrying: false,
-          message: text ? text.slice(0, 200) : undefined,
+          message: text ? freeText(text, 200) || undefined : undefined,
         },
       ],
     }
