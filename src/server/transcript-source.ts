@@ -97,6 +97,15 @@ const defaultWatch: WatchFn = (root, listener) => {
   }
 }
 
+/** More names than this between two passes are not remembered one by one: the pass polls every known
+ * file instead, and the next due rescan finds the rest. */
+const MAX_PENDING = 1000
+
+/** Transcripts first, sidecar meta files second (see scan()). */
+function metaLast(paths: string[]): string[] {
+  return [...paths.filter((p) => !p.endsWith('.meta.json')), ...paths.filter((p) => p.endsWith('.meta.json'))]
+}
+
 function toPosixRelative(root: string, absPath: string): string {
   return relative(root, absPath).split(sep).join('/')
 }
@@ -134,6 +143,12 @@ export class TranscriptSource {
   private passLoop: Promise<void> | undefined
   /** A request arrived during a pass. */
   private again = false
+  /** Absolute paths that watch events named since the last pass. */
+  private readonly pendingPaths = new Set<string>()
+  /** The next pass polls every known file (the timer, or an event that named none). */
+  private pollAllKnown = false
+  /** When the last full scan started, by the monotonic clock. */
+  private lastScanAtMs: number | undefined
   private scanDirs = 0
   private scanFiles = 0
   private readonly scanStarts: number[] = []
@@ -187,6 +202,7 @@ export class TranscriptSource {
     await this.whenIdle()
     if (this.opts.watch) this.setupWatch()
     this.pollTimer = setInterval(() => {
+      this.pollAllKnown = true
       this.requestPass()
     }, this.opts.pollMs)
   }
@@ -211,6 +227,7 @@ export class TranscriptSource {
     this.scansInFlight += 1
     this.stats.maxConcurrentScans = Math.max(this.stats.maxConcurrentScans, this.scansInFlight)
     const started = this.mono()
+    this.lastScanAtMs = started
     this.stats.scans += 1
     this.scanStarts.push(started)
     if (this.scanStarts.length > 1000) this.scanStarts.shift()
@@ -460,6 +477,7 @@ export class TranscriptSource {
     try {
       do {
         this.again = false
+        await Promise.resolve() // events of the same tick (a file and its sidecar) arrive as one batch
         await this.pass()
       } while (this.again && !this.stopped)
     } catch (err) {
@@ -468,12 +486,39 @@ export class TranscriptSource {
   }
 
   private async pass(): Promise<void> {
-    // Files registered by the scan were read by it; only the ones known before need a poll.
+    const due = this.lastScanAtMs === undefined || this.mono() - this.lastScanAtMs >= this.rescanMs
+    const named = [...this.pendingPaths]
+    this.pendingPaths.clear()
+    const all = this.pollAllKnown
+    this.pollAllKnown = false
+    // Files registered by a scan were read by it; only the ones known before need a poll.
     const known = [...this.tailers.keys()]
-    await this.scan() // discovers new files; a no-op for ones already registered or excluded
+
+    if (due) {
+      await this.scan() // discovers new files; a no-op for ones already registered or excluded
+      for (const absPath of known) {
+        if (this.stopped) return
+        await this.pollOne(absPath)
+      }
+      return
+    }
+
+    // Between rescans nothing is listed: the files the events named (transcripts first, sidecar meta
+    // files second, as a scan does), then, when asked, every file already known.
+    const polled = new Set<string>()
+    for (const absPath of metaLast(named)) {
+      if (this.stopped) return
+      if (this.tailers.has(absPath)) {
+        await this.pollOne(absPath)
+        polled.add(absPath)
+      } else {
+        await this.maybeRegister(absPath) // classifies, keeps to the window, ignores what is no transcript
+      }
+    }
+    if (!all) return
     for (const absPath of known) {
       if (this.stopped) return
-      await this.pollOne(absPath)
+      if (!polled.has(absPath)) await this.pollOne(absPath)
     }
   }
 
@@ -497,11 +542,28 @@ export class TranscriptSource {
   private setupWatch(): void {
     // Undefined when watching is not supported here (older Linux kernels): the polling loop set up
     // in start() is the fallback, and it is already running.
-    const watcher = this.watchFn(this.opts.root, () => {
-      if (this.stopped) return
-      this.stats.watchEvents += 1
-      this.requestPass()
-    })
+    const watcher = this.watchFn(this.opts.root, (filename) => this.onWatch(filename))
     if (watcher) this.watchers.push(watcher)
+  }
+
+  /** A file-system event: a hint, never the only way a change is found. One that names a file under
+   * projects/ has that file looked at; one that names nothing has every known file looked at; one
+   * that names anything else (debug logs, file history: written many times a second) is dropped. */
+  private onWatch(filename: string | null): void {
+    if (this.stopped) return
+    this.stats.watchEvents += 1
+    if (filename === null) {
+      this.pollAllKnown = true
+      this.requestPass()
+      return
+    }
+    const rel = filename.split(sep).join('/').replace(/^\/+/, '')
+    if (!rel.startsWith('projects/') || rel.split('/').includes('..')) {
+      this.stats.watchEventsIgnored += 1
+      return
+    }
+    if (this.pendingPaths.size >= MAX_PENDING) this.pollAllKnown = true
+    else this.pendingPaths.add(join(this.opts.root, rel))
+    this.requestPass()
   }
 }

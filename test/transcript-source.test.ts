@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -158,6 +158,7 @@ describe('TranscriptSource', () => {
       windowHours: null,
       watch: false,
       pollMs: 30,
+      rescanMs: 20, // the default (5 s) is longer than this test waits for a new directory
       onEvents,
       nowMs: () => Date.now(),
     })
@@ -255,7 +256,7 @@ describe('TranscriptSource', () => {
   test('the folder is picked up when it appears', async () => {
     const root = join(dir, 'later')
     const { events, onEvents } = collector()
-    const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 30, onEvents, nowMs: () => Date.now() })
+    const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 30, rescanMs: 20, onEvents, nowMs: () => Date.now() })
     await source.start()
     expect(source.getStatus().rootMissing).toBe(true)
     const sid = '00000000-0000-4000-8000-000000000009'
@@ -557,5 +558,214 @@ describe('TranscriptSource runs one pass at a time', () => {
     io.open()
     await source.whenIdle()
     expect(events.length).toBe(seen)
+  })
+})
+
+describe('TranscriptSource rescans on a throttle', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const NEW = '00000000-0000-4000-8000-000000000002'
+  const AID = 'fx000000000000b1'
+  const project = (): string => join(dir, 'projects', '-tmp-demo')
+  const rel = (name: string): string => `projects/-tmp-demo/${name}`
+
+  async function session(id: string, ts: string): Promise<void> {
+    await mkdir(project(), { recursive: true })
+    await writeFile(join(project(), `${id}.jsonl`), promptLine(id, '/tmp/demo', ts) + '\n')
+  }
+
+  async function append(id: string, ts: string): Promise<void> {
+    await appendFile(join(project(), `${id}.jsonl`), promptLine(id, '/tmp/demo', ts) + '\n')
+  }
+
+  const prompts = (events: AgentEvent[], id?: string): number =>
+    events.filter((e) => e.t === 'prompt' && (id === undefined || e.agentId === id)).length
+
+  /** A source whose clock and watch the test drives; the poll timer is too slow to matter. */
+  function driven(extra: { sinceMs?: number | null; rescanMs?: number } = {}) {
+    const clock = { now: 1_000 }
+    const spy = spyReaddir()
+    const watch = fakeWatch()
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: extra.sinceMs ?? null,
+      windowHours: null,
+      watch: true,
+      pollMs: 60_000,
+      onEvents,
+      nowMs: () => Date.now(),
+      rescanMs: extra.rescanMs ?? 5000,
+      monoMs: () => clock.now,
+      readdir: spy.readdir,
+      watchFn: watch.watchFn,
+    })
+    return { clock, spy, watch, events, source }
+  }
+
+  test('named events between rescans never walk anything', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    for (let i = 0; i < 50; i++) watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(spy.listed).toEqual([])
+    expect(source.getScanStats()).toMatchObject({ scans: 1, watchEvents: 50, watchEventsIgnored: 0 })
+  })
+
+  test('a line appended to a known file arrives through a named event, without a scan', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, events, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
+    expect(spy.listed).toEqual([])
+  })
+
+  test('a new session file named by an event is registered and read, without a scan', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, events, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    watch.fire(rel(`${NEW}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(1)
+    expect(source.getScanStats().scans).toBe(1)
+    expect(source.getStatus()).toMatchObject({ files: 2, inWindow: 2 })
+    expect(spy.listed).toEqual([])
+  })
+
+  test('a named file older than the window is counted but not read', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven({ sinceMs: Date.now() - 60_000 })
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    const old = new Date('2020-01-01T00:00:00.000Z')
+    await utimes(join(project(), `${NEW}.jsonl`), old, old)
+    watch.fire(rel(`${NEW}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(0)
+    expect(source.getStatus()).toMatchObject({ files: 2, inWindow: 1 })
+  })
+
+  test('a named subagent transcript and its meta file register together, the transcript first', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    const subagents = join(project(), SID, 'subagents')
+    await mkdir(subagents, { recursive: true })
+    await writeFile(join(subagents, `agent-${AID}.jsonl`), promptLine(AID, '/tmp/demo', '2026-01-15T10:00:05.000Z') + '\n')
+    await writeFile(join(subagents, `agent-${AID}.meta.json`), JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000001' }))
+    // The meta file's event arrives first, in the same tick as the transcript's.
+    watch.fire(rel(`${SID}/subagents/agent-${AID}.meta.json`))
+    watch.fire(rel(`${SID}/subagents/agent-${AID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    const kinds = events.filter((e) => (e.t === 'prompt' && e.agentId === AID) || e.t === 'subagent_link').map((e) => e.t)
+    expect(kinds).toEqual(['prompt', 'subagent_link'])
+    expect(source.getScanStats().scans).toBe(1)
+  })
+
+  test('an event outside projects/ starts no pass at all', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    watch.fire('debug/x.txt')
+    watch.fire('file-history/a/b')
+    watch.fire('projects')
+    await source.whenIdle()
+    source.stop()
+    expect(spy.listed).toEqual([])
+    expect(source.getScanStats()).toMatchObject({ scans: 1, watchEvents: 3, watchEventsIgnored: 3 })
+  })
+
+  test('an event that names no file polls every known file, without a scan', async () => {
+    const second = '00000000-0000-4000-8000-000000000003'
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    await session(second, '2026-01-15T10:00:01.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    await append(second, '2026-01-15T10:00:06.000Z')
+    watch.fire(null)
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(prompts(events, second)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
+  })
+
+  test('a due rescan finds what no event named', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { clock, watch, events, source } = driven()
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z') // no event names it
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    expect(prompts(events, NEW)).toBe(0) // 0 ms since the last scan: not due
+    clock.now += 5000
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(1)
+    expect(source.getScanStats().scans).toBe(2)
+  })
+
+  test('with no watch at all, the timer still finds a new file (polling is the guarantee)', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: false,
+      pollMs: 20,
+      rescanMs: 50,
+      onEvents,
+      nowMs: () => Date.now(),
+    })
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    await waitFor(() => prompts(events, NEW) === 1)
+    source.stop()
+  })
+
+  test('scans in the last minute are counted by the monotonic clock', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { clock, watch, source } = driven({ rescanMs: 0 })
+    await source.start()
+    for (let i = 0; i < 3; i++) {
+      watch.fire(rel(`${SID}.jsonl`))
+      await source.whenIdle()
+    }
+    expect(source.getScanStats()).toMatchObject({ scans: 4, scansLastMinute: 4, rescanMs: 0 })
+    clock.now += 61_000
+    expect(source.getScanStats()).toMatchObject({ scans: 4, scansLastMinute: 0 })
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(source.getScanStats()).toMatchObject({ scans: 5, scansLastMinute: 1 })
+  })
+
+  test('a burst of more names than it will remember falls back to polling every known file', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    for (let i = 0; i < 1001; i++) watch.fire(rel(`unknown-${i}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
   })
 })
