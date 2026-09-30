@@ -5,6 +5,8 @@
 import { createHash } from 'node:crypto'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { worldSessionId as s, worldSubagentId as sub } from '../../scripts/world-fixture-lib.js'
+import { hexToRgb } from '../../src/core/theme/colour.js'
+import { DAY } from '../../src/core/theme/index.js'
 import { loadWorld, openWithFakeWorld, pushWorld, saveEvidence } from './fake-world.js'
 
 const CLOCK_AT = '2026-01-15T10:30:00.000Z'
@@ -188,6 +190,138 @@ test('the rooms, as one picture', async ({ page }) => {
   } finally {
     await cli.stop()
   }
+})
+
+/** How many pixels of the office canvas are exactly this colour. */
+async function pixelsOf(page: Page, hex: string): Promise<number> {
+  const [r, g, b] = hexToRgb(hex)
+  return page.evaluate(
+    ([red, green, blue]) => {
+      const canvas = document.querySelector<HTMLCanvasElement>('canvas.office-canvas')
+      const data = canvas?.getContext('2d')?.getImageData(0, 0, canvas.width, canvas.height).data
+      let count = 0
+      if (data) for (let i = 0; i < data.length; i += 4) if (data[i] === red && data[i + 1] === green && data[i + 2] === blue) count++
+      return count
+    },
+    [r, g, b]
+  )
+}
+
+test.describe('with Morty off the office is exactly as it was before him', () => {
+  // The same baseline as 'the rooms, as one picture' above: a picture taken before Morty existed.
+  test('turned off in the page: no basket, no bowl, no dog; the same picture', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('cubiclark.mascot', 'off'))
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      const canvas = page.locator('canvas.office-canvas')
+      await expect(page.locator('#mascot-toggle')).toHaveText('Morty: off')
+      await expect(page.locator('#mascot-toggle')).toHaveAttribute('aria-pressed', 'false')
+      await expect(canvas).toHaveAttribute('data-mascot', 'off')
+      await expect(page.locator('.office-mascot')).toHaveCount(0)
+      expect(await pixelsOf(page, DAY.mascot.g as string), 'not a pixel of his coat').toBe(0)
+      await expect(canvas).toHaveScreenshot('rooms.png')
+    } finally {
+      await cli.stop()
+    }
+  })
+
+  test('started with --no-mascot: no button, nothing of him in the page, the same picture', async ({ page }) => {
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      const canvas = page.locator('canvas.office-canvas')
+      await expect(page.locator('#mascot-toggle')).toHaveCount(0)
+      await expect(page.locator('.office-mascot')).toHaveCount(0)
+      await expect(page.locator('.office-mascot-tip')).toHaveCount(0)
+      expect(await page.evaluate(() => document.getElementById('app')?.dataset.mascot), 'the page does not even say he is off').toBeUndefined()
+      await expect(canvas).toHaveAttribute('data-mascot', 'off')
+      expect(await pixelsOf(page, DAY.mascot.g as string)).toBe(0)
+      await expect(canvas).toHaveScreenshot('rooms.png')
+    } finally {
+      await cli.stop()
+    }
+  })
+
+  test('--no-mascot wins over a browser that remembers him on', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('cubiclark.mascot', 'on'))
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      await expect(page.locator('canvas.office-canvas')).toHaveAttribute('data-mascot', 'off')
+      await expect(page.locator('#mascot-toggle')).toHaveCount(0)
+    } finally {
+      await cli.stop()
+    }
+  })
+})
+
+test.describe('the Morty button', () => {
+  test('turns him off and on, and the choice is remembered in this browser', async ({ page }) => {
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      const toggle = page.locator('#mascot-toggle')
+      const canvas = page.locator('canvas.office-canvas')
+      const coat = DAY.mascot.g as string
+      await expect(toggle).toHaveText('Morty: on')
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      expect(await pixelsOf(page, coat), 'he is there').toBeGreaterThan(0)
+
+      await toggle.click()
+      await page.clock.runFor(200)
+      await expect(toggle).toHaveText('Morty: off')
+      await expect(canvas).toHaveAttribute('data-mascot', 'off')
+      expect(await pixelsOf(page, coat), 'and gone').toBe(0)
+      expect(await page.evaluate(() => localStorage.getItem('cubiclark.mascot'))).toBe('off')
+
+      await page.reload()
+      await expect(toggle).toHaveText('Morty: off')
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      await expect(canvas).toHaveAttribute('data-mascot', 'off')
+
+      await toggle.click()
+      await page.clock.runFor(200)
+      await expect(toggle).toHaveText('Morty: on')
+      expect(await pixelsOf(page, coat), 'back').toBeGreaterThan(0)
+      expect(await page.evaluate(() => localStorage.getItem('cubiclark.mascot'))).toBe('on')
+    } finally {
+      await cli.stop()
+    }
+  })
+
+  test('with storage blocked the page still renders, he is on, and the button works for the session', async ({ page }) => {
+    await page.addInitScript(() => {
+      const fail = (): never => {
+        throw new Error('storage blocked')
+      }
+      Storage.prototype.getItem = fail
+      Storage.prototype.setItem = fail
+    })
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      const toggle = page.locator('#mascot-toggle')
+      await expect(toggle).toHaveText('Morty: on')
+      await toggle.click()
+      await page.clock.runFor(100)
+      await expect(toggle).toHaveText('Morty: off')
+      await expect(page.locator('canvas.office-canvas')).toHaveAttribute('data-mascot', 'off')
+    } finally {
+      await cli.stop()
+    }
+  })
+
+  test('anything stored but "off" leaves him on', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('cubiclark.mascot', 'whatever'))
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+    try {
+      await pushWorld(page, await loadWorld('rooms'), 400)
+      await expect(page.locator('#mascot-toggle')).toHaveText('Morty: on')
+    } finally {
+      await cli.stop()
+    }
+  })
 })
 
 test.describe('the four empty screens', () => {
