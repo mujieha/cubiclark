@@ -152,6 +152,8 @@ export class Hud {
     this.cardEl.textContent = ''
     const card = world ? agentCard(world, state.selectedAgentId, Date.parse(world.clock)) : undefined
     if (!card) {
+      // No card: the agent it was for is gone or was deselected, and nothing may still name it.
+      delete this.cardEl.dataset.agentId
       this.cardEl.appendChild(el('p', { className: 'hud-hint', text: 'Select an agent in the office or the list' }))
       return
     }
