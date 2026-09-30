@@ -5,6 +5,7 @@
 
 import { agentCard, LEGEND, logFilterOptions, logRows, statusBar, timelineView, type LogFilter, type StageState } from '../core/hud.js'
 import type { Task, World } from '../core/types.js'
+import type { HiddenCounts } from '../core/visible.js'
 import type { ModelFamily } from '../core/office/roles.js'
 import { PALETTE, shirtKey, type Palette } from './office/palette.js'
 
@@ -23,6 +24,8 @@ export interface HudState {
   /** True when `taskId` was chosen in the select rather than picked automatically. */
   taskChosen: boolean
   filter: LogFilter
+  /** How many agents the page left out of the World it passes (the status bar counts them). */
+  hidden?: HiddenCounts
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, opts: { className?: string; text?: string; id?: string } = {}): HTMLElementTagNameMap[K] {
@@ -140,7 +143,7 @@ export class Hud {
     this.renderCard(world, state)
     this.renderLog(world, state)
     this.renderTimeline(world, state)
-    this.renderStatus(world)
+    this.renderStatus(world, state.hidden)
   }
 
   // --- The selected agent's card ------------------------------------------------------------
@@ -240,7 +243,7 @@ export class Hud {
 
   // --- The status bar -----------------------------------------------------------------------
 
-  private renderStatus(world: World | undefined): void {
+  private renderStatus(world: World | undefined, hidden: HiddenCounts | undefined): void {
     this.statusEl.textContent = ''
     if (!world) {
       this.statusEl.appendChild(el('span', { text: 'waiting for data' }))
@@ -248,7 +251,7 @@ export class Hud {
       return
     }
     this.statusEl.dataset.clock = world.clock
-    for (const segment of statusBar(world)) {
+    for (const segment of statusBar(world, hidden)) {
       const span = el('span', { text: segment.text })
       span.dataset.segment = segment.id
       this.statusEl.appendChild(span)

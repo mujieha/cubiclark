@@ -6,11 +6,13 @@
 import { expect, test } from '@playwright/test'
 import { loadWorld, openWithFakeWorld, pushWorld, saveEvidence } from './fake-world.js'
 
+// The number of agents each fixture puts in view (src/core/visible.js): crowd-50 and crowd-100 each
+// have departed agents past their 10 minutes, which are not drawn (46 and 91 of 50 and 100).
 for (const [name, agents] of [
-  ['crowd-50', 50],
-  ['crowd-100', 100],
+  ['crowd-50', 46],
+  ['crowd-100', 91],
 ] as const) {
-  test(`${agents} agents render at 30 fps or better, and a draw costs a fraction of a frame`, async ({ page }) => {
+  test(`${name}: ${agents} agents in view render at 30 fps or better, and a draw costs a fraction of a frame`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     const cli = await openWithFakeWorld(page)
     try {
