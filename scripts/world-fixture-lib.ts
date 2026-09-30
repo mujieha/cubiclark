@@ -265,6 +265,71 @@ export function crowd100World(): World {
   return buildWorld({ agents, withQuota: true })
 }
 
+/** What is neither idle nor gone: the twelve states a working agent can be in. */
+const WORKING_STATES = AGENT_STATES.filter((state) => state !== 'waiting_user' && state !== 'finished' && state !== 'ended' && state !== 'failed')
+
+/** How long ago each of the ten departed agents stopped (crowd-250-idle), in minutes. */
+const DEPARTED_250: readonly (readonly [AgentState, number])[] = [
+  ['finished', 3],
+  ['ended', 4],
+  ['finished', 5],
+  ['failed', 20],
+  ['ended', 15],
+  ['finished', 20],
+  ['ended', 25],
+  ['finished', 30],
+  ['ended', 40],
+  ['failed', 45],
+]
+
+/** 250 agents, the crowd a real home builds up over a day (cubiclark-quiet-office): 40 working (30
+ * sessions over 8 projects in the twelve working states, and 10 subagents under the first ten), 200
+ * sessions waiting for you (session 31 active a minute ago, 32 two minutes ago, and so on), and 10 that
+ * left, from 3 to 45 minutes ago. With the defaults 49 are shown: the 40, the five most recent idle
+ * sessions and the four departed agents still within their grace time; 195 idle and 6 finished are not. */
+export function crowd250IdleWorld(): World {
+  const agents: AgentSpec[] = []
+  for (let i = 0; i < 30; i++) {
+    const state = WORKING_STATES[i % WORKING_STATES.length] as AgentState
+    const role: AgentRole = i === 10 ? 'orchestrator' : i === 11 ? 'planner' : i === 12 ? 'reviewer' : 'builder'
+    agents.push({
+      ...specForState(worldSessionId(i + 1), state),
+      role,
+      project: CROWD_PROJECTS_100[i % CROWD_PROJECTS_100.length],
+      model: CROWD_MODELS[i % CROWD_MODELS.length],
+    })
+  }
+  for (let parent = 1; parent <= 10; parent++) {
+    const state = HELPER_STATES[parent % HELPER_STATES.length] as AgentState
+    agents.push({
+      id: worldSubagentId(parent),
+      kind: 'subagent',
+      parentId: worldSessionId(parent),
+      project: CROWD_PROJECTS_100[(parent - 1) % CROWD_PROJECTS_100.length],
+      label: 'Explore',
+      role: 'explorer',
+      state,
+      tool: TOOL_FOR_STATE[state],
+    })
+  }
+  for (let k = 0; k < 200; k++) {
+    agents.push({
+      ...specForState(worldSessionId(31 + k), 'waiting_user'),
+      project: CROWD_PROJECTS_100[k % CROWD_PROJECTS_100.length],
+      model: CROWD_MODELS[k % CROWD_MODELS.length],
+      quietMs: (k + 1) * 60_000,
+    })
+  }
+  DEPARTED_250.forEach(([state, minutes], i) => {
+    agents.push({
+      ...specForState(worldSessionId(231 + i), state),
+      project: CROWD_PROJECTS_100[i % CROWD_PROJECTS_100.length],
+      quietMs: minutes * 60_000,
+    })
+  })
+  return buildWorld({ agents, withQuota: true })
+}
+
 /** The four worlds `emptyScreen` maps to its four screens. */
 export function emptyWorlds(): Record<'starting' | 'unreadable' | 'no-collector' | 'no-agents', World> {
   const base = emptyWorld(WORLD_CLOCK, TRANSCRIPTS_ROOT)
@@ -345,6 +410,7 @@ export const WORLD_FIXTURES: Record<string, () => World> = {
   rooms: roomsWorld,
   'crowd-50': crowdWorld,
   'crowd-100': crowd100World,
+  'crowd-250-idle': crowd250IdleWorld,
   'empty-starting': () => emptyWorlds().starting,
   'empty-unreadable': () => emptyWorlds().unreadable,
   'empty-no-collector': () => emptyWorlds()['no-collector'],
