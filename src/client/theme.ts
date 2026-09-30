@@ -52,7 +52,9 @@ export function applyPageTheme(root: HTMLElement, theme: Theme): void {
  * merged in), its ring colour and the art (with a pack's sprites on top). */
 export function lookFor(theme: Theme, custom: PublicAssets = NO_ASSETS): Look {
   const art: ArtSet = artWithOverrides(custom.sprites)
-  return { palette: mergePalette(theme.palette, custom.palettes[theme.id]), ring: theme.ring, art }
+  const palette = mergePalette(theme.palette, custom.palettes[theme.id])
+  // Morty wears his own three colours over whatever palette the office has: a pack cannot change them.
+  return { palette, ring: theme.ring, art, mascot: { ...palette, ...theme.mascot } }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

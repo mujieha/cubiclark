@@ -5,7 +5,7 @@ import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
 import { assetsText, type PublicAssets } from '../core/assets/status.js'
 import { applyPageTheme, fetchCustomAssets, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
-import { fetchPageOptions, type PageOptions } from './mascot-choice.js'
+import { fetchPageOptions, readMascotChoice, type PageOptions } from './mascot-choice.js'
 import { OfficeView, browserEnv } from './office/office-view.js'
 import './style.css'
 
@@ -135,6 +135,8 @@ class App {
     applyPageTheme(document.documentElement, theme)
     this.hud.setPalette(lookFor(theme, this.custom).palette)
     this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme, this.custom))
+    // Morty is in the page unless the server was started with --no-mascot or this browser chose otherwise.
+    this.office.setMascot(this.options.mascot && readMascotChoice())
     this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
     this.root.dataset.themeChoice = this.themeChoice
     // `auto` follows the operating system while the page is open.
