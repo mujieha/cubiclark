@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { TranscriptSource } from '../src/server/transcript-source.js'
+import { TranscriptSource, type ReaddirFn } from '../src/server/transcript-source.js'
 import type { AgentEvent } from '../src/core/types.js'
 
 let dir: string
@@ -34,6 +34,28 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 function collector(): { events: AgentEvent[]; onEvents: (events: AgentEvent[]) => void } {
   const events: AgentEvent[] = []
   return { events, onEvents: (batch) => events.push(...batch) }
+}
+
+/** The real listing, remembering every path it was asked for. */
+function spyReaddir(): { readdir: ReaddirFn; listed: string[] } {
+  const listed: string[] = []
+  return {
+    listed,
+    readdir: async (path, options) => {
+      listed.push(path)
+      return readdir(path, options)
+    },
+  }
+}
+
+/** `count` small files named `<prefix>-<n>.<ext>` in `dirPath`, written in batches. */
+async function fillDir(dirPath: string, count: number, ext = 'log'): Promise<void> {
+  await mkdir(dirPath, { recursive: true })
+  for (let start = 0; start < count; start += 250) {
+    await Promise.all(
+      Array.from({ length: Math.min(250, count - start) }, (_, i) => writeFile(join(dirPath, `f-${start + i}.${ext}`), 'x'))
+    )
+  }
 }
 
 describe('TranscriptSource', () => {
@@ -317,5 +339,95 @@ describe('TranscriptSource survives what it is given', () => {
     await s.start() // the root has no projects at all
     s.stop()
     expect(events).toEqual([])
+  })
+})
+
+describe('TranscriptSource walks only where transcripts live', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const OTHER = '00000000-0000-4000-8000-000000000002'
+  const AID = 'fx000000000000a1'
+
+  function walker(spy: ReturnType<typeof spyReaddir>, onEvents: (events: AgentEvent[]) => void): TranscriptSource {
+    return new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: false,
+      pollMs: 60_000,
+      onEvents,
+      nowMs: () => Date.now(),
+      readdir: spy.readdir,
+    })
+  }
+
+  test('thousands of files elsewhere in the config folder are never listed', async () => {
+    // What a busy config folder holds besides transcripts.
+    await fillDir(join(dir, 'debug'), 1500)
+    for (let d = 0; d < 20; d++) await fillDir(join(dir, 'file-history', `h${d}`), 50)
+    await fillDir(join(dir, 'shell-snapshots'), 1000, 'sh')
+    await fillDir(join(dir, 'todos'), 500, 'json')
+    await fillDir(join(dir, 'statsig'), 10, 'json')
+    await writeFile(join(dir, 'history.jsonl'), 'x')
+    await writeFile(join(dir, 'settings.json'), '{}')
+
+    const project = join(dir, 'projects', '-tmp-demo')
+    await mkdir(join(project, SID, 'subagents'), { recursive: true })
+    await writeFile(join(project, `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+    await writeFile(join(project, `${OTHER}.jsonl`), promptLine(OTHER, '/tmp/demo', '2026-01-15T10:00:01.000Z') + '\n')
+    await writeFile(join(project, SID, 'subagents', `agent-${AID}.jsonl`), promptLine(AID, '/tmp/demo', '2026-01-15T10:00:02.000Z') + '\n')
+    await writeFile(join(project, SID, 'subagents', `agent-${AID}.meta.json`), JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000001' }))
+    await fillDir(join(project, SID, 'tool-results'), 50, 'txt')
+    await fillDir(join(project, 'memory'), 5, 'md')
+
+    const spy = spyReaddir()
+    const { events, onEvents } = collector()
+    const source = walker(spy, onEvents)
+    await source.start()
+    source.stop()
+
+    // Only the root, projects/, a project folder, and a session's subagents/ folder are listed. (A
+    // folder next to the session, like memory/, gets its <name>/subagents looked up too: that path
+    // does not exist, and nothing under it is ever listed.)
+    const allowed = new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/projects(/[^/]+(/[^/]+/subagents)?)?)?$`)
+    for (const path of spy.listed) expect(path).toMatch(allowed)
+    for (const name of ['debug', 'file-history', 'shell-snapshots', 'todos', 'statsig', 'tool-results']) {
+      expect(spy.listed.some((path) => path.includes(name))).toBe(false)
+    }
+
+    expect(events.filter((e) => e.t === 'prompt').map((e) => (e.t === 'prompt' ? e.agentId : '')).sort()).toEqual([SID, OTHER, AID].sort())
+    expect(events.some((e) => e.t === 'subagent_link')).toBe(true)
+
+    // The root holds 5 folders + 2 files besides projects/: seven entries never walked.
+    expect(source.getScanStats()).toMatchObject({ scans: 1, lastScanFiles: 4, rootEntriesSkipped: 7, maxConcurrentScans: 1 })
+    expect(source.getStatus()).toMatchObject({ status: 'live', files: 3, inWindow: 3 })
+  })
+
+  test('a root without projects/ lists only the root', async () => {
+    await fillDir(join(dir, 'debug'), 100)
+    const spy = spyReaddir()
+    const source = walker(spy, () => undefined)
+    await source.start()
+    source.stop()
+    expect(spy.listed).toEqual([dir])
+    expect(source.getStatus()).toMatchObject({ status: 'live', files: 0, inWindow: 0 })
+    expect(source.getScanStats()).toMatchObject({ lastScanFiles: 0, rootEntriesSkipped: 1 })
+  })
+
+  test('a file directly under projects/ and a symlinked project folder are not descended into', async () => {
+    const elsewhere = join(dir, 'elsewhere')
+    await mkdir(elsewhere)
+    await writeFile(join(elsewhere, `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+    await mkdir(join(dir, 'projects'))
+    await symlink(elsewhere, join(dir, 'projects', '-tmp-linked'))
+    await writeFile(join(dir, 'projects', 'stray.jsonl'), 'x')
+
+    const spy = spyReaddir()
+    const { events, onEvents } = collector()
+    const source = walker(spy, onEvents)
+    await source.start()
+    source.stop()
+
+    expect(spy.listed).toEqual([dir, join(dir, 'projects')])
+    expect(events.some((e) => e.t === 'prompt')).toBe(false)
   })
 })

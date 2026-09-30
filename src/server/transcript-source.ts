@@ -131,6 +131,7 @@ export class TranscriptSource {
   private readonly watchFn: WatchFn
   private scansInFlight = 0
   private scanDirs = 0
+  private scanFiles = 0
   private readonly scanStarts: number[] = []
   private readonly stats = {
     scans: 0,
@@ -213,10 +214,12 @@ export class TranscriptSource {
     this.scanStarts.push(started)
     if (this.scanStarts.length > 1000) this.scanStarts.shift()
     this.scanDirs = 0
+    this.scanFiles = 0
     try {
       await this.scanOnce()
     } finally {
       this.scansInFlight -= 1
+      this.stats.lastScanFiles = this.scanFiles
       this.stats.lastScanDirs = this.scanDirs
       this.stats.lastScanMs = Math.round(this.mono() - started)
     }
@@ -247,11 +250,33 @@ export class TranscriptSource {
     this.rootError = undefined
     this.rootMissing = false
 
+    // Transcripts live under projects/ and nowhere else. The rest of the config folder (debug logs,
+    // file history, shell snapshots, ...) is huge and busy, and is never listed.
+    const hasProjects = rootEntries.some((entry) => entry.name === 'projects' && entry.isDirectory())
+    this.stats.rootEntriesSkipped = rootEntries.length - (hasProjects ? 1 : 0)
+
     const files: string[] = []
-    for (const entry of rootEntries) {
-      const full = join(this.opts.root, entry.name)
-      if (entry.isDirectory()) files.push(...(await this.walkTolerant(full)))
-      else files.push(full)
+    const take = (absPath: string): void => {
+      this.scanFiles += 1
+      // Known files need no second look here; maybeRegister would make the same choice.
+      if (!this.tailers.has(absPath) && !this.excluded.has(absPath) && !this.metaSeen.has(absPath)) files.push(absPath)
+    }
+    if (hasProjects) {
+      const projectsDir = join(this.opts.root, 'projects')
+      for (const project of await this.list(projectsDir)) {
+        if (!project.isDirectory()) continue // a file right under projects/ is no transcript
+        const projectDir = join(projectsDir, project.name)
+        for (const entry of await this.list(projectDir)) {
+          if (!entry.isDirectory()) {
+            take(join(projectDir, entry.name))
+            continue
+          }
+          const subagentsDir = join(projectDir, entry.name, 'subagents')
+          for (const sub of await this.list(subagentsDir)) {
+            if (!sub.isDirectory()) take(join(subagentsDir, sub.name))
+          }
+        }
+      }
     }
 
     // Transcript files first, sidecar meta files second: readMeta()'s subagent_link event gets
@@ -270,21 +295,16 @@ export class TranscriptSource {
     for (const absPath of metaFiles) await this.maybeRegister(absPath)
   }
 
-  private async walkTolerant(dir: string): Promise<string[]> {
-    let entries
+  /** One directory's entries; [] when it is gone, is not a directory, or cannot be read (a folder
+   * that vanished mid-walk is not a root-level failure). */
+  private async list(dir: string): Promise<Dirent[]> {
     try {
-      entries = await this.readdir(dir, { withFileTypes: true })
+      const entries = await this.readdir(dir, { withFileTypes: true })
       this.scanDirs += 1
+      return entries
     } catch {
-      return [] // a subdirectory that vanished mid-walk is not a root-level failure
+      return []
     }
-    const out: string[] = []
-    for (const entry of entries) {
-      const full = join(dir, entry.name)
-      if (entry.isDirectory()) out.push(...(await this.walkTolerant(full)))
-      else out.push(full)
-    }
-    return out
   }
 
   private async maybeRegister(absPath: string): Promise<void> {
