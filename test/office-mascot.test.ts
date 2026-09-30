@@ -2,11 +2,17 @@
 // Time is passed in; the World is a fixture; nothing here touches a clock or a canvas.
 
 import { describe, expect, test } from 'vitest'
-import { crowd100World, mascotPlayWorld, roomsWorld, stateWorld } from '../scripts/world-fixture-lib.js'
-import { layout as computeLayout } from '../src/core/office/layout.js'
+import { crowd100World, mascotPlayWorld, roomsWorld, stateWorld, worldSessionId, worldSubagentId } from '../scripts/world-fixture-lib.js'
+import { layout as computeLayout, placementOf } from '../src/core/office/layout.js'
 import {
   BAG,
+  GREET_GAP_MS,
+  PLAY_IDLE_MS,
+  PLAY_MAX_TILES,
+  PLAY_PERIOD_MS,
+  SIT_BY_MAX_TILES,
   STAY_MS,
+  WORKING_STATES,
   advanceMascot,
   initialMascot,
   mascotButtonText,
@@ -14,17 +20,31 @@ import {
   mascotSeed,
   nextRandom,
   parseMascotChoice,
+  playPhase,
   type MascotActivity,
   type MascotInput,
   type MascotPose,
   type MascotState,
 } from '../src/core/office/mascot.js'
-import { mascotGrid, roomOf, tileCentre, tileOf, type MascotGrid } from '../src/core/office/mascot-map.js'
+import {
+  bubbleObstacles,
+  distanceToCell,
+  findPath,
+  isWalkable,
+  mascotGrid,
+  roomOf,
+  staticObstacles,
+  tileCentre,
+  tileOf,
+  tileRect,
+  type MascotGrid,
+  type Tile,
+} from '../src/core/office/mascot-map.js'
 import { reconcileActors, type Actor } from '../src/core/office/motion.js'
 import { buildTileMap } from '../src/core/office/tilemap.js'
-import type { World } from '../src/core/types.js'
+import type { Agent, World } from '../src/core/types.js'
 import type { OfficeLayout } from '../src/core/office/layout.js'
-import type { Point } from '../src/core/office/geometry.js'
+import { rectsOverlap, type Point, type Rect } from '../src/core/office/geometry.js'
 
 const T0 = 5000
 
@@ -322,6 +342,388 @@ describe('reduced motion', () => {
     const moved = advanceMascot(frozen, input(big, T0 + 20, { reducedMotion: true }))
     expect(moved.spot).toEqual(big.grid.spots.basket)
     expect(tileOf(moved.path[0] as Point)).toEqual(big.grid.spots.basket)
+  })
+})
+
+// --- Company: greeting, sitting by, playing ---------------------------------------------------
+
+const S1 = worldSessionId(1)
+const S2 = worldSessionId(2)
+const S3 = worldSessionId(3)
+const S4 = worldSessionId(4)
+
+function changeAgent(world: World, id: string, patch: Partial<Agent>): World {
+  return { ...world, agents: { ...world.agents, [id]: { ...(world.agents[id] as Agent), ...patch } } }
+}
+
+const deskOf = (s: Scene, id: string): Rect => (s.layout.desks.find((d) => d.ownerId === id) as { rect: Rect }).rect
+
+describe('greeting', () => {
+  test('an arrival cuts a nap short: he goes to the door and wags', () => {
+    const s = scene(mascotPlayWorld())
+    const napping = initialMascot(1, input(s, T0))
+    const greeting = advanceMascot(napping, input(s, T0 + 1000, { arrivals: [S1] }))
+    expect(greeting.activity).toBe('greet')
+    expect(greeting.startMs).toBe(T0 + 1000)
+    expect(greeting.lastGreetMs).toBe(T0 + 1000)
+    expect(greeting.spot).toEqual(s.grid.spots.door)
+    expect(greeting.facing).toBe('left')
+    const wagging = mascotPose(greeting, arrivalOf(greeting) + 10)
+    expect(wagging.frame).toMatch(/^wag_[ab]$/)
+    expect(wagging.mirror).toBe(true)
+    expect(new Set([0, 130].map((t) => mascotPose(greeting, arrivalOf(greeting) + t).frame)).size).toBe(2)
+    expect(greeting.stayMs).toBe(3000)
+  })
+
+  test('a second arrival soon after does not start another greeting; one after 20 s does', () => {
+    const s = scene(mascotPlayWorld())
+    const greeting = advanceMascot(initialMascot(1, input(s, T0)), input(s, T0 + 1000, { arrivals: [S1] }))
+    const soon = advanceMascot(greeting, input(s, T0 + 6000, { arrivals: [S2] }))
+    expect(soon.lastGreetMs).toBe(T0 + 1000)
+    const later = advanceMascot(soon, input(s, T0 + 1000 + GREET_GAP_MS + 1, { arrivals: [S2] }))
+    expect(later.lastGreetMs).toBe(T0 + 1000 + GREET_GAP_MS + 1)
+    expect(later.activity).toBe('greet')
+  })
+
+  test('a burst of ten arrivals is one greeting', () => {
+    const s = scene(mascotPlayWorld())
+    const ids = Array.from({ length: 10 }, (_, i) => worldSessionId(50 + i))
+    const greeting = advanceMascot(initialMascot(1, input(s, T0)), input(s, T0 + 1000, { arrivals: ids }))
+    expect(greeting.activity).toBe('greet')
+    expect(greeting.lastGreetMs).toBe(T0 + 1000)
+  })
+
+  test('with no arrival he does not greet, and with reduced motion he does not either', () => {
+    const s = scene(mascotPlayWorld())
+    const state = initialMascot(1, input(s, T0))
+    expect(advanceMascot(state, input(s, T0 + 1000)).activity).toBe('nap')
+    const still = advanceMascot(state, input(s, T0 + 1000, { arrivals: [S1], reducedMotion: true }))
+    expect(still.frozen).toBe(true)
+    expect(still.activity).toBe('nap')
+  })
+
+  test('it ends a game of ball: the agent sits down and he goes to the door', () => {
+    const s = scene(mascotPlayWorld())
+    const playing = enter(initialMascot(1, input(s, T0)), 'play', s)
+    const during = arrivalOf(playing) + 500
+    expect(mascotPose(advanceMascot(playing, input(s, during)), during).play).toBeDefined()
+    const greeting = advanceMascot(playing, input(s, during, { arrivals: [S2] }))
+    expect(greeting.activity).toBe('greet')
+    const pose = mascotPose(greeting, during)
+    expect(pose.play).toBeUndefined()
+    expect(pose.withId).toBeUndefined()
+  })
+})
+
+describe('sitting by a working agent', () => {
+  test('he sits within two tiles of a desk whose agent is at work, facing it, and only once he is there is he "with" it', () => {
+    for (let seed = 1; seed <= 6; seed++) {
+      const s = scene(mascotPlayWorld())
+      const out = enter(initialMascot(seed, input(s, T0)), 'sit_by', s)
+      expect(out.activity, `seed ${seed}`).toBe('sit_by')
+      expect([S3, S4], `seed ${seed}: only agents at work`).toContain(out.withId)
+      expect(WORKING_STATES.has(s.world.agents[out.withId as string]?.state ?? 'ended')).toBe(true)
+      const distance = distanceToCell(deskOf(s, out.withId as string), out.spot)
+      expect(distance).toBeGreaterThanOrEqual(1)
+      expect(distance).toBeLessThanOrEqual(SIT_BY_MAX_TILES)
+      const seat = (placementOf(s.layout, out.withId as string) as { seat: Point }).seat
+      expect(out.facing).toBe(tileCentre(out.spot).x < seat.x ? 'right' : 'left')
+      expect(mascotPose(out, out.startMs + 1).withId).toBeUndefined()
+      expect(mascotPose(out, arrivalOf(out) + 1)).toMatchObject({ activity: 'sit_by', frame: 'sit', walking: false, withId: out.withId })
+    }
+  })
+
+  test('nobody is at work, nobody to sit by: he does the next thing instead', () => {
+    const s = scene(stateWorld('waiting_user'))
+    const start = initialMascot(1, input(s, T0))
+    const out = advanceMascot({ ...start, bag: ['sit_by', 'nap'] }, input(s, endOf(start)))
+    expect(out.activity).toBe('nap')
+  })
+
+  test('a helper on a stool is never company: only its parent at its desk is', () => {
+    const base = roomsWorld()
+    let world: World = base
+    for (const id of Object.keys(base.agents)) world = changeAgent(world, id, { state: 'finished' })
+    // The builder s(6) and its helper on the stool both work; the helper is not somebody to sit by.
+    world = changeAgent(world, worldSessionId(6), { state: 'thinking' })
+    world = changeAgent(world, worldSubagentId(2), { state: 'editing' })
+    const s = scene(world)
+    expect(placementOf(s.layout, worldSubagentId(2))?.kind).toBe('stool')
+    expect(placementOf(s.layout, worldSessionId(6))?.kind).toBe('desk')
+    for (let seed = 1; seed <= 10; seed++) {
+      const out = enter(initialMascot(seed, input(s, T0)), 'sit_by', s)
+      expect(out.activity, `seed ${seed}`).toBe('sit_by')
+      expect(out.withId, `seed ${seed}`).toBe(worldSessionId(6))
+    }
+  })
+
+  test('it ends when the agent stops working', () => {
+    const s = scene(mascotPlayWorld())
+    const out = enter(initialMascot(1, input(s, T0)), 'sit_by', s)
+    const at = arrivalOf(out) + 500
+    const done = scene(changeAgent(mascotPlayWorld(), out.withId as string, { state: 'waiting_permission' }))
+    const next = advanceMascot(out, input(done, at))
+    expect(next.startMs).toBe(at)
+    expect(next.withId === out.withId && next.activity === 'sit_by').toBe(false)
+  })
+})
+
+describe('playing ball with an idle agent', () => {
+  test('he plays with the one agent that has waited for you for a minute, and with nobody else, whatever the seed', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const s = scene(mascotPlayWorld())
+      const out = enter(initialMascot(seed, input(s, T0)), 'play', s)
+      expect(out.activity, `seed ${seed}`).toBe('play')
+      expect(out.withId, `seed ${seed}: not the permission wait, not the editor, not the planner`).toBe(S1)
+    }
+  })
+
+  test('he stands within three tiles of its desk, never inside it; he is "with" it only when he has arrived', () => {
+    const s = scene(mascotPlayWorld())
+    const out = enter(initialMascot(2, input(s, T0)), 'play', s)
+    const distance = distanceToCell(deskOf(s, S1), out.spot)
+    expect(distance).toBeGreaterThanOrEqual(1)
+    expect(distance).toBeLessThanOrEqual(PLAY_MAX_TILES)
+    expect(mascotPose(out, out.startMs + 1).play).toBeUndefined()
+    expect(mascotPose(out, out.startMs + 1).withId).toBeUndefined()
+    const at = mascotPose(out, arrivalOf(out) + 100)
+    expect(at.withId).toBe(S1)
+    expect(at.play).toBeDefined()
+    const seat = (placementOf(s.layout, S1) as { seat: Point }).seat
+    expect(at.play?.playerSide).toBe(tileCentre(out.spot).x < seat.x ? 'left' : 'right')
+  })
+
+  test('an agent that has waited only thirty seconds is not played with', () => {
+    const world = changeAgent(mascotPlayWorld(), S1, { stateSince: new Date(Date.parse(mascotPlayWorld().clock) - (PLAY_IDLE_MS - 30_000)).toISOString() })
+    const s = scene(world)
+    const start = initialMascot(1, input(s, T0))
+    expect(advanceMascot({ ...start, bag: ['play', 'nap'] }, input(s, endOf(start))).activity).toBe('nap')
+  })
+
+  test('nor is an agent asking for permission, however long it has waited', () => {
+    const s = scene(changeAgent(mascotPlayWorld(), S1, { state: 'waiting_permission' }))
+    const start = initialMascot(1, input(s, T0))
+    expect(advanceMascot({ ...start, bag: ['play', 'nap'] }, input(s, endOf(start))).activity).toBe('nap')
+  })
+
+  test('nor a stuck, rate limited or failed one, nor a helper that waits', () => {
+    for (const state of ['stuck', 'rate_limited', 'failed'] as const) {
+      const s = scene(changeAgent(mascotPlayWorld(), S1, { state }))
+      const start = initialMascot(1, input(s, T0))
+      expect(advanceMascot({ ...start, bag: ['play', 'nap'] }, input(s, endOf(start))).activity, state).toBe('nap')
+    }
+    const base = roomsWorld()
+    let world: World = base
+    for (const id of Object.keys(base.agents)) world = changeAgent(world, id, { state: 'thinking' })
+    world = changeAgent(world, worldSubagentId(2), { state: 'waiting_user', stateSince: new Date(Date.parse(base.clock) - 600_000).toISOString() })
+    const s = scene(world)
+    expect(placementOf(s.layout, worldSubagentId(2))?.kind).toBe('stool')
+    const start = initialMascot(1, input(s, T0))
+    expect(advanceMascot({ ...start, bag: ['play', 'nap'] }, input(s, endOf(start))).activity).toBe('nap')
+  })
+
+  test('the game has four turns: hold it, throw it, fetch it, bring it back, and starts over', () => {
+    expect(playPhase(0)).toMatchObject({ player: 'throw_a', morty: 'wag_a' })
+    expect(playPhase(0).ball).toBeUndefined()
+    expect(playPhase(200).morty).toBe('wag_b')
+    const thrown = playPhase(800)
+    expect(thrown).toMatchObject({ player: 'throw_b', morty: 'sit', ball: { fromMorty: false } })
+    expect(thrown.ball?.f).toBeCloseTo(0.2, 5)
+    expect(playPhase(1500)).toMatchObject({ player: 'throw_b', morty: 'carry_ball' })
+    expect(playPhase(1500).ball).toBeUndefined()
+    const back = playPhase(2200)
+    expect(back).toMatchObject({ player: 'throw_b', morty: 'sit', ball: { fromMorty: true } })
+    expect(back.ball?.f).toBeCloseTo(0.5, 5)
+    for (const t of [0, 150, 700, 1199, 1200, 1999, 2000, 2399]) expect(playPhase(t + PLAY_PERIOD_MS)).toEqual(playPhase(t))
+    for (let t = 700; t < 1200; t += 10) expect(playPhase(t).ball?.f).toBeGreaterThanOrEqual(0)
+    for (let t = 700; t < 1200; t += 10) expect(playPhase(t).ball?.f).toBeLessThan(1)
+  })
+
+  test('the ball never flies while he is still on his way', () => {
+    const s = scene(mascotPlayWorld())
+    const out = enter(initialMascot(2, input(s, T0)), 'play', s)
+    for (let t = out.startMs; t < arrivalOf(out); t += 40) expect(mascotPose(out, t).play).toBeUndefined()
+  })
+
+  test('the game is over the moment the agent\'s state changes: no play, nobody "with" him, at that very time', () => {
+    for (const state of ['thinking', 'waiting_permission', 'running', 'stuck', 'finished'] as const) {
+      const s = scene(mascotPlayWorld())
+      const out = enter(initialMascot(2, input(s, T0)), 'play', s)
+      const at = arrivalOf(out) + 700
+      const changed = scene(changeAgent(mascotPlayWorld(), S1, { state }))
+      const next = advanceMascot(out, input(changed, at))
+      expect(next.startMs, state).toBe(at)
+      expect(next.activity === 'play' && next.withId === S1, state).toBe(false)
+      const pose = mascotPose(next, at)
+      expect(pose.play, state).toBeUndefined()
+      expect(pose.withId === S1 && pose.activity === 'play', state).toBe(false)
+    }
+  })
+
+  test('while the agent keeps waiting, the game goes on to the end', () => {
+    const s = scene(mascotPlayWorld())
+    const out = enter(initialMascot(2, input(s, T0)), 'play', s)
+    for (let t = arrivalOf(out); t < endOf(out); t += 100) {
+      const now = advanceMascot(out, input(s, t))
+      expect(now.activity).toBe('play')
+      expect(mascotPose(now, t).play).toBeDefined()
+    }
+    expect(advanceMascot(out, input(s, endOf(out))).activity).not.toBe(undefined)
+  })
+})
+
+describe('when the office changes under him', () => {
+  test('a napping Morty moves with his basket when the office grows', () => {
+    const small = scene(stateWorld('thinking'))
+    const big = scene(roomsWorld())
+    expect(big.grid.spots.basket).not.toEqual(small.grid.spots.basket)
+    const napping = initialMascot(4, input(small, T0))
+    const moved = advanceMascot(napping, input(big, T0 + 10))
+    expect(moved.activity).toBe('nap')
+    expect(moved.spot).toEqual(big.grid.spots.basket)
+    expect(moved.path).toEqual([tileCentre(big.grid.spots.basket)])
+    expect(moved.gridKey).toBe(big.grid.key)
+    expect(mascotPose(moved, T0 + 10).point).toEqual(tileCentre(big.grid.spots.basket))
+    // and he stays put while the grid does not change
+    expect(advanceMascot(moved, input(big, T0 + 11))).toBe(moved)
+  })
+
+  test('a stay on a tile that is no longer one he may stand on ends at once, somewhere else', () => {
+    const s = scene(roomsWorld())
+    const out = enter(initialMascot(1, input(s, T0)), 'wander', s)
+    const at = arrivalOf(out) + 200
+    const walkable = s.grid.walkable.slice()
+    walkable[out.spot.y * s.grid.cols + out.spot.x] = 0
+    const closed: Scene = { ...s, grid: { ...s.grid, walkable, key: 'closed' } }
+    const next = advanceMascot(out, input(closed, at))
+    expect(next.startMs).toBe(at)
+    expect(next.gridKey).toBe('closed')
+    expect(next.activity === 'wander' && next.spot.x === out.spot.x && next.spot.y === out.spot.y).toBe(false)
+  })
+
+  test('a bubble in his way while he walks: he goes round, from where he is', () => {
+    const s = scene(roomsWorld())
+    const out = enter(enter(initialMascot(2, input(s, T0)), 'drink', s), 'nap', s)
+    // Early in the walk, while he is still in the two-tile hallway (the lobby row is one tile wide: no way round there).
+    const mid = out.startMs + Math.floor(out.walkMs * 0.12)
+    const here = tileOf(mascotPose(out, mid).point)
+    const goal = s.grid.spots.basket
+    // Close one tile of the way at a time until one of them leaves a way round.
+    const route: Tile[] = findPath(s.grid, here, goal) as Tile[]
+    let rerouted: { blocked: Tile; next: MascotState; closed: Scene } | undefined
+    for (const blocked of route.slice(1, -1)) {
+      const walkable = s.grid.walkable.slice()
+      walkable[blocked.y * s.grid.cols + blocked.x] = 0
+      const closed: Scene = { ...s, grid: { ...s.grid, walkable, key: `closed ${blocked.x},${blocked.y}` } }
+      const round = findPath(closed.grid, here, goal)
+      if (round && !round.some((t) => t.x === blocked.x && t.y === blocked.y)) {
+        rerouted = { blocked, next: advanceMascot(out, input(closed, mid)), closed }
+        break
+      }
+    }
+    expect(rerouted, 'a tile whose closing leaves a way round').toBeDefined()
+    const { blocked, next } = rerouted as NonNullable<typeof rerouted>
+    expect(next.activity).toBe('nap')
+    expect(next.startMs).toBe(mid)
+    expect(next.spot).toEqual(goal)
+    const before = mascotPose(out, mid).point
+    const after = mascotPose(next, mid).point
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(8)
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(8)
+    for (let t = mid; t < arrivalOf(next); t += 25) {
+      const tile = tileOf(mascotPose(next, t).point)
+      expect(tile.x === blocked.x && tile.y === blocked.y, `at ${t - mid} ms`).toBe(false)
+    }
+  })
+
+  test('when bubbles close every way but the furniture leaves one, he walks under them', () => {
+    const s = scene(roomsWorld())
+    const out = enter(enter(initialMascot(2, input(s, T0)), 'drink', s), 'nap', s)
+    const mid = out.startMs + Math.floor(out.walkMs / 3)
+    const closed: Scene = { ...s, grid: { ...s.grid, walkable: new Uint8Array(s.grid.walkable.length), key: 'all bubbles' } }
+    const next = advanceMascot(out, input(closed, mid))
+    expect(next.activity).toBe('nap')
+    expect(next.spot).toEqual(s.grid.spots.basket)
+    expect(next.walkMs).toBeGreaterThan(0)
+    expect(next.startMs).toBe(mid)
+  })
+
+  test('a desk he sits by that moves: he follows it', () => {
+    const s = scene(mascotPlayWorld())
+    const out = enter(initialMascot(1, input(s, T0)), 'sit_by', s)
+    const at = arrivalOf(out) + 100
+    // A newcomer takes a desk in the same cluster: a new grid, the same desk. He keeps his place while it still serves.
+    const crowded = scene(changeAgent(mascotPlayWorld(), S1, { state: 'editing' }))
+    const next = advanceMascot(out, input(crowded, at))
+    expect(next.withId === out.withId || next.startMs === at).toBe(true)
+    if (next.activity === 'sit_by' && next.withId === out.withId) {
+      const distance = distanceToCell(deskOf(crowded, out.withId as string), next.spot)
+      expect(distance).toBeGreaterThanOrEqual(1)
+      expect(distance).toBeLessThanOrEqual(SIT_BY_MAX_TILES)
+    }
+  })
+})
+
+describe('Morty never stands on anything that must stay clear', () => {
+  for (const [name, make] of [
+    ['mascot-play', mascotPlayWorld],
+    ['rooms', roomsWorld],
+    ['crowd-100', crowd100World],
+  ] as const) {
+    test(`over half an hour of his day, sampled every 50 ms: ${name}`, () => {
+      const s = scene(make())
+      const clear: Rect[] = staticObstacles(s.layout)
+      const bubbles: Rect[] = bubbleObstacles(s.world, s.layout)
+      const basket = s.grid.spots.basket
+      let state = initialMascot(21, input(s, T0))
+      let samples = 0
+      for (let t = T0; t <= T0 + 30 * 60_000; t += 50) {
+        state = advanceMascot(state, input(s, t))
+        const { point } = mascotPose(state, t)
+        const body: Rect = { x: point.x - 8, y: point.y - 4, w: 16, h: 12 }
+        const tiles: Tile[] = []
+        for (let y = Math.floor(body.y / 16); y <= Math.floor((body.y + body.h - 1) / 16); y++) {
+          for (let x = Math.floor(body.x / 16); x <= Math.floor((body.x + body.w - 1) / 16); x++) tiles.push({ x, y })
+        }
+        expect(tiles.length, `at ${t}: he is in one tile or two`).toBeLessThanOrEqual(2)
+        for (const tile of tiles) {
+          const ok = isWalkable(s.grid, tile, true) || (tile.x === basket.x && tile.y === basket.y)
+          if (!ok) expect.fail(`at ${t} ms he is on (${tile.x},${tile.y}), which is not floor he may stand on (${state.activity})`)
+        }
+        for (const rect of clear) if (rectsOverlap(body, rect)) expect.fail(`at ${t} ms he covers a lamp, monitor or tag (${state.activity})`)
+        for (const rect of bubbles) if (rectsOverlap(body, rect)) expect.fail(`at ${t} ms he is under a bubble's place (${state.activity}), on (${tiles.map((x) => `${x.x},${x.y}`).join(' ')}) ${JSON.stringify(rect)}`)
+        samples++
+      }
+      expect(samples).toBeGreaterThan(30_000)
+      expect(tileRect(basket).w).toBe(16)
+    })
+  }
+})
+
+describe('what he gets up to in a day', () => {
+  function activitiesIn(world: World, minutes: number): Set<MascotActivity> {
+    const s = scene(world)
+    const seen = new Set<MascotActivity>()
+    for (const seed of [1, 2, 3]) {
+      let state = initialMascot(seed, input(s, T0))
+      for (let t = T0; t <= T0 + minutes * 60_000; t += 500) {
+        state = advanceMascot(state, input(s, t))
+        seen.add(state.activity)
+      }
+    }
+    return seen
+  }
+
+  test('with an idle agent, a working one and a planner: naps, drinks, wanders, sits by, plays (and the planner blocks the whiteboard)', () => {
+    const seen = activitiesIn(mascotPlayWorld(), 30)
+    for (const activity of ['nap', 'drink', 'wander', 'sit_by', 'play'] as const) expect(seen.has(activity), activity).toBe(true)
+    expect(seen.has('sniff'), 'a planner sits under the whiteboard').toBe(false)
+  })
+
+  test('in an office with an empty planning room he sniffs the whiteboard, and with nobody idle he never plays', () => {
+    const seen = activitiesIn(stateWorld('thinking'), 30)
+    for (const activity of ['nap', 'drink', 'wander', 'sit_by', 'sniff'] as const) expect(seen.has(activity), activity).toBe(true)
+    expect(seen.has('play')).toBe(false)
   })
 })
 

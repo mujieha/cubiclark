@@ -496,11 +496,12 @@ export function advanceMascot(state: MascotState, input: MascotInput): MascotSta
   const { nowMs, grid } = input
   if (input.reducedMotion) return state.frozen && state.gridKey === grid.key ? state : freeze(state, input)
   if (state.frozen) return chooseNext(state, grid.spots.basket, nowMs, input)
-  let next = state
+  // What is over is over first, so that what is judged below (the grid, the company, an arrival) is
+  // what he is doing *now*, however long since the last frame.
+  let next = finishStays(state, input)
   if (next.gridKey !== grid.key) next = replan(next, input)
   next = checkCompany(next, input)
-  next = greetArrival(next, input)
-  return finishStays(next, input)
+  return greetArrival(next, input)
 }
 
 // --- What to draw -----------------------------------------------------------------------------
