@@ -4,6 +4,7 @@
 // as a second opinion.
 
 import { expect, test, type Page } from '@playwright/test'
+import { MAX_BACKING_SIDE_PX } from '../../src/core/office/geometry.js'
 import type { World } from '../../src/core/types.js'
 import { loadWorld, openWithFakeWorld, pushWorld, saveEvidence } from './fake-world.js'
 import { canvasSize, LONG_TASKS, longTasksSince, pageNow, pushEverySecond } from './perf.js'
@@ -81,6 +82,11 @@ async function unfilteredCrowd(page: Page): Promise<void> {
       `office perf: crowd-250-idle unfiltered, 244 shown, rows ${await canvas.getAttribute('data-rows')}, counted ${measured.toFixed(1)} fps, canvas ${await canvasSize(page)}, long tasks ${JSON.stringify(longTasks.slice(0, 8))} (${longTasks.length} in all)`
     )
     expect(longTasks[0] ?? 0, `the longest of ${longTasks.length} long tasks`).toBeLessThanOrEqual(LONG_TASK_LIMIT_MS)
+    // The canvas stays under what a GPU keeps a canvas in (src/core/office/geometry.ts backingScale):
+    // at twice the density this office, 329 rows, was 21056 px tall and ran at 21 fps with 50 to 85 ms tasks.
+    const [, height] = (await canvasSize(page)).split('x').map(Number)
+    expect(height, 'the canvas is not taller than a GPU texture').toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
+    expect(measured, 'counted from outside').toBeGreaterThanOrEqual(24)
   } finally {
     await cli.stop()
   }

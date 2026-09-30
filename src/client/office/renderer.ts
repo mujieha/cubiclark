@@ -4,7 +4,7 @@
 // Every coordinate is in logical px and every draw lands on a whole px, under a transform that
 // scales by a whole number, so pixels stay crisp. All text goes through fillText, never markup.
 
-import { TILE, type Point, type Rect } from '../../core/office/geometry.js'
+import { TILE, backingScale, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
 import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
@@ -84,6 +84,7 @@ export class OfficeRenderer {
   private staticLayer: HTMLCanvasElement | undefined
   private scene: Scene | undefined
   private cssScale = 1
+  private dpr = 1
   private backing = 1
   private arrows: Record<Direction, SpriteDef> | undefined
 
@@ -115,11 +116,16 @@ export class OfficeRenderer {
     return this.cssScale
   }
 
+  /** Device pixels per logical px of the canvas's backing store (src/core/office/geometry.ts backingScale). */
+  get density(): number {
+    return this.backing
+  }
+
   /** The largest whole-number scale that fits `containerWidthCss`, and the backing-store density. */
   resize(containerWidthCss: number, devicePixelRatio: number): void {
     const cols = this.scene?.layout.cols ?? 36
     this.cssScale = Math.min(MAX_SCALE, Math.max(1, Math.floor(containerWidthCss / (cols * TILE))))
-    this.backing = this.cssScale * Math.max(1, Math.round(devicePixelRatio))
+    this.dpr = devicePixelRatio
     this.applySize()
   }
 
@@ -127,6 +133,8 @@ export class OfficeRenderer {
     const layout = this.scene?.layout
     const cols = layout?.cols ?? 36
     const rows = layout?.rows ?? 20
+    // The office grows with its agents, so this is decided again whenever its size changes.
+    this.backing = backingScale(this.cssScale, this.dpr, cols, rows)
     this.canvas.width = cols * TILE * this.backing
     this.canvas.height = rows * TILE * this.backing
     this.canvas.style.width = `${cols * TILE * this.cssScale}px`
