@@ -11,6 +11,7 @@ import { EMPTY_SCENES, type EmptySceneId } from '../../core/office/visual.js'
 import type { Task, World } from '../../core/types.js'
 import { emptyWorld } from '../../core/world.js'
 import { FrameLoop, browserHost, type LoopHost } from './loop.js'
+import { MascotMarker } from './mascot-marker.js'
 import { OfficeOverlay } from './overlay.js'
 import { BUILT_IN_ART } from './art/art-set.js'
 import { OfficeRenderer, type Look, type Scene } from './renderer.js'
@@ -46,6 +47,8 @@ export class OfficeView {
   readonly canvas: HTMLCanvasElement
   private readonly renderer: OfficeRenderer
   private readonly overlay: OfficeOverlay
+  /** Made when Morty is first drawn: with him off the page holds nothing of his, not even a hidden box. */
+  private marker: MascotMarker | undefined
   private readonly loop: FrameLoop
   private readonly reducedQuery: MediaQueryList
   private readonly observer: ResizeObserver | undefined
@@ -177,6 +180,7 @@ export class OfficeView {
   destroy(): void {
     this.loop.stop()
     this.observer?.disconnect()
+    this.marker?.destroy()
     this.overlay.destroy()
     this.reducedQuery.removeEventListener('change', this.onReducedChange)
   }
@@ -266,6 +270,13 @@ export class OfficeView {
     }
     const stats = this.renderer.draw(nowMs, this.focusedId ?? this.selectedId, pose)
     this.overlay.syncWalkers(stats.walkers)
+    if (pose) {
+      // In front of the overlay in the page, so the agents' buttons are over his marker, never under it.
+      this.marker ??= new MascotMarker(this.stage, this.stage.querySelector('.office-overlay'))
+      this.marker.show({ x: pose.point.x - 8, y: pose.point.y - 4, w: 16, h: 12 }, this.renderer.scale)
+    } else {
+      this.marker?.show(undefined, this.renderer.scale)
+    }
     this.drawnAgents = stats.drawn
     this.canvas.dataset.frames = String(this.loop.frames + 1)
     // Morty is not an agent: `actors` never counts him. What he is doing is published for the tests.
