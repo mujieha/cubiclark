@@ -3,7 +3,7 @@
 // or a board tag.
 
 import { describe, expect, test } from 'vitest'
-import { crowd100World, crowdWorld, roomsWorld, allStatesWorld, stateWorld } from '../scripts/world-fixture-lib.js'
+import { allStatesWorld, crowd100World, crowdWorld, mascotPlayWorld, roomsWorld, stateWorld } from '../scripts/world-fixture-lib.js'
 import { BUBBLE_H, COMPACT_W, DESK_BUBBLE_MAX_W, placeBubbles } from '../src/core/office/bubbles.js'
 import { rectsOverlap, type Rect } from '../src/core/office/geometry.js'
 import { layout as computeLayout, type OfficeLayout } from '../src/core/office/layout.js'
@@ -45,6 +45,7 @@ const WORLDS: [string, () => World][] = [
   ['all-states', allStatesWorld],
   ['crowd-50', crowdWorld],
   ['crowd-100', crowd100World],
+  ['mascot-play', mascotPlayWorld],
   ...AGENT_STATES.map((state): [string, () => World] => [`state-${state}`, () => stateWorld(state)]),
 ]
 
