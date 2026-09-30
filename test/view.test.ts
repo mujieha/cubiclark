@@ -95,6 +95,17 @@ describe('emptyScreenText', () => {
     expect(text).toContain('12 hours')
     expect(text).toContain('5 older transcripts')
   })
+
+  test('no-agents with agents hidden says who is not shown, not that nothing is going on', () => {
+    let world = emptyWorld('t0', '/root')
+    world = { ...world, sources: { ...world.sources, transcripts: { status: 'live', root: '/root', files: 5, inWindow: 5, windowHours: 12 } } }
+    expect(emptyScreenText('no-agents', world, { idle: 7, finished: 0 })).toBe('No agents working right now · 7 idle not shown')
+    expect(emptyScreenText('no-agents', world, { idle: 0, finished: 2 })).toBe('No agents working right now · 2 finished not shown')
+    expect(emptyScreenText('no-agents', world, { idle: 0, finished: 0 })).toBe(emptyScreenText('no-agents', world))
+    expect(emptyScreenText('no-agents', world)).toContain('12 hours')
+    // no other screen changes
+    expect(emptyScreenText('no-data', world, { idle: 7, finished: 0 })).toBe(emptyScreenText('no-data', world))
+  })
 })
 
 describe('agentRows', () => {
@@ -413,5 +424,14 @@ describe('officeStatusLine', () => {
   test('above 50 agents it suggests the list view; at 50 it does not', () => {
     expect(officeStatusLine(crowd(50, () => ({ state: 'thinking' })))).not.toContain('list view')
     expect(officeStatusLine(crowd(51, () => ({ state: 'thinking' })))).toContain('busy office: the list view may be easier')
+  })
+
+  test('agents that are not shown are said, after the counts and before the hint', () => {
+    const states: Agent['state'][] = ['thinking', 'waiting_permission']
+    const world = crowd(2, (i) => ({ state: states[i] }))
+    expect(officeStatusLine(world, { idle: 2, finished: 1 })).toBe('2 agents · 1 busy · 1 waiting for permission · 2 idle not shown · 1 finished not shown')
+    expect(officeStatusLine(world, { idle: 0, finished: 0 })).toBe(officeStatusLine(world))
+    const busy = officeStatusLine(crowd(51, () => ({ state: 'thinking' })), { idle: 4, finished: 0 })
+    expect(busy).toBe('51 agents · 51 busy · 4 idle not shown · busy office: the list view may be easier')
   })
 })

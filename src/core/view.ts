@@ -7,6 +7,7 @@
 import { assetsText } from './assets/status.js'
 import { projectName } from './transcript/paths.js'
 import { UNPARSED_REASONS, type Agent, type AgentState, type UnparsedBreakdown, type UnparsedReason, type World } from './types.js'
+import { hiddenText, type HiddenCounts } from './visible.js'
 
 /** The World as it is safe to hand to the browser: real tool_use ids are never useful to a
  * viewer and are a needless thing to leak, and a full cwd would show more of the filesystem
@@ -66,8 +67,10 @@ export function emptyScreen(world: World | undefined): EmptyScreenId | null {
   return 'no-agents'
 }
 
-/** The message text for a given screen id, filled in from the World that produced it. */
-export function emptyScreenText(id: EmptyScreenId, world: World | undefined): string {
+/** The message text for a given screen id, filled in from the World that produced it. `hidden` is
+ * what the view left out: when there is nobody to show but some are hidden, the screen says so
+ * instead of claiming that nothing is going on. */
+export function emptyScreenText(id: EmptyScreenId, world: World | undefined, hidden?: HiddenCounts): string {
   const transcripts = world?.sources.transcripts
   switch (id) {
     case 'no-data':
@@ -77,6 +80,8 @@ export function emptyScreenText(id: EmptyScreenId, world: World | undefined): st
     case 'no-collector':
       return `No transcripts found in ${transcripts?.root ?? ''}, and the live collector is not installed (run \`cubiclark hooks on\`)`
     case 'no-agents': {
+      const notShown = hiddenText(hidden)
+      if (notShown !== undefined) return `No agents working right now · ${notShown}`
       const windowHours = transcripts?.windowHours
       const older = (transcripts?.files ?? 0) - (transcripts?.inWindow ?? 0)
       const windowText = windowHours ? `in the last ${windowHours} hours` : 'right now'
@@ -284,7 +289,7 @@ export const BUSY_OFFICE_AGENTS = 50
 
 /** The office's status line, e.g. "12 agents · 7 busy · 2 waiting for permission · 1 rate limited".
  * Waiting for permission is counted here on purpose (design §6): it is the state a person must act on. */
-export function officeStatusLine(world: World): string {
+export function officeStatusLine(world: World, hidden?: HiddenCounts): string {
   const agents = Object.values(world.agents)
   const busy = agents.filter((agent) => BUSY_STATES.has(agent.state)).length
   const waiting = agents.filter((agent) => agent.state === 'waiting_permission').length
@@ -292,6 +297,9 @@ export function officeStatusLine(world: World): string {
   const parts = [`${agents.length} ${agents.length === 1 ? 'agent' : 'agents'}`, `${busy} busy`]
   if (waiting > 0) parts.push(`${waiting} waiting for permission`)
   if (limited > 0) parts.push(`${limited} rate limited`)
+  // The World given is the one in view; what is not in it is said here, not silently dropped.
+  const notShown = hiddenText(hidden)
+  if (notShown !== undefined) parts.push(notShown)
   if (agents.length > BUSY_OFFICE_AGENTS) parts.push('busy office: the list view may be easier')
   return parts.join(' · ')
 }
