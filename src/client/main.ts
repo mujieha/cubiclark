@@ -5,7 +5,8 @@ import type { World } from '../core/types.js'
 import { Hud } from './hud.js'
 import { assetsText, type PublicAssets } from '../core/assets/status.js'
 import { applyPageTheme, fetchCustomAssets, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
-import { fetchPageOptions, readMascotChoice, type PageOptions } from './mascot-choice.js'
+import { fetchPageOptions, readMascotChoice, writeMascotChoice, type PageOptions } from './mascot-choice.js'
+import { mascotButtonText } from '../core/office/mascot.js'
 import { OfficeView, browserEnv } from './office/office-view.js'
 import './style.css'
 
@@ -64,6 +65,9 @@ class App {
   private themeChoice: ThemeChoice = readThemeChoice()
   private readonly darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
   private readonly themeToggle = el('button', { id: 'theme-toggle' })
+  private readonly mascotToggle = el('button', { id: 'mascot-toggle' })
+  /** Morty is shown: the server allows him (no --no-mascot) and this browser has not turned him off. */
+  private mascotOn = false
   private readonly connectionEl = el('span', { className: 'connection' })
   private readonly toggle = el('button', { id: 'view-toggle' })
   private readonly hudToggle = el('button', { id: 'hud-toggle' })
@@ -95,6 +99,16 @@ class App {
       this.applyTheme()
     })
     header.appendChild(this.themeToggle)
+    // Morty's button, right after the theme's; started with --no-mascot there is no button at all.
+    if (this.options.mascot) {
+      this.mascotToggle.type = 'button'
+      this.mascotToggle.addEventListener('click', () => {
+        this.mascotOn = !this.mascotOn
+        writeMascotChoice(this.mascotOn)
+        this.applyMascot()
+      })
+      header.appendChild(this.mascotToggle)
+    }
     this.hudToggle.type = 'button'
     this.hudToggle.setAttribute('aria-controls', 'hud')
     this.hudToggle.addEventListener('click', () => {
@@ -136,7 +150,8 @@ class App {
     this.hud.setPalette(lookFor(theme, this.custom).palette)
     this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme, this.custom))
     // Morty is in the page unless the server was started with --no-mascot or this browser chose otherwise.
-    this.office.setMascot(this.options.mascot && readMascotChoice())
+    this.mascotOn = this.options.mascot && readMascotChoice()
+    this.applyMascot()
     this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
     this.root.dataset.themeChoice = this.themeChoice
     // `auto` follows the operating system while the page is open.
@@ -172,6 +187,16 @@ class App {
     this.office.setLook(lookFor(theme, this.custom))
     this.themeToggle.textContent = themeButtonText(this.themeChoice, theme.id)
     this.root.dataset.themeChoice = this.themeChoice
+  }
+
+  /** Morty on or off: the office, the button's text and what it says about itself. */
+  private applyMascot(): void {
+    this.office.setMascot(this.mascotOn)
+    // Started with --no-mascot, the page has no button and says nothing of him.
+    if (!this.options.mascot) return
+    this.mascotToggle.textContent = mascotButtonText(this.mascotOn)
+    this.mascotToggle.setAttribute('aria-pressed', String(this.mascotOn))
+    this.root.dataset.mascot = this.mascotOn ? 'on' : 'off'
   }
 
   /** Clicking the selected agent again clears the selection. */

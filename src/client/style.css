@@ -74,6 +74,7 @@ body {
 }
 
 #theme-toggle,
+#mascot-toggle,
 #view-toggle,
 #hud-toggle {
   font: inherit;
@@ -87,12 +88,14 @@ body {
 }
 
 #theme-toggle:hover,
+#mascot-toggle:hover,
 #view-toggle:hover,
 #hud-toggle:hover {
   border-color: var(--accent);
 }
 
 #theme-toggle:focus-visible,
+#mascot-toggle:focus-visible,
 #view-toggle:focus-visible,
 #hud-toggle:focus-visible {
   outline: 2px solid var(--accent);
