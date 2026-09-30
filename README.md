@@ -99,8 +99,8 @@ npm run bench:hook    # collector overhead over Node's own start-up
 npm run fixtures        # regenerate the synthetic fixtures under test/fixtures/
 npm run fixtures:check  # verify the checked-in fixtures still match the generator
 
-node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>] [--no-mascot]
-node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>] [--no-mascot]
+node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>] [--no-mascot] [--idle-desks <n>]
+node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>] [--no-mascot] [--idle-desks <n>]
 node dist/cli.js doctor --adapters --fixture-home test/fixtures/day/home --state-dir test/fixtures/day/state
 node dist/cli.js doctor --fixture-home <an empty folder> --assets <manifest.json>   # checks a custom-assets pack; exit 1 if invalid
 ```
@@ -114,7 +114,8 @@ newest record found, so a fixture world never looks stale just because the check
 ## The office
 
 The page opens on the office; the button in the header (or `#list` at the end of the URL) switches
-to the list. Both show the same World, and an end-to-end test compares them agent by agent.
+to the list. Both show the same agents (see *Who is in the office*), and an end-to-end test compares
+them agent by agent.
 
 **Rooms.** An orchestrator (a session that started background sessions, or one an adapter names)
 sits in the *manager's office*; a planner (or an agent whose task is in its planning phase) in the
@@ -122,7 +123,7 @@ sits in the *manager's office*; a planner (or an agent whose task is in its plan
 floor*, one cluster of desks per project. A subagent or teammate sits on a *stool* beside its
 parent's desk (three stools per desk, then a bench); a subagent of a subagent sits beside the
 top-level agent. An agent that has finished or ended walks out of the door and leaves a tag on the
-board in the *lobby*, so nobody the list shows is missing from the office. Seats stay put as the
+board in the *lobby* for a while, so nobody the list shows is missing from the office. Seats stay put as the
 world changes: an agent that leaves does not make everyone shuffle up.
 
 **Characters.** The shirt colour is the model family (Opus purple, Sonnet blue, Haiku green, Fable
@@ -165,7 +166,11 @@ setting while the page is open takes effect at once.
 **Performance.** The canvas is capped at 30 frames a second, pauses while the tab is hidden, draws
 at a whole-number scale (so pixels stay crisp) and stops entirely while the list is showing. With
 50 agents a draw takes about a millisecond, and with 100 (`test/e2e/office-perf.spec.ts`, which fails
-under 30 frames a second) about two.
+under 30 frames a second) about two. A crowd of 250 agents (40 working, 200 idle, 10 gone) shows 49
+of them and holds 30 frames a second with no task over 200 ms while the World is pushed every second
+for 30; the same crowd with every idle session given a desk (`--idle-desks 1000`) is over 300 rows
+tall, and the canvas is then drawn at a lower pixel density rather than past the size a GPU keeps a
+canvas in (16384 px a side).
 
 **Themes.** The button at the left of the header cycles *Auto*, *Day* and *Night*. Auto follows the
 operating system's light or dark setting, and changes while the page is open when the setting does.
@@ -185,6 +190,38 @@ not applied at all.
 **The first run.** With no transcripts folder yet (or none with anything in it) and no collector
 installed, the page shows a setup screen instead of an empty office: it explains the two ways of
 seeing agents above and gives the command for the second (`cubiclark hooks on`).
+
+## Who is in the office
+
+The office, the list and the panel show only the agents that matter now, and say how many they leave
+out. One rule (`src/core/visible.ts`) decides, and the page applies it once to each update:
+
+- **Every agent that is working is shown:** thinking, reading, editing, running, searching, browsing,
+  delegating, compacting, starting, waiting for a permission, rate limited or stuck.
+- **Of the sessions waiting for you, the five most recently active are shown.** `--idle-desks <n>` (on
+  the default command and on `replay`; a whole number from 0 to 1000) changes the five; with 0 no
+  idle session has a desk. Background workers count as sessions here. (A subagent finishes when its
+  turn ends rather than waiting for you, so in practice it is not among them.) An idle parent of a
+  working helper stays, and does not use one of the n, so the helper keeps its stool beside it.
+- **An agent that has finished or ended stays for 10 minutes, and one that has failed for 30** (it
+  needs a look), counted from when it stopped. After that it is gone.
+- **The rest leave without a sound**: no walk-out, no tag on the board, no line in the session log. An
+  agent that is hidden and becomes active again is back on that very update, and walks in through the
+  door like anyone who arrives.
+- **The trace:** the line under the office and the panel's status bar say `195 idle not shown · 6
+  finished not shown` (only the parts that are not zero). When nothing at all is in view the page says
+  `No agents working right now · 7 idle not shown` and not that there are no agents.
+
+The World itself is not changed: the server, `world.json`, the session log and `cubiclark doctor`
+still hold and count every agent. Hiding is only what the page shows. The lines of a hidden agent stay
+in the session log as history (under their short id) and are left out when the log is filtered by
+project or task; a hidden agent cannot be selected, and one that is selected when it drops out of view
+is deselected.
+
+A subagent whose transcript is outside the window (`--since-hours`, 12 by default) does not exist at
+all: its sidecar file (`agent-<id>.meta.json`) is read only when the transcript beside it is being
+read. A home with hundreds of old sessions used to fill the office with subagents that nothing could
+ever update.
 
 ## Morty
 
@@ -300,6 +337,13 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **A rescan lists every file under `projects/`, old sessions included,** so its cost grows with the
   history Claude Code keeps there. `cubiclark doctor` prints it (the `scans` line: files walked,
   folders listed, milliseconds).
+- **A session waiting for you that is not among the five most recently active is not in the office
+  or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
+  is shown for as long as it is stuck, however old, since it may need a look.
+- **A very tall office is drawn at a lower pixel density.** The canvas is capped at 16384 px a side
+  and 16 million px in all (the size a GPU keeps a canvas in); a 300-row office on a display of twice
+  the density is drawn at half the detail and stretched by a whole number. Only text on the canvas
+  shows the difference.
 - **Two collectors rotating at the same instant can lose a few lines.** Rare, and only at the
   5 MB boundary.
 - **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always) and,
