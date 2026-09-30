@@ -6,11 +6,12 @@ import { phaseAfterCut } from './adapters/apply.js'
 import { accessoryFor, effectiveRole, modelFamily, type Accessory, type ModelFamily } from './office/roles.js'
 import type { Agent, AgentRole, Task, TaskPhase, World } from './types.js'
 import { agentStateLabel, BUSY_STATES, relativeSince, shortId } from './view.js'
+import { hiddenText, type HiddenCounts } from './visible.js'
 
 // --- Status bar ---------------------------------------------------------------------------------
 
 export interface StatusSegment {
-  /** 'sources' | 'agents' | 'permission' | 'quota' | 'diagnostics' | 'replay' */
+  /** 'sources' | 'agents' | 'hidden' | 'permission' | 'quota' | 'diagnostics' | 'replay' */
   id: string
   text: string
 }
@@ -27,12 +28,14 @@ function sourcesText(world: World): string {
   return parts.join(' · ')
 }
 
-/** The status bar, in order: sources, busy/total agents, permission waits (always, zero too:
- * design §6, the state a person must act on), quota, diagnostics, and replay progress. */
-export function statusBar(world: World): StatusSegment[] {
+/** The status bar, in order: sources, busy/total agents (of the World it is given: the agents in
+ * view), how many are not shown (only when some are), permission waits (always, zero too: design §6,
+ * the state a person must act on), quota, diagnostics, and replay progress. */
+export function statusBar(world: World, hidden?: HiddenCounts): StatusSegment[] {
   const agents = Object.values(world.agents)
   const busy = agents.filter((agent) => BUSY_STATES.has(agent.state)).length
   const waiting = agents.filter((agent) => agent.state === 'waiting_permission').length
+  const notShown = hiddenText(hidden)
   const d = world.diagnostics
   const diagnostics = [`unparsed ${d.unparsedLines}`]
   if (d.unknownHookShapes > 0) diagnostics.push(`unknown hook shapes ${d.unknownHookShapes}`)
@@ -41,6 +44,8 @@ export function statusBar(world: World): StatusSegment[] {
   const segments: StatusSegment[] = [
     { id: 'sources', text: sourcesText(world) },
     { id: 'agents', text: `busy ${busy}/${agents.length}` },
+    // The trace of the quiet office: what is not in the office or the list is counted here.
+    ...(notShown === undefined ? [] : [{ id: 'hidden', text: notShown }]),
     { id: 'permission', text: `permission ${waiting}` },
     { id: 'quota', text: world.quota ? `5h ${Math.round(world.quota.p5h)}% · 7d ${Math.round(world.quota.p7d)}%` : 'quota —' },
     { id: 'diagnostics', text: diagnostics.join(' · ') },

@@ -81,6 +81,19 @@ describe('statusBar', () => {
     expect(statusBar(base)[0]?.text).toBe('transcripts live · hooks failing')
   })
 
+  test('agents that are not shown are counted in a segment right after the agents, and only when there are some', () => {
+    const w = world([meta(A1), { t: 'prompt', ts: T0, agentId: A1 }])
+    const ids = (hidden?: { idle: number; finished: number }): string[] => statusBar(w, hidden).map((s) => s.id)
+    expect(ids()).toEqual(['sources', 'agents', 'permission', 'quota', 'diagnostics'])
+    expect(ids({ idle: 0, finished: 0 })).toEqual(['sources', 'agents', 'permission', 'quota', 'diagnostics'])
+    expect(ids({ idle: 3, finished: 0 })).toEqual(['sources', 'agents', 'hidden', 'permission', 'quota', 'diagnostics'])
+    expect(statusBar(w, { idle: 3, finished: 0 })[2]).toEqual({ id: 'hidden', text: '3 idle not shown' })
+    expect(statusBar(w, { idle: 0, finished: 2 })[2]?.text).toBe('2 finished not shown')
+    expect(statusBar(w, { idle: 195, finished: 6 })[2]?.text).toBe('195 idle not shown · 6 finished not shown')
+    // the agents segment counts what it is given: the agents in view
+    expect(statusBar(w, { idle: 3, finished: 0 })[1]?.text).toBe('busy 1/1')
+  })
+
   test('replay adds a segment with the speed, the clock and, at the end, done', () => {
     const w = world([], { clock: '2026-01-16T15:04:05.000Z', replay: { sinceTs: T0, endTs: T0, speed: 10, done: false } })
     expect(statusBar(w).at(-1)).toEqual({ id: 'replay', text: 'replay 10× · 15:04:05Z' })

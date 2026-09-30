@@ -1,0 +1,4650 @@
+{
+  "agents": {
+    "00000000-0000-4000-8000-0000000a0001": {
+      "id": "00000000-0000-4000-8000-0000000a0001",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0002": {
+      "id": "00000000-0000-4000-8000-0000000a0002",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0003": {
+      "id": "00000000-0000-4000-8000-0000000a0003",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0004": {
+      "id": "00000000-0000-4000-8000-0000000a0004",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0005": {
+      "id": "00000000-0000-4000-8000-0000000a0005",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0006": {
+      "id": "00000000-0000-4000-8000-0000000a0006",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0007": {
+      "id": "00000000-0000-4000-8000-0000000a0007",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "browsing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "WebFetch",
+        "target": "example.com"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0008": {
+      "id": "00000000-0000-4000-8000-0000000a0008",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "delegating",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0009": {
+      "id": "00000000-0000-4000-8000-0000000a0009",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_permission",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000a": {
+      "id": "00000000-0000-4000-8000-0000000a000a",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "compacting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000b": {
+      "id": "00000000-0000-4000-8000-0000000a000b",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "orchestrator",
+      "state": "stuck",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000c": {
+      "id": "00000000-0000-4000-8000-0000000a000c",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "planner",
+      "state": "rate_limited",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000d": {
+      "id": "00000000-0000-4000-8000-0000000a000d",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "reviewer",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000e": {
+      "id": "00000000-0000-4000-8000-0000000a000e",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000f": {
+      "id": "00000000-0000-4000-8000-0000000a000f",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0010": {
+      "id": "00000000-0000-4000-8000-0000000a0010",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0011": {
+      "id": "00000000-0000-4000-8000-0000000a0011",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0012": {
+      "id": "00000000-0000-4000-8000-0000000a0012",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0013": {
+      "id": "00000000-0000-4000-8000-0000000a0013",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "browsing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "WebFetch",
+        "target": "example.com"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0014": {
+      "id": "00000000-0000-4000-8000-0000000a0014",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "delegating",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0015": {
+      "id": "00000000-0000-4000-8000-0000000a0015",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_permission",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0016": {
+      "id": "00000000-0000-4000-8000-0000000a0016",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "compacting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0017": {
+      "id": "00000000-0000-4000-8000-0000000a0017",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "stuck",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0018": {
+      "id": "00000000-0000-4000-8000-0000000a0018",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "rate_limited",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0019": {
+      "id": "00000000-0000-4000-8000-0000000a0019",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001a": {
+      "id": "00000000-0000-4000-8000-0000000a001a",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001b": {
+      "id": "00000000-0000-4000-8000-0000000a001b",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001c": {
+      "id": "00000000-0000-4000-8000-0000000a001c",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001d": {
+      "id": "00000000-0000-4000-8000-0000000a001d",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001e": {
+      "id": "00000000-0000-4000-8000-0000000a001e",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b001": {
+      "id": "fx00000000000b001",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0001",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b002": {
+      "id": "fx00000000000b002",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0002",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b003": {
+      "id": "fx00000000000b003",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0003",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b004": {
+      "id": "fx00000000000b004",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0004",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b005": {
+      "id": "fx00000000000b005",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0005",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b006": {
+      "id": "fx00000000000b006",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b007": {
+      "id": "fx00000000000b007",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b008": {
+      "id": "fx00000000000b008",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0008",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b009": {
+      "id": "fx00000000000b009",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0009",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00a": {
+      "id": "fx00000000000b00a",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a000a",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001f": {
+      "id": "00000000-0000-4000-8000-0000000a001f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0020": {
+      "id": "00000000-0000-4000-8000-0000000a0020",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:28:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0021": {
+      "id": "00000000-0000-4000-8000-0000000a0021",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:27:00.000Z",
+      "lastActivity": "2026-01-15T10:27:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0022": {
+      "id": "00000000-0000-4000-8000-0000000a0022",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:26:00.000Z",
+      "lastActivity": "2026-01-15T10:26:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0023": {
+      "id": "00000000-0000-4000-8000-0000000a0023",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:25:00.000Z",
+      "lastActivity": "2026-01-15T10:25:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0024": {
+      "id": "00000000-0000-4000-8000-0000000a0024",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:24:00.000Z",
+      "lastActivity": "2026-01-15T10:24:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0025": {
+      "id": "00000000-0000-4000-8000-0000000a0025",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:23:00.000Z",
+      "lastActivity": "2026-01-15T10:23:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0026": {
+      "id": "00000000-0000-4000-8000-0000000a0026",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:22:00.000Z",
+      "lastActivity": "2026-01-15T10:22:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0027": {
+      "id": "00000000-0000-4000-8000-0000000a0027",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:21:00.000Z",
+      "lastActivity": "2026-01-15T10:21:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0028": {
+      "id": "00000000-0000-4000-8000-0000000a0028",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:20:00.000Z",
+      "lastActivity": "2026-01-15T10:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0029": {
+      "id": "00000000-0000-4000-8000-0000000a0029",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:19:00.000Z",
+      "lastActivity": "2026-01-15T10:19:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002a": {
+      "id": "00000000-0000-4000-8000-0000000a002a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002b": {
+      "id": "00000000-0000-4000-8000-0000000a002b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:17:00.000Z",
+      "lastActivity": "2026-01-15T10:17:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002c": {
+      "id": "00000000-0000-4000-8000-0000000a002c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:16:00.000Z",
+      "lastActivity": "2026-01-15T10:16:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002d": {
+      "id": "00000000-0000-4000-8000-0000000a002d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:15:00.000Z",
+      "lastActivity": "2026-01-15T10:15:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002e": {
+      "id": "00000000-0000-4000-8000-0000000a002e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:14:00.000Z",
+      "lastActivity": "2026-01-15T10:14:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a002f": {
+      "id": "00000000-0000-4000-8000-0000000a002f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:13:00.000Z",
+      "lastActivity": "2026-01-15T10:13:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0030": {
+      "id": "00000000-0000-4000-8000-0000000a0030",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:12:00.000Z",
+      "lastActivity": "2026-01-15T10:12:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0031": {
+      "id": "00000000-0000-4000-8000-0000000a0031",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:11:00.000Z",
+      "lastActivity": "2026-01-15T10:11:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0032": {
+      "id": "00000000-0000-4000-8000-0000000a0032",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:10:00.000Z",
+      "lastActivity": "2026-01-15T10:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0033": {
+      "id": "00000000-0000-4000-8000-0000000a0033",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:09:00.000Z",
+      "lastActivity": "2026-01-15T10:09:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0034": {
+      "id": "00000000-0000-4000-8000-0000000a0034",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:08:00.000Z",
+      "lastActivity": "2026-01-15T10:08:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0035": {
+      "id": "00000000-0000-4000-8000-0000000a0035",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:07:00.000Z",
+      "lastActivity": "2026-01-15T10:07:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0036": {
+      "id": "00000000-0000-4000-8000-0000000a0036",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:06:00.000Z",
+      "lastActivity": "2026-01-15T10:06:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0037": {
+      "id": "00000000-0000-4000-8000-0000000a0037",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:05:00.000Z",
+      "lastActivity": "2026-01-15T10:05:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0038": {
+      "id": "00000000-0000-4000-8000-0000000a0038",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:04:00.000Z",
+      "lastActivity": "2026-01-15T10:04:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0039": {
+      "id": "00000000-0000-4000-8000-0000000a0039",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:03:00.000Z",
+      "lastActivity": "2026-01-15T10:03:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003a": {
+      "id": "00000000-0000-4000-8000-0000000a003a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:02:00.000Z",
+      "lastActivity": "2026-01-15T10:02:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003b": {
+      "id": "00000000-0000-4000-8000-0000000a003b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:01:00.000Z",
+      "lastActivity": "2026-01-15T10:01:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003c": {
+      "id": "00000000-0000-4000-8000-0000000a003c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:00:00.000Z",
+      "lastActivity": "2026-01-15T10:00:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003d": {
+      "id": "00000000-0000-4000-8000-0000000a003d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:59:00.000Z",
+      "lastActivity": "2026-01-15T09:59:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003e": {
+      "id": "00000000-0000-4000-8000-0000000a003e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:58:00.000Z",
+      "lastActivity": "2026-01-15T09:58:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a003f": {
+      "id": "00000000-0000-4000-8000-0000000a003f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:57:00.000Z",
+      "lastActivity": "2026-01-15T09:57:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0040": {
+      "id": "00000000-0000-4000-8000-0000000a0040",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:56:00.000Z",
+      "lastActivity": "2026-01-15T09:56:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0041": {
+      "id": "00000000-0000-4000-8000-0000000a0041",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:55:00.000Z",
+      "lastActivity": "2026-01-15T09:55:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0042": {
+      "id": "00000000-0000-4000-8000-0000000a0042",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:54:00.000Z",
+      "lastActivity": "2026-01-15T09:54:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0043": {
+      "id": "00000000-0000-4000-8000-0000000a0043",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:53:00.000Z",
+      "lastActivity": "2026-01-15T09:53:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0044": {
+      "id": "00000000-0000-4000-8000-0000000a0044",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:52:00.000Z",
+      "lastActivity": "2026-01-15T09:52:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0045": {
+      "id": "00000000-0000-4000-8000-0000000a0045",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:51:00.000Z",
+      "lastActivity": "2026-01-15T09:51:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0046": {
+      "id": "00000000-0000-4000-8000-0000000a0046",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:50:00.000Z",
+      "lastActivity": "2026-01-15T09:50:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0047": {
+      "id": "00000000-0000-4000-8000-0000000a0047",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:49:00.000Z",
+      "lastActivity": "2026-01-15T09:49:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0048": {
+      "id": "00000000-0000-4000-8000-0000000a0048",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:48:00.000Z",
+      "lastActivity": "2026-01-15T09:48:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0049": {
+      "id": "00000000-0000-4000-8000-0000000a0049",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:47:00.000Z",
+      "lastActivity": "2026-01-15T09:47:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004a": {
+      "id": "00000000-0000-4000-8000-0000000a004a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:46:00.000Z",
+      "lastActivity": "2026-01-15T09:46:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004b": {
+      "id": "00000000-0000-4000-8000-0000000a004b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:45:00.000Z",
+      "lastActivity": "2026-01-15T09:45:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004c": {
+      "id": "00000000-0000-4000-8000-0000000a004c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:44:00.000Z",
+      "lastActivity": "2026-01-15T09:44:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004d": {
+      "id": "00000000-0000-4000-8000-0000000a004d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:43:00.000Z",
+      "lastActivity": "2026-01-15T09:43:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004e": {
+      "id": "00000000-0000-4000-8000-0000000a004e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:42:00.000Z",
+      "lastActivity": "2026-01-15T09:42:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a004f": {
+      "id": "00000000-0000-4000-8000-0000000a004f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:41:00.000Z",
+      "lastActivity": "2026-01-15T09:41:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0050": {
+      "id": "00000000-0000-4000-8000-0000000a0050",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:40:00.000Z",
+      "lastActivity": "2026-01-15T09:40:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0051": {
+      "id": "00000000-0000-4000-8000-0000000a0051",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:39:00.000Z",
+      "lastActivity": "2026-01-15T09:39:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0052": {
+      "id": "00000000-0000-4000-8000-0000000a0052",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:38:00.000Z",
+      "lastActivity": "2026-01-15T09:38:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0053": {
+      "id": "00000000-0000-4000-8000-0000000a0053",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:37:00.000Z",
+      "lastActivity": "2026-01-15T09:37:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0054": {
+      "id": "00000000-0000-4000-8000-0000000a0054",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:36:00.000Z",
+      "lastActivity": "2026-01-15T09:36:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0055": {
+      "id": "00000000-0000-4000-8000-0000000a0055",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:35:00.000Z",
+      "lastActivity": "2026-01-15T09:35:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0056": {
+      "id": "00000000-0000-4000-8000-0000000a0056",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:34:00.000Z",
+      "lastActivity": "2026-01-15T09:34:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0057": {
+      "id": "00000000-0000-4000-8000-0000000a0057",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:33:00.000Z",
+      "lastActivity": "2026-01-15T09:33:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0058": {
+      "id": "00000000-0000-4000-8000-0000000a0058",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:32:00.000Z",
+      "lastActivity": "2026-01-15T09:32:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0059": {
+      "id": "00000000-0000-4000-8000-0000000a0059",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:31:00.000Z",
+      "lastActivity": "2026-01-15T09:31:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005a": {
+      "id": "00000000-0000-4000-8000-0000000a005a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:30:00.000Z",
+      "lastActivity": "2026-01-15T09:30:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005b": {
+      "id": "00000000-0000-4000-8000-0000000a005b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:29:00.000Z",
+      "lastActivity": "2026-01-15T09:29:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005c": {
+      "id": "00000000-0000-4000-8000-0000000a005c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:28:00.000Z",
+      "lastActivity": "2026-01-15T09:28:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005d": {
+      "id": "00000000-0000-4000-8000-0000000a005d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:27:00.000Z",
+      "lastActivity": "2026-01-15T09:27:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005e": {
+      "id": "00000000-0000-4000-8000-0000000a005e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:26:00.000Z",
+      "lastActivity": "2026-01-15T09:26:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a005f": {
+      "id": "00000000-0000-4000-8000-0000000a005f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:25:00.000Z",
+      "lastActivity": "2026-01-15T09:25:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0060": {
+      "id": "00000000-0000-4000-8000-0000000a0060",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:24:00.000Z",
+      "lastActivity": "2026-01-15T09:24:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0061": {
+      "id": "00000000-0000-4000-8000-0000000a0061",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:23:00.000Z",
+      "lastActivity": "2026-01-15T09:23:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0062": {
+      "id": "00000000-0000-4000-8000-0000000a0062",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:22:00.000Z",
+      "lastActivity": "2026-01-15T09:22:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0063": {
+      "id": "00000000-0000-4000-8000-0000000a0063",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:21:00.000Z",
+      "lastActivity": "2026-01-15T09:21:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0064": {
+      "id": "00000000-0000-4000-8000-0000000a0064",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:20:00.000Z",
+      "lastActivity": "2026-01-15T09:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0065": {
+      "id": "00000000-0000-4000-8000-0000000a0065",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:19:00.000Z",
+      "lastActivity": "2026-01-15T09:19:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0066": {
+      "id": "00000000-0000-4000-8000-0000000a0066",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:18:00.000Z",
+      "lastActivity": "2026-01-15T09:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0067": {
+      "id": "00000000-0000-4000-8000-0000000a0067",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:17:00.000Z",
+      "lastActivity": "2026-01-15T09:17:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0068": {
+      "id": "00000000-0000-4000-8000-0000000a0068",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:16:00.000Z",
+      "lastActivity": "2026-01-15T09:16:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0069": {
+      "id": "00000000-0000-4000-8000-0000000a0069",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:15:00.000Z",
+      "lastActivity": "2026-01-15T09:15:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006a": {
+      "id": "00000000-0000-4000-8000-0000000a006a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:14:00.000Z",
+      "lastActivity": "2026-01-15T09:14:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006b": {
+      "id": "00000000-0000-4000-8000-0000000a006b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:13:00.000Z",
+      "lastActivity": "2026-01-15T09:13:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006c": {
+      "id": "00000000-0000-4000-8000-0000000a006c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:12:00.000Z",
+      "lastActivity": "2026-01-15T09:12:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006d": {
+      "id": "00000000-0000-4000-8000-0000000a006d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:11:00.000Z",
+      "lastActivity": "2026-01-15T09:11:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006e": {
+      "id": "00000000-0000-4000-8000-0000000a006e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:10:00.000Z",
+      "lastActivity": "2026-01-15T09:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a006f": {
+      "id": "00000000-0000-4000-8000-0000000a006f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:09:00.000Z",
+      "lastActivity": "2026-01-15T09:09:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0070": {
+      "id": "00000000-0000-4000-8000-0000000a0070",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:08:00.000Z",
+      "lastActivity": "2026-01-15T09:08:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0071": {
+      "id": "00000000-0000-4000-8000-0000000a0071",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:07:00.000Z",
+      "lastActivity": "2026-01-15T09:07:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0072": {
+      "id": "00000000-0000-4000-8000-0000000a0072",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:06:00.000Z",
+      "lastActivity": "2026-01-15T09:06:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0073": {
+      "id": "00000000-0000-4000-8000-0000000a0073",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:05:00.000Z",
+      "lastActivity": "2026-01-15T09:05:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0074": {
+      "id": "00000000-0000-4000-8000-0000000a0074",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:04:00.000Z",
+      "lastActivity": "2026-01-15T09:04:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0075": {
+      "id": "00000000-0000-4000-8000-0000000a0075",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:03:00.000Z",
+      "lastActivity": "2026-01-15T09:03:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0076": {
+      "id": "00000000-0000-4000-8000-0000000a0076",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:02:00.000Z",
+      "lastActivity": "2026-01-15T09:02:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0077": {
+      "id": "00000000-0000-4000-8000-0000000a0077",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:01:00.000Z",
+      "lastActivity": "2026-01-15T09:01:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0078": {
+      "id": "00000000-0000-4000-8000-0000000a0078",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T09:00:00.000Z",
+      "lastActivity": "2026-01-15T09:00:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0079": {
+      "id": "00000000-0000-4000-8000-0000000a0079",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:59:00.000Z",
+      "lastActivity": "2026-01-15T08:59:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007a": {
+      "id": "00000000-0000-4000-8000-0000000a007a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:58:00.000Z",
+      "lastActivity": "2026-01-15T08:58:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007b": {
+      "id": "00000000-0000-4000-8000-0000000a007b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:57:00.000Z",
+      "lastActivity": "2026-01-15T08:57:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007c": {
+      "id": "00000000-0000-4000-8000-0000000a007c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:56:00.000Z",
+      "lastActivity": "2026-01-15T08:56:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007d": {
+      "id": "00000000-0000-4000-8000-0000000a007d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:55:00.000Z",
+      "lastActivity": "2026-01-15T08:55:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007e": {
+      "id": "00000000-0000-4000-8000-0000000a007e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:54:00.000Z",
+      "lastActivity": "2026-01-15T08:54:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a007f": {
+      "id": "00000000-0000-4000-8000-0000000a007f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:53:00.000Z",
+      "lastActivity": "2026-01-15T08:53:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0080": {
+      "id": "00000000-0000-4000-8000-0000000a0080",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:52:00.000Z",
+      "lastActivity": "2026-01-15T08:52:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0081": {
+      "id": "00000000-0000-4000-8000-0000000a0081",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:51:00.000Z",
+      "lastActivity": "2026-01-15T08:51:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0082": {
+      "id": "00000000-0000-4000-8000-0000000a0082",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:50:00.000Z",
+      "lastActivity": "2026-01-15T08:50:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0083": {
+      "id": "00000000-0000-4000-8000-0000000a0083",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:49:00.000Z",
+      "lastActivity": "2026-01-15T08:49:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0084": {
+      "id": "00000000-0000-4000-8000-0000000a0084",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:48:00.000Z",
+      "lastActivity": "2026-01-15T08:48:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0085": {
+      "id": "00000000-0000-4000-8000-0000000a0085",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:47:00.000Z",
+      "lastActivity": "2026-01-15T08:47:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0086": {
+      "id": "00000000-0000-4000-8000-0000000a0086",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:46:00.000Z",
+      "lastActivity": "2026-01-15T08:46:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0087": {
+      "id": "00000000-0000-4000-8000-0000000a0087",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:45:00.000Z",
+      "lastActivity": "2026-01-15T08:45:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0088": {
+      "id": "00000000-0000-4000-8000-0000000a0088",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:44:00.000Z",
+      "lastActivity": "2026-01-15T08:44:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0089": {
+      "id": "00000000-0000-4000-8000-0000000a0089",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:43:00.000Z",
+      "lastActivity": "2026-01-15T08:43:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008a": {
+      "id": "00000000-0000-4000-8000-0000000a008a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:42:00.000Z",
+      "lastActivity": "2026-01-15T08:42:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008b": {
+      "id": "00000000-0000-4000-8000-0000000a008b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:41:00.000Z",
+      "lastActivity": "2026-01-15T08:41:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008c": {
+      "id": "00000000-0000-4000-8000-0000000a008c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:40:00.000Z",
+      "lastActivity": "2026-01-15T08:40:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008d": {
+      "id": "00000000-0000-4000-8000-0000000a008d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:39:00.000Z",
+      "lastActivity": "2026-01-15T08:39:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008e": {
+      "id": "00000000-0000-4000-8000-0000000a008e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:38:00.000Z",
+      "lastActivity": "2026-01-15T08:38:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a008f": {
+      "id": "00000000-0000-4000-8000-0000000a008f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:37:00.000Z",
+      "lastActivity": "2026-01-15T08:37:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0090": {
+      "id": "00000000-0000-4000-8000-0000000a0090",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:36:00.000Z",
+      "lastActivity": "2026-01-15T08:36:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0091": {
+      "id": "00000000-0000-4000-8000-0000000a0091",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:35:00.000Z",
+      "lastActivity": "2026-01-15T08:35:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0092": {
+      "id": "00000000-0000-4000-8000-0000000a0092",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:34:00.000Z",
+      "lastActivity": "2026-01-15T08:34:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0093": {
+      "id": "00000000-0000-4000-8000-0000000a0093",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:33:00.000Z",
+      "lastActivity": "2026-01-15T08:33:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0094": {
+      "id": "00000000-0000-4000-8000-0000000a0094",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:32:00.000Z",
+      "lastActivity": "2026-01-15T08:32:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0095": {
+      "id": "00000000-0000-4000-8000-0000000a0095",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:31:00.000Z",
+      "lastActivity": "2026-01-15T08:31:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0096": {
+      "id": "00000000-0000-4000-8000-0000000a0096",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:30:00.000Z",
+      "lastActivity": "2026-01-15T08:30:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0097": {
+      "id": "00000000-0000-4000-8000-0000000a0097",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:29:00.000Z",
+      "lastActivity": "2026-01-15T08:29:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0098": {
+      "id": "00000000-0000-4000-8000-0000000a0098",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:28:00.000Z",
+      "lastActivity": "2026-01-15T08:28:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0099": {
+      "id": "00000000-0000-4000-8000-0000000a0099",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:27:00.000Z",
+      "lastActivity": "2026-01-15T08:27:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009a": {
+      "id": "00000000-0000-4000-8000-0000000a009a",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:26:00.000Z",
+      "lastActivity": "2026-01-15T08:26:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009b": {
+      "id": "00000000-0000-4000-8000-0000000a009b",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:25:00.000Z",
+      "lastActivity": "2026-01-15T08:25:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009c": {
+      "id": "00000000-0000-4000-8000-0000000a009c",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:24:00.000Z",
+      "lastActivity": "2026-01-15T08:24:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009d": {
+      "id": "00000000-0000-4000-8000-0000000a009d",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:23:00.000Z",
+      "lastActivity": "2026-01-15T08:23:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009e": {
+      "id": "00000000-0000-4000-8000-0000000a009e",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:22:00.000Z",
+      "lastActivity": "2026-01-15T08:22:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a009f": {
+      "id": "00000000-0000-4000-8000-0000000a009f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:21:00.000Z",
+      "lastActivity": "2026-01-15T08:21:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a0": {
+      "id": "00000000-0000-4000-8000-0000000a00a0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:20:00.000Z",
+      "lastActivity": "2026-01-15T08:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a1": {
+      "id": "00000000-0000-4000-8000-0000000a00a1",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:19:00.000Z",
+      "lastActivity": "2026-01-15T08:19:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a2": {
+      "id": "00000000-0000-4000-8000-0000000a00a2",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:18:00.000Z",
+      "lastActivity": "2026-01-15T08:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a3": {
+      "id": "00000000-0000-4000-8000-0000000a00a3",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:17:00.000Z",
+      "lastActivity": "2026-01-15T08:17:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a4": {
+      "id": "00000000-0000-4000-8000-0000000a00a4",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:16:00.000Z",
+      "lastActivity": "2026-01-15T08:16:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a5": {
+      "id": "00000000-0000-4000-8000-0000000a00a5",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:15:00.000Z",
+      "lastActivity": "2026-01-15T08:15:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a6": {
+      "id": "00000000-0000-4000-8000-0000000a00a6",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:14:00.000Z",
+      "lastActivity": "2026-01-15T08:14:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a7": {
+      "id": "00000000-0000-4000-8000-0000000a00a7",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:13:00.000Z",
+      "lastActivity": "2026-01-15T08:13:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a8": {
+      "id": "00000000-0000-4000-8000-0000000a00a8",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:12:00.000Z",
+      "lastActivity": "2026-01-15T08:12:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00a9": {
+      "id": "00000000-0000-4000-8000-0000000a00a9",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:11:00.000Z",
+      "lastActivity": "2026-01-15T08:11:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00aa": {
+      "id": "00000000-0000-4000-8000-0000000a00aa",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:10:00.000Z",
+      "lastActivity": "2026-01-15T08:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ab": {
+      "id": "00000000-0000-4000-8000-0000000a00ab",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:09:00.000Z",
+      "lastActivity": "2026-01-15T08:09:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ac": {
+      "id": "00000000-0000-4000-8000-0000000a00ac",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:08:00.000Z",
+      "lastActivity": "2026-01-15T08:08:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ad": {
+      "id": "00000000-0000-4000-8000-0000000a00ad",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:07:00.000Z",
+      "lastActivity": "2026-01-15T08:07:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ae": {
+      "id": "00000000-0000-4000-8000-0000000a00ae",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:06:00.000Z",
+      "lastActivity": "2026-01-15T08:06:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00af": {
+      "id": "00000000-0000-4000-8000-0000000a00af",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:05:00.000Z",
+      "lastActivity": "2026-01-15T08:05:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b0": {
+      "id": "00000000-0000-4000-8000-0000000a00b0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:04:00.000Z",
+      "lastActivity": "2026-01-15T08:04:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b1": {
+      "id": "00000000-0000-4000-8000-0000000a00b1",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:03:00.000Z",
+      "lastActivity": "2026-01-15T08:03:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b2": {
+      "id": "00000000-0000-4000-8000-0000000a00b2",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:02:00.000Z",
+      "lastActivity": "2026-01-15T08:02:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b3": {
+      "id": "00000000-0000-4000-8000-0000000a00b3",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:01:00.000Z",
+      "lastActivity": "2026-01-15T08:01:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b4": {
+      "id": "00000000-0000-4000-8000-0000000a00b4",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T08:00:00.000Z",
+      "lastActivity": "2026-01-15T08:00:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b5": {
+      "id": "00000000-0000-4000-8000-0000000a00b5",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:59:00.000Z",
+      "lastActivity": "2026-01-15T07:59:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b6": {
+      "id": "00000000-0000-4000-8000-0000000a00b6",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:58:00.000Z",
+      "lastActivity": "2026-01-15T07:58:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b7": {
+      "id": "00000000-0000-4000-8000-0000000a00b7",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:57:00.000Z",
+      "lastActivity": "2026-01-15T07:57:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b8": {
+      "id": "00000000-0000-4000-8000-0000000a00b8",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:56:00.000Z",
+      "lastActivity": "2026-01-15T07:56:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00b9": {
+      "id": "00000000-0000-4000-8000-0000000a00b9",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:55:00.000Z",
+      "lastActivity": "2026-01-15T07:55:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ba": {
+      "id": "00000000-0000-4000-8000-0000000a00ba",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:54:00.000Z",
+      "lastActivity": "2026-01-15T07:54:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00bb": {
+      "id": "00000000-0000-4000-8000-0000000a00bb",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:53:00.000Z",
+      "lastActivity": "2026-01-15T07:53:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00bc": {
+      "id": "00000000-0000-4000-8000-0000000a00bc",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:52:00.000Z",
+      "lastActivity": "2026-01-15T07:52:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00bd": {
+      "id": "00000000-0000-4000-8000-0000000a00bd",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:51:00.000Z",
+      "lastActivity": "2026-01-15T07:51:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00be": {
+      "id": "00000000-0000-4000-8000-0000000a00be",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:50:00.000Z",
+      "lastActivity": "2026-01-15T07:50:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00bf": {
+      "id": "00000000-0000-4000-8000-0000000a00bf",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:49:00.000Z",
+      "lastActivity": "2026-01-15T07:49:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c0": {
+      "id": "00000000-0000-4000-8000-0000000a00c0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:48:00.000Z",
+      "lastActivity": "2026-01-15T07:48:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c1": {
+      "id": "00000000-0000-4000-8000-0000000a00c1",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:47:00.000Z",
+      "lastActivity": "2026-01-15T07:47:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c2": {
+      "id": "00000000-0000-4000-8000-0000000a00c2",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:46:00.000Z",
+      "lastActivity": "2026-01-15T07:46:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c3": {
+      "id": "00000000-0000-4000-8000-0000000a00c3",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:45:00.000Z",
+      "lastActivity": "2026-01-15T07:45:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c4": {
+      "id": "00000000-0000-4000-8000-0000000a00c4",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:44:00.000Z",
+      "lastActivity": "2026-01-15T07:44:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c5": {
+      "id": "00000000-0000-4000-8000-0000000a00c5",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:43:00.000Z",
+      "lastActivity": "2026-01-15T07:43:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c6": {
+      "id": "00000000-0000-4000-8000-0000000a00c6",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:42:00.000Z",
+      "lastActivity": "2026-01-15T07:42:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c7": {
+      "id": "00000000-0000-4000-8000-0000000a00c7",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:41:00.000Z",
+      "lastActivity": "2026-01-15T07:41:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c8": {
+      "id": "00000000-0000-4000-8000-0000000a00c8",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:40:00.000Z",
+      "lastActivity": "2026-01-15T07:40:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00c9": {
+      "id": "00000000-0000-4000-8000-0000000a00c9",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:39:00.000Z",
+      "lastActivity": "2026-01-15T07:39:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ca": {
+      "id": "00000000-0000-4000-8000-0000000a00ca",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:38:00.000Z",
+      "lastActivity": "2026-01-15T07:38:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00cb": {
+      "id": "00000000-0000-4000-8000-0000000a00cb",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:37:00.000Z",
+      "lastActivity": "2026-01-15T07:37:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00cc": {
+      "id": "00000000-0000-4000-8000-0000000a00cc",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:36:00.000Z",
+      "lastActivity": "2026-01-15T07:36:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00cd": {
+      "id": "00000000-0000-4000-8000-0000000a00cd",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:35:00.000Z",
+      "lastActivity": "2026-01-15T07:35:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ce": {
+      "id": "00000000-0000-4000-8000-0000000a00ce",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:34:00.000Z",
+      "lastActivity": "2026-01-15T07:34:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00cf": {
+      "id": "00000000-0000-4000-8000-0000000a00cf",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:33:00.000Z",
+      "lastActivity": "2026-01-15T07:33:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d0": {
+      "id": "00000000-0000-4000-8000-0000000a00d0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:32:00.000Z",
+      "lastActivity": "2026-01-15T07:32:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d1": {
+      "id": "00000000-0000-4000-8000-0000000a00d1",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:31:00.000Z",
+      "lastActivity": "2026-01-15T07:31:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d2": {
+      "id": "00000000-0000-4000-8000-0000000a00d2",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:30:00.000Z",
+      "lastActivity": "2026-01-15T07:30:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d3": {
+      "id": "00000000-0000-4000-8000-0000000a00d3",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:29:00.000Z",
+      "lastActivity": "2026-01-15T07:29:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d4": {
+      "id": "00000000-0000-4000-8000-0000000a00d4",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:28:00.000Z",
+      "lastActivity": "2026-01-15T07:28:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d5": {
+      "id": "00000000-0000-4000-8000-0000000a00d5",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:27:00.000Z",
+      "lastActivity": "2026-01-15T07:27:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d6": {
+      "id": "00000000-0000-4000-8000-0000000a00d6",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:26:00.000Z",
+      "lastActivity": "2026-01-15T07:26:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d7": {
+      "id": "00000000-0000-4000-8000-0000000a00d7",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:25:00.000Z",
+      "lastActivity": "2026-01-15T07:25:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d8": {
+      "id": "00000000-0000-4000-8000-0000000a00d8",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:24:00.000Z",
+      "lastActivity": "2026-01-15T07:24:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00d9": {
+      "id": "00000000-0000-4000-8000-0000000a00d9",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:23:00.000Z",
+      "lastActivity": "2026-01-15T07:23:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00da": {
+      "id": "00000000-0000-4000-8000-0000000a00da",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:22:00.000Z",
+      "lastActivity": "2026-01-15T07:22:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00db": {
+      "id": "00000000-0000-4000-8000-0000000a00db",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:21:00.000Z",
+      "lastActivity": "2026-01-15T07:21:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00dc": {
+      "id": "00000000-0000-4000-8000-0000000a00dc",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:20:00.000Z",
+      "lastActivity": "2026-01-15T07:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00dd": {
+      "id": "00000000-0000-4000-8000-0000000a00dd",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:19:00.000Z",
+      "lastActivity": "2026-01-15T07:19:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00de": {
+      "id": "00000000-0000-4000-8000-0000000a00de",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:18:00.000Z",
+      "lastActivity": "2026-01-15T07:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00df": {
+      "id": "00000000-0000-4000-8000-0000000a00df",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:17:00.000Z",
+      "lastActivity": "2026-01-15T07:17:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e0": {
+      "id": "00000000-0000-4000-8000-0000000a00e0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:16:00.000Z",
+      "lastActivity": "2026-01-15T07:16:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e1": {
+      "id": "00000000-0000-4000-8000-0000000a00e1",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:15:00.000Z",
+      "lastActivity": "2026-01-15T07:15:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e2": {
+      "id": "00000000-0000-4000-8000-0000000a00e2",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:14:00.000Z",
+      "lastActivity": "2026-01-15T07:14:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e3": {
+      "id": "00000000-0000-4000-8000-0000000a00e3",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:13:00.000Z",
+      "lastActivity": "2026-01-15T07:13:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e4": {
+      "id": "00000000-0000-4000-8000-0000000a00e4",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:12:00.000Z",
+      "lastActivity": "2026-01-15T07:12:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e5": {
+      "id": "00000000-0000-4000-8000-0000000a00e5",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:11:00.000Z",
+      "lastActivity": "2026-01-15T07:11:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e6": {
+      "id": "00000000-0000-4000-8000-0000000a00e6",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T07:10:00.000Z",
+      "lastActivity": "2026-01-15T07:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e7": {
+      "id": "00000000-0000-4000-8000-0000000a00e7",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:27:00.000Z",
+      "lastActivity": "2026-01-15T10:27:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e8": {
+      "id": "00000000-0000-4000-8000-0000000a00e8",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:26:00.000Z",
+      "lastActivity": "2026-01-15T10:26:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00e9": {
+      "id": "00000000-0000-4000-8000-0000000a00e9",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:25:00.000Z",
+      "lastActivity": "2026-01-15T10:25:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ea": {
+      "id": "00000000-0000-4000-8000-0000000a00ea",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "failed",
+      "stateSince": "2026-01-15T10:10:00.000Z",
+      "lastActivity": "2026-01-15T10:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": [],
+      "error": {
+        "kind": "other",
+        "message": "API Error: invalid request: missing required field"
+      }
+    },
+    "00000000-0000-4000-8000-0000000a00eb": {
+      "id": "00000000-0000-4000-8000-0000000a00eb",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:15:00.000Z",
+      "lastActivity": "2026-01-15T10:15:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ec": {
+      "id": "00000000-0000-4000-8000-0000000a00ec",
+      "kind": "session",
+      "project": "ops",
+      "cwd": "ops",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:10:00.000Z",
+      "lastActivity": "2026-01-15T10:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ed": {
+      "id": "00000000-0000-4000-8000-0000000a00ed",
+      "kind": "session",
+      "project": "web",
+      "cwd": "web",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:05:00.000Z",
+      "lastActivity": "2026-01-15T10:05:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ee": {
+      "id": "00000000-0000-4000-8000-0000000a00ee",
+      "kind": "session",
+      "project": "cli",
+      "cwd": "cli",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:00:00.000Z",
+      "lastActivity": "2026-01-15T10:00:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00ef": {
+      "id": "00000000-0000-4000-8000-0000000a00ef",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T09:50:00.000Z",
+      "lastActivity": "2026-01-15T09:50:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a00f0": {
+      "id": "00000000-0000-4000-8000-0000000a00f0",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "failed",
+      "stateSince": "2026-01-15T09:45:00.000Z",
+      "lastActivity": "2026-01-15T09:45:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": [],
+      "error": {
+        "kind": "other",
+        "message": "API Error: invalid request: missing required field"
+      }
+    }
+  },
+  "tasks": {},
+  "log": [],
+  "diagnostics": {
+    "unparsedLines": 0,
+    "unknownHookShapes": 0,
+    "sourceErrors": [],
+    "unknownTypes": {},
+    "versions": [],
+    "unparsedBy": {}
+  },
+  "sources": {
+    "transcripts": {
+      "status": "live",
+      "root": "/fixture/claude/projects",
+      "files": 5,
+      "inWindow": 5,
+      "windowHours": 12
+    },
+    "hooks": {
+      "status": "live",
+      "events": 42,
+      "lastEventTs": "2026-01-15T10:30:00.000Z"
+    }
+  },
+  "clock": "2026-01-15T10:30:00.000Z",
+  "quota": {
+    "p5h": 100,
+    "p7d": 40,
+    "resets5h": "2026-01-15T11:12:00.000Z"
+  }
+}

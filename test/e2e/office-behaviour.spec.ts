@@ -101,7 +101,8 @@ test.describe('the keyboard, the mouse and the toggle', () => {
     try {
       await pushWorld(page, await loadWorld('rooms'))
       const canvas = page.locator('canvas.office-canvas')
-      await expect(page.locator('button.office-agent')).toHaveCount(20)
+      // 19 of the World's 20: the ended agent that left 20 minutes ago is past its 10 minutes
+      await expect(page.locator('button.office-agent')).toHaveCount(19)
       await page.waitForTimeout(200)
       const unfocused = await canvas.screenshot()
 
@@ -130,7 +131,7 @@ test.describe('the keyboard, the mouse and the toggle', () => {
     const cli = await openWithFakeWorld(page)
     try {
       await pushWorld(page, await loadWorld('rooms'))
-      await expect(page.locator('button.office-agent')).toHaveCount(20)
+      await expect(page.locator('button.office-agent')).toHaveCount(19)
       const tooltip = page.locator('#office-tooltip')
       await expect(tooltip).toBeHidden()
       await agentButton(page, sub(1)).hover()
@@ -151,7 +152,7 @@ test.describe('the keyboard, the mouse and the toggle', () => {
       await pushWorld(page, await loadWorld('rooms'))
       await expect(page.locator('#list-view')).toBeVisible()
       await expect(page.locator('#office-view')).toBeHidden()
-      await expect(page.locator('#list-view tbody tr')).toHaveCount(20)
+      await expect(page.locator('#list-view tbody tr')).toHaveCount(19)
       const toggle = page.locator('#view-toggle')
       await expect(toggle).toHaveText('Office view')
       await expect(toggle).toHaveAttribute('aria-pressed', 'true')

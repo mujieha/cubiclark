@@ -397,8 +397,11 @@ export function layout(world: World, prev?: OfficeLayout): OfficeLayout {
   // bench, then the board.
   const ordered: Placement[] = []
   const bySlot = (a: Placement, b: Placement): number => a.slot - b.slot
-  const stoolsOf = (deskId: string): Placement[] =>
-    [...placements.values()].filter((p) => p.kind === 'stool' && p.deskId === deskId).sort(bySlot)
+  const stoolsByDesk = new Map<string, Placement[]>()
+  for (const p of placements.values()) {
+    if (p.kind === 'stool' && p.deskId !== undefined) stoolsByDesk.set(p.deskId, [...(stoolsByDesk.get(p.deskId) ?? []), p])
+  }
+  const stoolsOf = (deskId: string): Placement[] => (stoolsByDesk.get(deskId) ?? []).sort(bySlot)
   const pushDeskGroup = (desk: DeskBox): void => {
     ordered.push(placements.get(desk.ownerId) as Placement, ...stoolsOf(desk.id))
   }
@@ -423,6 +426,18 @@ export function layout(world: World, prev?: OfficeLayout): OfficeLayout {
   }
 }
 
+/** A layout's placements by agent, made the first time it is asked (a layout is never changed once
+ * made): `placementOf` runs for every agent on every frame, and a scan would make a frame grow with
+ * the square of the crowd. */
+const placementIndex = new WeakMap<OfficeLayout, Map<string, Placement>>()
+
 export function placementOf(officeLayout: OfficeLayout, agentId: string): Placement | undefined {
-  return officeLayout.placements.find((placement) => placement.agentId === agentId)
+  let index = placementIndex.get(officeLayout)
+  if (!index) {
+    index = new Map()
+    // the first placement of an agent wins, as a scan would have it
+    for (const placement of officeLayout.placements) if (!index.has(placement.agentId)) index.set(placement.agentId, placement)
+    placementIndex.set(officeLayout, index)
+  }
+  return index.get(agentId)
 }

@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { TranscriptSource, type ReaddirFn, type WatchFn } from '../src/server/transcript-source.js'
+import { reduce } from '../src/core/reducer.js'
 import type { AgentEvent } from '../src/core/types.js'
+import { emptyWorld } from '../src/core/world.js'
 
 let dir: string
 
@@ -767,5 +769,108 @@ describe('TranscriptSource rescans on a throttle', () => {
     source.stop()
     expect(prompts(events, SID)).toBe(2)
     expect(source.getScanStats().scans).toBe(1)
+  })
+})
+
+// A subagent's sidecar meta file says who started it; without a transcript that is being read it
+// would create an agent that nothing ever updates (on a real home: 199 of 214 agents).
+describe('TranscriptSource reads a sidecar only for a transcript inside the window', () => {
+  const NOW = '2026-01-15T10:00:00.000Z'
+  const sid = (n: number): string => `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`
+  const aid = (n: number, k: number): string => `fx0000000000${String(n).padStart(2, '0')}${String(k).padStart(2, '0')}`
+  const subagentsDir = (n: number): string => join(dir, 'projects', '-tmp-demo', sid(n), 'subagents')
+  const links = (events: AgentEvent[]): AgentEvent[] => events.filter((e) => e.t === 'subagent_link')
+
+  async function subagent(n: number, k: number, opts: { transcript: boolean; meta: boolean; old: boolean }): Promise<void> {
+    await mkdir(subagentsDir(n), { recursive: true })
+    const files: string[] = []
+    if (opts.transcript) {
+      const path = join(subagentsDir(n), `agent-${aid(n, k)}.jsonl`)
+      await writeFile(path, promptLine(aid(n, k), '/tmp/demo', NOW) + '\n')
+      files.push(path)
+    }
+    if (opts.meta) {
+      const path = join(subagentsDir(n), `agent-${aid(n, k)}.meta.json`)
+      await writeFile(path, JSON.stringify({ agentType: 'Explore', toolUseId: `toolu_fx${n}${k}` }))
+      files.push(path)
+    }
+    if (opts.old) {
+      const long = new Date('2020-01-01T00:00:00.000Z')
+      for (const path of files) await utimes(path, long, long)
+    }
+  }
+
+  function windowed(extra: { sinceMs?: number | null; rescanMs?: number; pollMs?: number } = {}) {
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: extra.sinceMs === undefined ? Date.now() - 3_600_000 : extra.sinceMs,
+      windowHours: 1,
+      watch: false,
+      pollMs: extra.pollMs ?? 10_000,
+      onEvents,
+      nowMs: () => Date.now(),
+      ...(extra.rescanMs !== undefined ? { rescanMs: extra.rescanMs } : {}),
+    })
+    return { events, source }
+  }
+
+  test('an old meta file whose transcript is outside the window emits nothing', async () => {
+    await subagent(1, 1, { transcript: true, meta: true, old: true })
+    const { events, source } = windowed()
+    await source.start()
+    source.stop()
+    expect(links(events)).toEqual([])
+    expect(events.filter((e) => 'agentId' in e && e.agentId === aid(1, 1))).toEqual([])
+    expect(source.getStatus()).toMatchObject({ files: 1, inWindow: 0 })
+  })
+
+  test('a home of old meta files and no in-window transcripts produces zero agents', async () => {
+    for (let n = 1; n <= 3; n++) {
+      await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
+      const session = join(dir, 'projects', '-tmp-demo', `${sid(n)}.jsonl`)
+      await writeFile(session, promptLine(sid(n), '/tmp/demo', NOW) + '\n')
+      const long = new Date('2020-01-01T00:00:00.000Z')
+      await utimes(session, long, long)
+      for (let k = 1; k <= 2; k++) await subagent(n, k, { transcript: true, meta: true, old: true })
+    }
+    const { events, source } = windowed()
+    await source.start()
+    source.stop()
+    let world = emptyWorld(NOW, dir)
+    for (const event of events) world = reduce(world, event)
+    expect(Object.keys(world.agents)).toHaveLength(0)
+    expect(source.getStatus()).toMatchObject({ files: 9, inWindow: 0 })
+  })
+
+  test('a meta file with no transcript at all emits nothing, and a transcript in the window brings its meta file', async () => {
+    await subagent(1, 1, { transcript: false, meta: true, old: false })
+    await subagent(1, 2, { transcript: true, meta: true, old: false })
+    const { events, source } = windowed()
+    await source.start()
+    source.stop()
+    expect(links(events).map((e) => (e.t === 'subagent_link' ? e.agentId : ''))).toEqual([aid(1, 2)])
+  })
+
+  test('a meta file written before its transcript is linked once the transcript appears', async () => {
+    await subagent(1, 1, { transcript: false, meta: true, old: false })
+    const { events, source } = windowed({ sinceMs: null, rescanMs: 20, pollMs: 30 })
+    await source.start()
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(links(events)).toEqual([])
+    await subagent(1, 1, { transcript: true, meta: false, old: false })
+    await waitFor(() => links(events).length > 0)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    source.stop()
+    expect(links(events)).toHaveLength(1)
+  })
+
+  test('an in-window transcript brings its meta file exactly once, however often it is polled', async () => {
+    await subagent(1, 1, { transcript: true, meta: true, old: false })
+    const { events, source } = windowed({ rescanMs: 0, pollMs: 20 })
+    await source.start()
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    source.stop()
+    expect(links(events)).toHaveLength(1)
   })
 })

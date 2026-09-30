@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest'
 import { AGENT_STATES } from '../src/core/types.js'
 import type { World } from '../src/core/types.js'
 import { emptyScreen } from '../src/core/view.js'
+import { hiddenText, visibleAgents, withVisibleAgents } from '../src/core/visible.js'
 import { WORLD_FIXTURES, worldSessionId, worldSubagentId } from '../scripts/world-fixture-lib.js'
 
 const WORLDS_DIR = fileURLToPath(new URL('./fixtures/worlds/', import.meta.url))
@@ -58,6 +59,39 @@ describe('the big worlds', () => {
     expect(agents.filter((agent) => agent.state === 'finished' || agent.state === 'ended')).toHaveLength(10)
     expect(new Set(agents.filter((agent) => agent.kind === 'subagent').map((agent) => agent.parentId)).size).toBe(20)
     expect(new Set(agents.map((agent) => agent.project)).size).toBeGreaterThanOrEqual(8)
+  })
+
+  test('crowd-250-idle has 250 agents: 40 working, 200 waiting for you, 10 that left', () => {
+    const world = fixture('crowd-250-idle')
+    const agents = Object.values(world.agents)
+    expect(agents).toHaveLength(250)
+    const idle = agents.filter((agent) => agent.state === 'waiting_user')
+    const left = agents.filter((agent) => agent.state === 'finished' || agent.state === 'ended' || agent.state === 'failed')
+    expect(idle).toHaveLength(200)
+    expect(left.map((agent) => agent.state).sort()).toEqual(['ended', 'ended', 'ended', 'ended', 'failed', 'failed', 'finished', 'finished', 'finished', 'finished'])
+    expect(agents.length - idle.length - left.length).toBe(40)
+    expect(agents.filter((agent) => agent.kind === 'subagent')).toHaveLength(10)
+    expect(new Set(agents.map((agent) => agent.project)).size).toBe(8)
+    // the idle ones are ranked by how recently they were active: session 31 a minute ago, 32 two minutes ago
+    const quiet = (id: string): number => Date.parse(world.clock) - Date.parse(world.agents[id]?.lastActivity ?? '')
+    expect(quiet(worldSessionId(31))).toBe(60_000)
+    expect(quiet(worldSessionId(230))).toBe(200 * 60_000)
+    expect(agents.filter((agent) => agent.state === 'failed').every((agent) => agent.error?.message !== undefined)).toBe(true)
+  })
+
+  test('crowd-250-idle shows 49 with the defaults: the 40 working, five idle sessions, four that left a moment ago', () => {
+    const world = fixture('crowd-250-idle')
+    const now = Date.parse(world.clock)
+    const shown = visibleAgents(world, now)
+    expect(shown.ids.size).toBe(49)
+    expect(shown.hidden).toEqual({ idle: 195, finished: 6 })
+    expect(hiddenText(shown.hidden)).toBe('195 idle not shown · 6 finished not shown')
+    for (let k = 31; k <= 35; k++) expect(shown.ids.has(worldSessionId(k))).toBe(true)
+    expect(shown.ids.has(worldSessionId(36))).toBe(false)
+    expect(visibleAgents(world, now, { idleDesks: 0 }).ids.size).toBe(44)
+    expect(visibleAgents(world, now, { idleDesks: 12 }).ids.size).toBe(56)
+    expect(visibleAgents(world, now, { idleDesks: 1000 }).ids.size).toBe(244)
+    expect(Object.keys(withVisibleAgents(world, shown).agents)).toHaveLength(49)
   })
 
   test('every subagent has its parent in the world, except the rooms world orphan', () => {

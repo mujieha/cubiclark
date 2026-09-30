@@ -2,6 +2,7 @@ import { defaultTaskId, type LogFilter } from '../core/hud.js'
 import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusLine, setupScreen, sourcesLine, type EmptyScreenId } from '../core/view.js'
 import { THEMES, nextThemeChoice, resolveThemeId, themeButtonText, type Theme, type ThemeChoice } from '../core/theme/index.js'
 import type { World } from '../core/types.js'
+import { visibleAgents, withVisibleAgents, type HiddenCounts } from '../core/visible.js'
 import { Hud } from './hud.js'
 import { assetsText, type PublicAssets } from '../core/assets/status.js'
 import { applyPageTheme, fetchCustomAssets, lookFor, readThemeChoice, writeThemeChoice } from './theme.js'
@@ -54,6 +55,8 @@ function writeHudCollapsed(collapsed: boolean): void {
 /** The page is one skeleton, built once: the office's canvas must survive every update of the World. */
 class App {
   private world: World | undefined
+  /** The World as it is in view (src/core/visible.ts): what the office, the list and the panel show. */
+  private inView: World | undefined
   private connection: ConnectionState = 'connecting'
   private view: ViewName = viewFromHash()
   private shownView: ViewName | undefined
@@ -201,6 +204,8 @@ class App {
 
   /** Clicking the selected agent again clears the selection. */
   private select(agentId: string): void {
+    // A line of the log can name an agent that is not in view any more: there is nothing to select.
+    if (this.inView && !this.inView.agents[agentId]) return
     this.selectedAgentId = this.selectedAgentId === agentId ? undefined : agentId
     this.render()
   }
@@ -229,24 +234,31 @@ class App {
     this.connectionEl.className = `connection connection-${this.connection}`
     this.connectionEl.textContent = CONNECTION_LABELS[this.connection]
 
-    // A selection that points at an agent that has left the World is dropped.
-    if (this.selectedAgentId !== undefined && this.world && !this.world.agents[this.selectedAgentId]) this.selectedAgentId = undefined
+    // Who is in view is decided once, here, and every part of the page gets the same answer: the
+    // office, the list, the panel and every count. The World itself is not changed by it.
+    const shown = this.world ? visibleAgents(this.world, Date.parse(this.world.clock), { idleDesks: this.options.idleDesks }) : undefined
+    const inView = this.world && shown ? withVisibleAgents(this.world, shown) : undefined
+    const hidden = shown?.hidden
+    this.inView = inView
+
+    // A selection that points at an agent that has left the World, or is not in view, is dropped.
+    if (this.selectedAgentId !== undefined && inView && !inView.agents[this.selectedAgentId]) this.selectedAgentId = undefined
 
     // The timeline shows the chosen task, else the selected agent's, else the newest one that is live.
-    const chosen = this.chosenTaskId !== undefined && this.world?.tasks[this.chosenTaskId] ? this.chosenTaskId : undefined
-    const taskId = chosen ?? (this.world ? defaultTaskId(this.world, this.selectedAgentId) : undefined)
+    const chosen = this.chosenTaskId !== undefined && inView?.tasks[this.chosenTaskId] ? this.chosenTaskId : undefined
+    const taskId = chosen ?? (inView ? defaultTaskId(inView, this.selectedAgentId) : undefined)
 
-    const screenId = emptyScreen(this.world)
-    this.renderAssetErrors(this.world)
-    this.renderEmpty(screenId)
+    const screenId = emptyScreen(inView)
+    this.renderAssetErrors(inView)
+    this.renderEmpty(screenId, inView, hidden)
     // The whiteboard shows the same task as the timeline.
-    this.office.setSelectedTask(taskId === undefined ? undefined : this.world?.tasks[taskId])
-    this.office.setWorld(this.world, screenId)
+    this.office.setSelectedTask(taskId === undefined ? undefined : inView?.tasks[taskId])
+    this.office.setWorld(inView, screenId)
     this.office.setSelected(this.selectedAgentId)
 
-    const world = screenId ? undefined : this.world
+    const world = screenId ? undefined : inView
     this.officeStatus.hidden = !world
-    this.officeStatus.textContent = world ? officeStatusLine(world) : ''
+    this.officeStatus.textContent = world ? officeStatusLine(world, hidden) : ''
     this.renderTable(world)
     this.sourcesEl.hidden = !world
     this.sourcesEl.textContent = world ? sourcesLine(world) : ''
@@ -255,7 +267,7 @@ class App {
     this.applyView()
     this.applyHud()
 
-    this.hud.update(this.world, { selectedAgentId: this.selectedAgentId, taskId, taskChosen: chosen !== undefined, filter: this.filter })
+    this.hud.update(inView, { selectedAgentId: this.selectedAgentId, taskId, taskChosen: chosen !== undefined, filter: this.filter, hidden })
   }
 
   /** The problems in a custom-assets manifest, above everything else (also on the empty screens): the
@@ -277,7 +289,7 @@ class App {
     this.assetErrorsEl.appendChild(list)
   }
 
-  private renderEmpty(screenId: EmptyScreenId | null): void {
+  private renderEmpty(screenId: EmptyScreenId | null, world: World | undefined, hidden: HiddenCounts | undefined): void {
     this.emptyEl.hidden = screenId === null
     this.emptyEl.textContent = ''
     if (screenId === null) {
@@ -286,15 +298,15 @@ class App {
     }
     this.emptyEl.dataset.empty = screenId
     if (screenId === 'no-collector') {
-      this.renderSetup()
+      this.renderSetup(world)
       return
     }
-    this.emptyEl.appendChild(el('p', { text: emptyScreenText(screenId, this.world) }))
+    this.emptyEl.appendChild(el('p', { text: emptyScreenText(screenId, world, hidden) }))
   }
 
   /** The first run: how to begin, and the two ways of seeing agents explained. Text only. */
-  private renderSetup(): void {
-    const setup = setupScreen(this.world)
+  private renderSetup(world: World | undefined): void {
+    const setup = setupScreen(world)
     const wrap = el('div', { className: 'setup' })
     wrap.appendChild(el('h2', { className: 'setup-title', text: setup.title }))
     wrap.appendChild(el('p', { text: setup.intro }))

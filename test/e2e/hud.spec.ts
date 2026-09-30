@@ -6,8 +6,9 @@
 import { expect, test, type Page } from '@playwright/test'
 import { DAY_HELPER, S, saveDayEvidence, startDay } from './day.js'
 
-// the seven sessions and the builder's Explore helper
-const AGENTS = 8
+// the seven sessions and the builder's Explore helper, less s1 and s5: both ended long before the
+// day's end, past the 10 minutes a finished agent stays in view (src/core/visible.ts)
+const AGENTS = 6
 
 const agentButton = (page: Page, id: string) => page.locator(`button.office-agent[data-agent-id="${id}"]`)
 const segment = (page: Page, id: string) => page.locator(`#hud-status [data-segment="${id}"]`)
@@ -27,6 +28,9 @@ test('the status bar: sources, busy agents, permission waits, quota and diagnost
     await expect(segment(page, 'quota')).toHaveText('5h 62% · 7d 40%')
     await expect(segment(page, 'permission')).toHaveText('permission 1')
     await expect(segment(page, 'agents')).toContainText('busy ')
+    // the two agents that ended hours ago are not in view, and the status bar says so
+    await expect(segment(page, 'hidden')).toHaveText('2 finished not shown')
+    await expect(page.locator('.office-status')).toContainText('2 finished not shown')
     await expect(segment(page, 'diagnostics')).toHaveText('unparsed 0')
     await expect(segment(page, 'replay')).toHaveCount(0)
     // the world's clock, for the replay spec to read the same way
@@ -154,8 +158,9 @@ test('the rooms the adapters put agents in: orchestrator, planner, reviewer and 
     await expect(agentButton(page, S.s3)).toHaveAttribute('data-room', 'planning')
     await expect(agentButton(page, S.s4)).toHaveAttribute('data-room', 'review')
     await expect(agentButton(page, S.s2)).toHaveAttribute('data-room', 'floor')
-    await expect(agentButton(page, S.s1)).toHaveAttribute('data-room', 'lobby')
-    await expect(agentButton(page, S.s5)).toHaveAttribute('data-room', 'lobby')
+    // the two that ended hours ago would be on the lobby board; past their 10 minutes they are not in view
+    await expect(agentButton(page, S.s1)).toHaveCount(0)
+    await expect(agentButton(page, S.s5)).toHaveCount(0)
     await expect(agentButton(page, S.s0)).toHaveAttribute('data-state', 'running')
     await expect(agentButton(page, S.s3)).toHaveAttribute('data-state', 'waiting_permission')
     await expect(page.locator(`button.office-agent[data-kind="stool"]`)).toHaveCount(1)

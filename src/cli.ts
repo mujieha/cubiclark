@@ -12,6 +12,7 @@ import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { startApp } from './app.js'
 import { DEFAULT_REPLAY_SPEED, MAX_REPLAY_SPEED, parseDuration } from './core/replay.js'
+import { DEFAULT_IDLE_DESKS, MAX_IDLE_DESKS, parseIdleDesks } from './core/visible.js'
 import { defaultAssetsPath } from './server/assets-file.js'
 import { doctorExitCode, formatDoctorReport, runDoctor } from './server/doctor.js'
 import { startReplay } from './server/replay.js'
@@ -54,6 +55,9 @@ Usage:
                        read from a --fixture-home without --state-dir). doctor checks it and
                        exits 1 when it is invalid
   --no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)
+  --idle-desks <n>     How many idle sessions keep a desk: the n most recently active (default 5,
+                       0 to 1000; serve, replay). The rest leave the office and the list, and
+                       come back when they are active again; the status bar counts them
   --claude-bin <path>  doctor only: the claude executable (default claude)
   --port <n>           Port to listen on (0 picks a free one). Default 4789.
   --since-hours <n>    How far back to read transcripts. Default 12. Ignored with
@@ -80,6 +84,8 @@ export interface ServeCommand {
   assets?: string
   /** Morty, the office corgi, is in the page (off with `--no-mascot`). */
   mascot: boolean
+  /** How many idle sessions keep a desk in the page (`--idle-desks`, default 5). */
+  idleDesks: number
 }
 
 export interface HooksCommand {
@@ -119,6 +125,8 @@ export interface ReplayCommand {
   config?: string
   assets?: string
   mascot: boolean
+  /** How many idle sessions keep a desk in the page (`--idle-desks`, default 5). */
+  idleDesks: number
 }
 
 export type Command =
@@ -135,10 +143,18 @@ type CommandKind = 'serve' | 'hooks' | 'doctor' | 'replay'
 // Which flags each command accepts. A flag given to a command that ignores it is an error rather
 // than a silent no-op: `cubiclark hooks off --no-tools` should not look like it did something.
 const ALLOWED_FLAGS: Record<CommandKind, readonly string[]> = {
-  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'assets', 'no-mascot', 'help', 'version'],
+  serve: ['port', 'no-open', 'fixture-home', 'since-hours', 'state-dir', 'config', 'assets', 'no-mascot', 'idle-desks', 'help', 'version'],
   hooks: ['config-dir', 'state-dir', 'no-tools', 'purge', 'help', 'version'],
   doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'assets', 'help', 'version'],
-  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'no-mascot', 'help', 'version'],
+  replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'no-mascot', 'idle-desks', 'help', 'version'],
+}
+
+/** `--idle-desks`: a plain whole number from 0 to 1000 (0 means idle sessions never get a desk). */
+function idleDesks(raw: string | undefined): number {
+  if (raw === undefined) return DEFAULT_IDLE_DESKS
+  const value = /^\d+$/.test(raw) ? parseIdleDesks(Number(raw)) : undefined
+  if (value === undefined) throw new Error(`invalid --idle-desks: ${raw} (a whole number from 0 to ${MAX_IDLE_DESKS})`)
+  return value
 }
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
@@ -173,6 +189,7 @@ export function parseCli(argv: readonly string[]): Command {
         assets: { type: 'string' },
         adapters: { type: 'boolean' },
         'no-mascot': { type: 'boolean' },
+        'idle-desks': { type: 'string' },
         'no-tools': { type: 'boolean' },
         purge: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -252,6 +269,7 @@ export function parseCli(argv: readonly string[]): Command {
       config: str('config'),
       assets: str('assets'),
       mascot: values['no-mascot'] !== true,
+      idleDesks: idleDesks(str('idle-desks')),
     }
   }
 
@@ -265,6 +283,7 @@ export function parseCli(argv: readonly string[]): Command {
     config: str('config'),
     assets: str('assets'),
     mascot: values['no-mascot'] !== true,
+    idleDesks: idleDesks(str('idle-desks')),
   }
 }
 
@@ -393,7 +412,7 @@ async function runServe(cmd: ServeCommand): Promise<void> {
     // (and without --config) reads none, so the real one is never touched by accident.
     const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
     const assetsPath = cmd.assets ?? (stateDir === undefined ? undefined : defaultAssetsPath(stateDir))
-    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath, assetsPath, mascot: cmd.mascot })
+    app = await startApp({ root, fixtureMode, port: cmd.port, sinceHours: cmd.sinceHours, open: cmd.open, stateDir, configPath, assetsPath, mascot: cmd.mascot, idleDesks: cmd.idleDesks })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined
     if (code === 'EADDRINUSE') {
@@ -444,6 +463,7 @@ async function runReplay(cmd: ReplayCommand): Promise<void> {
       port: cmd.port,
       open: cmd.open,
       mascot: cmd.mascot,
+      idleDesks: cmd.idleDesks,
     })
   } catch (err) {
     const code = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined

@@ -50,7 +50,8 @@ for (const theme of THEMES) {
       const cli = await startDay()
       try {
         await page.goto(cli.url)
-        await expect(page.locator('button.office-agent')).toHaveCount(8)
+        // 8 in the World; the two that ended hours ago are past their 10 minutes and not in view
+        await expect(page.locator('button.office-agent')).toHaveCount(6)
         // an agent selected, so the card is filled in as well
         await page.locator('button.office-agent').first().click()
         const found = await scan(page, `hud-${theme}`, ['#hud'])
@@ -64,7 +65,7 @@ for (const theme of THEMES) {
       const cli = await startDay()
       try {
         await page.goto(`${cli.url}#list`)
-        await expect(page.locator('#list-view tbody tr')).toHaveCount(8)
+        await expect(page.locator('#list-view tbody tr')).toHaveCount(6)
         const found = await scan(page, `list-${theme}`, ['#list-view', '.header'])
         expect(seriousOnes(found), describeAll(seriousOnes(found))).toEqual([])
       } finally {

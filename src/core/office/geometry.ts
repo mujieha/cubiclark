@@ -41,6 +41,27 @@ export const WALK_MAX_MS = 4000
 /** The middle of the hallway, in px: every route runs down this line. */
 export const HALL_X_PX = 8
 
+/** The most device pixels a canvas may have on a side or in all. Past a GPU's texture size (16384 on
+ * common ones) a canvas is drawn in software and every frame costs many times more; a tall office
+ * (hundreds of rows) at twice the density is over it. */
+export const MAX_BACKING_SIDE_PX = 16384
+export const MAX_BACKING_AREA_PX = 16 * 1024 * 1024
+
+/** Device pixels per logical px for an office of `cols` by `rows` tiles shown at `cssScale` on a
+ * display of `dpr`. Ideally `cssScale × dpr`. When that would make the canvas bigger than the limits,
+ * the largest smaller divisor of it that fits: the browser then stretches the canvas by a whole
+ * number, so the pixel art stays crisp (only a very tall office, or a very wide window, is affected). */
+export function backingScale(cssScale: number, dpr: number, cols: number, rows: number): number {
+  const ideal = Math.max(1, Math.floor(cssScale)) * Math.max(1, Math.round(dpr))
+  for (let scale = ideal; scale > 1; scale--) {
+    if (ideal % scale !== 0) continue
+    const width = cols * TILE * scale
+    const height = rows * TILE * scale
+    if (width <= MAX_BACKING_SIDE_PX && height <= MAX_BACKING_SIDE_PX && width * height <= MAX_BACKING_AREA_PX) return scale
+  }
+  return 1
+}
+
 export interface Point {
   x: number
   y: number

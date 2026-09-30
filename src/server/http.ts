@@ -10,6 +10,7 @@ import { join } from 'node:path'
 import { NO_ASSETS, type PublicAssets } from '../core/assets/status.js'
 import type { World } from '../core/types.js'
 import { publicWorld } from '../core/view.js'
+import { DEFAULT_IDLE_DESKS } from '../core/visible.js'
 import type { Store } from './store.js'
 
 export interface HttpServerOptions {
@@ -23,7 +24,7 @@ export interface HttpServerOptions {
   maxClientBytes?: number
   /** A valid custom-assets manifest's palettes and sprites, served at `custom-assets.json`. */
   customAssets?: PublicAssets
-  /** What the page is told about how it was started: only ever this one boolean (`--no-mascot`). */
+  /** What the page is told about how it was started: `--no-mascot` and `--idle-desks`, nothing else. */
   pageOptions?: PageOptions
 }
 
@@ -31,6 +32,8 @@ export interface HttpServerOptions {
 export interface PageOptions {
   /** Morty, the office corgi, may be drawn. False with `--no-mascot`. */
   mascot: boolean
+  /** How many idle sessions keep a desk (`--idle-desks`, default 5). */
+  idleDesks: number
 }
 
 export interface RunningHttpServer {
@@ -200,7 +203,7 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
     }
 
     if (subPath === 'page-options.json') {
-      const options: PageOptions = { mascot: opts.pageOptions?.mascot ?? true }
+      const options: PageOptions = { mascot: opts.pageOptions?.mascot ?? true, idleDesks: opts.pageOptions?.idleDesks ?? DEFAULT_IDLE_DESKS }
       res.statusCode = 200
       res.setHeader('Content-Type', 'application/json; charset=utf-8')
       res.end(isHead ? undefined : JSON.stringify(options))
