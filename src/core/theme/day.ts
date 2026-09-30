@@ -26,6 +26,11 @@ export const DAY: Theme = {
     e: '#8a5cc7', // purple: shirt opus
     f: '#e87fa8', // pink: shirt fable
   },
+  mascot: {
+    g: '#a85a22', // Morty's coat
+    h: '#f4e6c8', // cream chest, muzzle and legs
+    i: '#1c1410', // nose
+  },
   page: {
     bg: '#f6f4ee',
     fg: '#1d2421',

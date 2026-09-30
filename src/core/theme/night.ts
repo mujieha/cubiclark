@@ -25,6 +25,11 @@ export const NIGHT: Theme = {
     e: '#9a6ad8', // purple: shirt opus
     f: '#ee8cb2', // pink: shirt fable
   },
+  mascot: {
+    g: '#8c4f24', // Morty's coat
+    h: '#d9ccae', // cream chest, muzzle and legs
+    i: '#120c0a', // nose
+  },
   page: {
     bg: '#0b0f10',
     fg: '#d8e0dc',

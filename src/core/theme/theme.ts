@@ -6,6 +6,10 @@
 export const PALETTE_KEYS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'] as const
 export type PaletteKey = (typeof PALETTE_KEYS)[number]
 
+/** The three colours only Morty, the office corgi, is drawn in: g coat, h cream, i nose. They are
+ * not palette keys, so a custom-assets pack can neither use nor replace them. */
+export const MASCOT_KEYS = ['g', 'h', 'i'] as const
+
 /** Palette key -> '#rrggbb'. */
 export type Palette = Readonly<Record<string, string>>
 
@@ -34,6 +38,8 @@ export interface Theme {
   colorScheme: 'light' | 'dark'
   /** Exactly the 16 PALETTE_KEYS. */
   palette: Palette
+  /** Exactly the MASCOT_KEYS: Morty's coat, cream and nose. */
+  mascot: Palette
   page: PageTokens
   /** The focus ring drawn on the canvas around the selected agent. */
   ring: string
