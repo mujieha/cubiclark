@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { parseCli, resolveRoot, resolveStateDir } from '../src/cli.js'
+import { HELP_TEXT, parseCli, resolveRoot, resolveStateDir } from '../src/cli.js'
 
 describe('parseCli: serve (the default command)', () => {
   test('defaults', () => {
@@ -10,6 +10,7 @@ describe('parseCli: serve (the default command)', () => {
       fixtureHome: undefined,
       sinceHours: 12,
       stateDir: undefined,
+      mascot: true,
     })
   })
 
@@ -23,6 +24,7 @@ describe('parseCli: serve (the default command)', () => {
       fixtureHome: '/tmp/fixture',
       sinceHours: 6,
       stateDir: '/tmp/state',
+      mascot: true,
     })
   })
 
@@ -152,6 +154,7 @@ describe('parseCli: replay', () => {
       configDir: undefined,
       stateDir: undefined,
       config: undefined,
+      mascot: true,
     })
   })
 
@@ -169,6 +172,7 @@ describe('parseCli: replay', () => {
       configDir: '/d',
       stateDir: '/s',
       config: '/c.json',
+      mascot: true,
     })
     expect(parseCli(['replay', '--since', '0.5s', '--speed', '1000'])).toMatchObject({ sinceMs: 500, speed: 1000 })
   })
@@ -215,6 +219,24 @@ describe('parseCli: --assets', () => {
     expect(parseCli([])).toMatchObject({ assets: undefined })
     expect(() => parseCli(['hooks', 'on', '--assets', '/a.json'])).toThrow(/not valid for hooks/)
     expect(() => parseCli(['--assets'])).toThrow(/invalid arguments/)
+  })
+})
+
+describe('parseCli: --no-mascot', () => {
+  test('Morty is on by default, and serve and replay can leave him out', () => {
+    expect(parseCli([])).toMatchObject({ command: 'serve', mascot: true })
+    expect(parseCli(['--no-mascot'])).toMatchObject({ command: 'serve', mascot: false })
+    expect(parseCli(['replay', '--since', '1h'])).toMatchObject({ command: 'replay', mascot: true })
+    expect(parseCli(['replay', '--since', '1h', '--no-mascot'])).toMatchObject({ command: 'replay', mascot: false })
+  })
+
+  test('doctor and hooks do not take it', () => {
+    expect(() => parseCli(['doctor', '--no-mascot'])).toThrow(/--no-mascot is not valid for doctor/)
+    expect(() => parseCli(['hooks', 'on', '--no-mascot'])).toThrow(/not valid for hooks/)
+  })
+
+  test('the help text names it', () => {
+    expect(HELP_TEXT).toContain('--no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)')
   })
 })
 

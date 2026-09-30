@@ -114,3 +114,12 @@ It cannot run anything, load an image or a font, change text, change the layout,
 or a character, or reach anything outside its own JSON. Pictures are drawn from characters in the
 grids; Cubiclark's own art is drawn the same way (`src/client/office/art/`). pixel-agents' PNG format
 is not read.
+
+## Morty
+
+The office's corgi (README, "Morty") is not covered by this catalogue, on purpose and for now: his
+frames, his three colours (`g`, `h`, `i`, which are not palette keys, so a pack cannot use them), his
+basket, bowl and ball, and the pose of an agent playing ball with him are not ids a pack may name. A
+pack's palette does change the colours of the floor and walls he stands on. Letting a pack redraw him
+is a later option; it would need its own rule that an agent playing ball can still not be taken for
+one waiting for a permission, as the built-in pose is tested not to be.

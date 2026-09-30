@@ -43,6 +43,9 @@ export interface OpenOptions {
   clockAt?: string
   /** More arguments for the CLI, e.g. `['--assets', file]`. */
   args?: string[]
+  /** Morty, the office corgi, is in the page (the default). `false` starts the CLI with
+   * `--no-mascot`: the page of every pixel baseline that was committed before he existed. */
+  mascot?: boolean
 }
 
 /** Pages that openWithFakeWorld gave a paused clock: only there does pushWorld advance time. */
@@ -55,7 +58,7 @@ export interface FakeWorldPage extends RunningCli {
 /** Opens the built page over an empty fixture home with the fake EventSource, and optionally a paused clock. */
 export async function openWithFakeWorld(page: Page, opts: OpenOptions = {}): Promise<FakeWorldPage> {
   const home = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-fake-'))
-  const cli = await runCli(['--fixture-home', home, '--no-open', '--port', '0', ...(opts.args ?? [])])
+  const cli = await runCli(['--fixture-home', home, '--no-open', '--port', '0', ...(opts.mascot === false ? ['--no-mascot'] : []), ...(opts.args ?? [])])
   await page.addInitScript(FAKE_EVENT_SOURCE)
   if (opts.clockAt) await page.clock.install({ time: new Date(opts.clockAt) })
   await page.goto(`${cli.url}${opts.hash ?? ''}`)
@@ -84,7 +87,24 @@ export async function loadWorld(name: string): Promise<World> {
 /** Sends a World to the page as if the server had pushed it, then lets `settleMs` of page time pass (with a paused clock). */
 export async function pushWorld(page: Page, world: World, settleMs = 100): Promise<void> {
   await page.evaluate((data) => (window as unknown as { __cubiclarkPush: (d: string) => void }).__cubiclarkPush(data), JSON.stringify(world))
-  if (clockedPages.has(page)) await page.clock.runFor(settleMs)
+  if (clockedPages.has(page)) {
+    // A new World can change the size of the office, and the page's ResizeObserver then clears the canvas
+    // and asks for a frame. The page clock is paused, so that frame only comes from `runFor`: if a busy
+    // machine ran the observer *after* the frames, the picture stayed blank. A new observer's first
+    // callback runs after the page's own in the same rendering step, so waiting for it (on the real
+    // clock, no page time passes) puts every resize before the frames that follow.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          const observer = new ResizeObserver(() => {
+            observer.disconnect()
+            resolve()
+          })
+          observer.observe(document.body)
+        })
+    )
+    await page.clock.runFor(settleMs)
+  }
 }
 
 export interface AgentView {

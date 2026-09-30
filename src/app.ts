@@ -35,6 +35,8 @@ export interface AppOptions {
   home?: string
   /** The custom-assets manifest. Undefined means none (a missing file is the same). */
   assetsPath?: string
+  /** Morty, the office corgi, is in the page. Default true; `--no-mascot` turns it off. */
+  mascot?: boolean
   /** Test seam: how the claude-agents adapter runs its program. */
   adapterDeps?: AdapterDeps
 }
@@ -153,7 +155,15 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
   store.start()
 
   const clientDir = fileURLToPath(new URL('./client/', import.meta.url))
-  const http = await createHttpServer({ token, port: options.port, clientDir, store, home, customAssets: assets.overrides })
+  const http = await createHttpServer({
+    token,
+    port: options.port,
+    clientDir,
+    store,
+    home,
+    customAssets: assets.overrides,
+    pageOptions: { mascot: options.mascot ?? true },
+  })
 
   const statusTimer = setInterval(() => {
     void mergeSourceStatus()

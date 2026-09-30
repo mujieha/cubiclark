@@ -204,6 +204,26 @@ describe('createHttpServer', () => {
     }
   })
 
+  test('page-options.json says Morty is on by default and off with --no-mascot, as JSON, behind the token', async () => {
+    const on = await request(server.port, `/${token}/page-options.json`)
+    expect(on.status).toBe(200)
+    expect(on.headers['content-type']).toContain('application/json')
+    expect(JSON.parse(on.body)).toEqual({ mascot: true })
+
+    const head = await request(server.port, `/${token}/page-options.json`, { method: 'HEAD' })
+    expect(head.status).toBe(200)
+    expect(head.body).toBe('')
+    expect((await request(server.port, '/page-options.json')).status).toBe(403)
+    expect((await request(server.port, `/${token}/page-options.json`, { method: 'POST' })).status).toBe(405)
+
+    const off = await createHttpServer({ token, port: 0, clientDir, store, pageOptions: { mascot: false } })
+    try {
+      expect(JSON.parse((await request(off.port, `/${token}/page-options.json`)).body)).toEqual({ mascot: false })
+    } finally {
+      await off.close()
+    }
+  })
+
   // S1-13: the redirect branch compared the token with `===`.
   test('the token redirect works, a near miss is 403, and no plain comparison is left', async () => {
     const redirect = await request(server.port, `/${token}`)

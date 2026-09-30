@@ -8,6 +8,7 @@ import {
   FLOOR_COLS,
   FLOOR_X,
   HALL_COLS,
+  TILE,
   TOP_ROOMS,
   TOP_ROOM_COLS,
   WALL_X,
@@ -79,6 +80,16 @@ export function deskObjects(cell: Rect): TileObject[] {
     { x: cell.x + 1, y: cell.y + 2, tile: 'desk_m' },
     { x: cell.x + 2, y: cell.y + 2, tile: 'desk_r' },
   ]
+}
+
+/** Where a desk's monitor (8x8) and lamp (6x8) are drawn, in px: on the desk's top edge, three px
+ * into the row above it. The renderer draws them here, and Morty's map keeps clear of them. */
+export function deskPropRects(cell: Rect): { monitor: Rect; lamp: Rect } {
+  const top = (cell.y + 2) * TILE - 3
+  return {
+    monitor: { x: cell.x * TILE + 4, y: top, w: 8, h: 8 },
+    lamp: { x: (cell.x + 2) * TILE + 5, y: top, w: 6, h: 8 },
+  }
 }
 
 export function buildTileMap(officeLayout: OfficeLayout, opts: TileMapOptions = {}): TileMap {

@@ -99,8 +99,8 @@ npm run bench:hook    # collector overhead over Node's own start-up
 npm run fixtures        # regenerate the synthetic fixtures under test/fixtures/
 npm run fixtures:check  # verify the checked-in fixtures still match the generator
 
-node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>]
-node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>]
+node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>] [--no-mascot]
+node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>] [--no-mascot]
 node dist/cli.js doctor --adapters --fixture-home test/fixtures/day/home --state-dir test/fixtures/day/state
 node dist/cli.js doctor --fixture-home <an empty folder> --assets <manifest.json>   # checks a custom-assets pack; exit 1 if invalid
 ```
@@ -185,6 +185,40 @@ not applied at all.
 **The first run.** With no transcripts folder yet (or none with anything in it) and no collector
 installed, the page shows a setup screen instead of an empty office: it explains the two ways of
 seeing agents above and gives the command for the second (`cubiclark hooks on`).
+
+## Morty
+
+Morty is the office corgi, there just for fun. He starts the day asleep in his basket in the lobby,
+and then gets up to things, one at a time: he walks from room to room by the hallway, naps, drinks
+from his bowl in the corner of the project floor, runs to the door and wags his tail when someone
+arrives, sits beside an agent that is at work, sniffs the whiteboard in the planning room (when
+nobody is sitting under it), and plays ball with an agent that has been *waiting for you* for more
+than a minute. What he does next, and
+for how long, comes from a seed made from the day's date, so every day is a little different. There
+is no sound, and he never has a bubble.
+
+**He is not an agent, and playing is not a state.** The list, the panel and the agents table never
+mention him, he has no button and no Tab stop, and he is not counted. An agent that plays ball with
+him is still *waiting for you* in every word the page says: it stands up beside its chair, side-on,
+with an arm out and a ball in its hand, its lamp stays amber and it has no bubble. It is drawn like
+that only while it really is in that state, and it sits back down on the next frame after anything
+changes. It cannot be mistaken for an agent asking for a permission (which stands and waves, with a
+red lamp and a red bubble), a frozen one or one walking out. He plays only with an agent at its own
+desk, never with a helper on a stool.
+
+He is drawn on the floor, under the characters, desks, lamps, monitors, board tags and bubbles, and
+the map of where he may stand leaves out every tile any of those touches, so he never covers one
+(`test/office-mascot-map.test.ts` checks it in every fixture world, and `test/office-mascot.test.ts`
+follows him for half an hour). Hover him for the label *Morty (mascot)*, which a screen reader reads
+too. With reduced motion he is asleep in his basket and nothing moves. He is not in the four empty
+offices.
+
+**Turning him off.** The *Morty* button in the header, after the theme button, switches him and his
+basket and bowl off and on; the choice is remembered in this browser like the theme (with storage
+blocked he is on, and the button works until the page is closed). `cubiclark --no-mascot` and
+`cubiclark replay --no-mascot` leave him out altogether: no Morty, no basket, no bowl, no button.
+Off, the office is exactly the picture it was before him, and an end-to-end test compares both ways
+of turning him off with that older screenshot.
 
 ## The panel
 
@@ -314,6 +348,13 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   umask leaves and its owner, group and hard links are those of the new file.
 - **A very large transcript is read in full on a first start**, in bounded pieces: memory stays
   bounded, the time it takes does not.
+- **A custom-assets pack cannot change Morty**: his frames, his three colours, his basket, bowl and
+  ball, and the pose of an agent playing ball are not in the catalogue of what a pack may replace,
+  and a pack's palette is not checked against his coat (the rules only keep his coat apart from the
+  red and amber lamps in the built-in themes).
+- **Where bubbles close every way, Morty walks under them.** They are drawn over him, so he never
+  covers one; lamps, monitors and tags are kept clear even then. An agent that has left keeps its
+  desk drawn for five seconds, and Morty does not know about it: he is drawn under it.
 
 ## Development
 

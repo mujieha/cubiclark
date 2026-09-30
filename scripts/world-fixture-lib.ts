@@ -323,6 +323,21 @@ export function departWorlds(): { before: World; after: World } {
   }
 }
 
+/** Morty's office (cubiclark-morty): four agents on one project floor and in the planning room.
+ * s(1) has been waiting for you for five minutes (the only one who may play ball), s(2) waits for
+ * a permission (who must never look like it is playing), s(3) is editing and s(4) is a planner
+ * thinking, so the planning room is occupied and the whiteboard is not free. */
+export function mascotPlayWorld(): World {
+  return buildWorld({
+    agents: [
+      { id: worldSessionId(1), state: 'waiting_user', role: 'builder', quietMs: 5 * 60_000 },
+      { id: worldSessionId(2), state: 'waiting_permission', role: 'builder' },
+      { id: worldSessionId(3), state: 'editing', role: 'builder', tool: TOOL_FOR_STATE.editing },
+      { id: worldSessionId(4), state: 'thinking', role: 'planner' },
+    ],
+  })
+}
+
 /** Every checked-in file under test/fixtures/worlds/, by name without `.json`. */
 export const WORLD_FIXTURES: Record<string, () => World> = {
   ...Object.fromEntries(AGENT_STATES.map((state) => [`state-${state}`, () => stateWorld(state)])),
@@ -338,4 +353,5 @@ export const WORLD_FIXTURES: Record<string, () => World> = {
   'arrive-after': () => arriveWorlds().after,
   'depart-before': () => departWorlds().before,
   'depart-after': () => departWorlds().after,
+  'mascot-play': mascotPlayWorld,
 }

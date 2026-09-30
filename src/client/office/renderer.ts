@@ -6,10 +6,10 @@
 
 import { TILE, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
-import { BUBBLE_H, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
+import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
-import { deskObjects, type TileId, type TileMap } from '../../core/office/tilemap.js'
+import { deskObjects, deskPropRects, type TileId, type TileMap } from '../../core/office/tilemap.js'
 import { whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
@@ -22,9 +22,13 @@ import {
   type FrameRef,
   type ResolvedBubble,
 } from '../../core/office/visual.js'
+import type { MascotPose } from '../../core/office/mascot.js'
+import type { MascotSpots } from '../../core/office/mascot-map.js'
 import type { Agent, Task, World } from '../../core/types.js'
 import type { ArtSet } from './art/art-set.js'
+import { PLAY_FRAMES, PLAY_HAND } from './art/characters.js'
 import { ICONS, TAGS } from './art/icons.js'
+import { MORTY_FRAMES, MORTY_MOUTH, MORTY_PROPS } from './art/mascot.js'
 import { PROPS } from './art/tiles.js'
 import { SpriteCache } from './bake.js'
 import { shirtKey, variantFor, type Palette, type Variant } from './palette.js'
@@ -40,6 +44,8 @@ export interface Scene {
   empty?: EmptySceneId
   /** The task the whiteboard shows (chosen in the HUD, or the selected agent's). */
   task?: Task
+  /** Where Morty's basket and bowl are. Set only while he is shown: without it the office is drawn exactly as it was before him. */
+  mascot?: MascotSpots
 }
 
 export interface DrawStats {
@@ -60,6 +66,8 @@ export interface Look {
   palette: Palette
   ring: string
   art: ArtSet
+  /** The palette Morty, his basket, bowl and ball are baked in: `palette` plus his three colours. */
+  mascot: Palette
 }
 
 /** The ink, accent, fill and edge a bubble style is drawn in. */
@@ -71,6 +79,7 @@ const BUBBLE_STYLES = {
 
 export class OfficeRenderer {
   private cache: SpriteCache
+  private mascotCache: SpriteCache
   private readonly context: CanvasRenderingContext2D
   private staticLayer: HTMLCanvasElement | undefined
   private scene: Scene | undefined
@@ -86,6 +95,7 @@ export class OfficeRenderer {
     if (!context) throw new Error('2D canvas is not available')
     this.context = context
     this.cache = new SpriteCache(look.palette)
+    this.mascotCache = new SpriteCache(look.mascot)
   }
 
   private colour(key: string): string {
@@ -97,6 +107,7 @@ export class OfficeRenderer {
   setLook(look: Look): void {
     this.look = look
     this.cache = new SpriteCache(look.palette)
+    this.mascotCache = new SpriteCache(look.mascot)
     if (this.scene) this.staticLayer = this.bakeStatic(this.scene)
   }
 
@@ -149,6 +160,7 @@ export class OfficeRenderer {
       ctx.drawImage(this.tileCanvas(id, variant), (index % tilemap.cols) * TILE, Math.floor(index / tilemap.cols) * TILE)
     })
     for (const object of tilemap.objects) ctx.drawImage(this.tileCanvas(object.tile, variant), object.x * TILE, object.y * TILE)
+    if (scene.mascot && !scene.empty) this.drawMascotProps(ctx, scene.mascot)
 
     ctx.textBaseline = 'middle'
     ctx.fillStyle = this.colour(variant === 'dark' ? '2' : '1')
@@ -165,6 +177,13 @@ export class OfficeRenderer {
     if (scene.task && !scene.empty) this.drawWhiteboard(ctx, layout, scene.task)
     if (scene.empty) this.drawEmptyProps(ctx, layout, scene.empty, variant)
     return layer
+  }
+
+  /** His basket on the floor of its tile; his bowl at the bottom of its tile and a little into the
+   * next, where he stands to drink, so that his head is at the water. */
+  private drawMascotProps(ctx: CanvasRenderingContext2D, spots: MascotSpots): void {
+    ctx.drawImage(this.mascotCache.get('prop:basket', MORTY_PROPS.basket), spots.basket.x * TILE, spots.basket.y * TILE + 8)
+    ctx.drawImage(this.mascotCache.get('prop:bowl', MORTY_PROPS.bowl), spots.bowl.x * TILE + 3, spots.bowl.y * TILE + 15)
   }
 
   /** The whiteboard (two tiles wide, in the planning room): the task's short id, its four stages
@@ -247,7 +266,9 @@ export class OfficeRenderer {
 
   // --- Each frame ---------------------------------------------------------------------------
 
-  draw(nowMs: number, focusedId?: string): DrawStats {
+  /** One frame. `mascot` is Morty's picture for this frame, if he is shown: he is drawn straight after
+   * the floor, under every character, desk front, lamp, monitor, tag and bubble. */
+  draw(nowMs: number, focusedId?: string, mascot?: MascotPose): DrawStats {
     const ctx = this.context
     ctx.setTransform(this.backing, 0, 0, this.backing, 0, 0)
     ctx.imageSmoothingEnabled = false
@@ -256,6 +277,10 @@ export class OfficeRenderer {
     ctx.drawImage(this.staticLayer, 0, 0)
     const scene = this.scene
     if (scene.empty) return stats
+
+    // Only ever the agent the World says is waiting for you, at its own desk: Morty's word is not enough.
+    const playerId = this.playerOf(mascot)
+    if (mascot) this.drawMascot(ctx, mascot, playerId)
 
     // Desks whose owner has left, drawn empty until the clear delay is up.
     for (const actor of scene.actors.values()) {
@@ -281,7 +306,12 @@ export class OfficeRenderer {
         stats.walkers.push({ agentId: agent.id, box: { x: where.point.x - 8, y: where.point.y - 24, w: 16, h: 24 } })
         items.push({ sortY: where.point.y, draw: () => this.drawWalker(ctx, agent, where.point, where.facing, nowMs) })
       } else {
-        items.push({ sortY: placement.seat.y, draw: () => this.drawSeated(ctx, agent, placement, nowMs) })
+        if (playerId === agent.id && mascot?.play) {
+          const play = mascot.play
+          items.push({ sortY: placement.seat.y, draw: () => this.drawPlayer(ctx, agent, placement, play, nowMs) })
+        } else {
+          items.push({ sortY: placement.seat.y, draw: () => this.drawSeated(ctx, agent, placement, nowMs) })
+        }
         const bubble = resolveBubble(agent, scene.world, scene.layout, scene.reducedMotion)
         if (bubble) wanted.push({ placement, bubble })
       }
@@ -313,16 +343,15 @@ export class OfficeRenderer {
     for (const object of objects) ctx.drawImage(this.tileCanvas(object.tile, 'normal'), object.x * TILE, object.y * TILE)
   }
 
-  private characterFrame(agent: Agent, frame: FrameRef, dim: boolean): HTMLCanvasElement {
+  private characterFrame(agent: Agent, frame: FrameRef, dim: boolean, def: SpriteDef): HTMLCanvasElement {
     const { K, H } = variantFor(agent.id)
-    const def = this.look.art.characters[frame.name] as SpriteDef
     return this.cache.get(`frame:${frame.name}`, def, { S: shirtKey(modelFamily(agent.model)), K, H }, dim ? 'dim' : 'normal')
   }
 
   /** A character with the accessory of its effective role, top-left at (x, y); a mirrored frame
-   * flips both together. */
-  private drawCharacter(ctx: CanvasRenderingContext2D, agent: Agent, frame: FrameRef, x: number, y: number, dim: boolean): void {
-    const def = this.look.art.characters[frame.name] as SpriteDef
+   * flips both together. `sprite` is for a frame that is not in the art set (the throw pose). */
+  private drawCharacter(ctx: CanvasRenderingContext2D, agent: Agent, frame: FrameRef, x: number, y: number, dim: boolean, sprite?: SpriteDef): void {
+    const def = sprite ?? (this.look.art.characters[frame.name] as SpriteDef)
     ctx.save()
     if (frame.mirror) {
       ctx.translate(x + def.w, y)
@@ -330,7 +359,7 @@ export class OfficeRenderer {
     } else {
       ctx.translate(x, y)
     }
-    ctx.drawImage(this.characterFrame(agent, frame, dim), 0, 0)
+    ctx.drawImage(this.characterFrame(agent, frame, dim, def), 0, 0)
     const accessory = accessoryFor(effectiveRole(agent, (this.scene as Scene).world))
     if (accessory !== 'none') {
       const art = this.look.art.accessories[accessory]
@@ -340,6 +369,63 @@ export class OfficeRenderer {
       }
     }
     ctx.restore()
+  }
+
+  /** The agent that may be drawn playing ball: the one Morty is playing with, *and* that is waiting for
+   * you right now, at its own desk, seated. Anything else is drawn as it always is. */
+  private playerOf(mascot: MascotPose | undefined): string | undefined {
+    const scene = this.scene as Scene
+    if (!mascot?.play || mascot.withId === undefined) return undefined
+    const agent = scene.world.agents[mascot.withId]
+    const placement = scene.layout.placements.find((p) => p.agentId === mascot.withId)
+    if (agent?.state !== 'waiting_user' || placement?.kind !== 'desk') return undefined
+    return scene.actors.get(agent.id)?.phase === 'seated' ? agent.id : undefined
+  }
+
+  /** The agent's top-left corner, and whether the frame is flipped, for the throw pose: it stands at
+   * its desk on the side Morty is on. */
+  private playerBox(placement: Placement, side: 'left' | 'right'): { x: number; y: number; mirror: boolean } {
+    return { x: placement.seat.x - 8 + (side === 'left' ? -10 : 10), y: placement.seat.y - 24, mirror: side === 'left' }
+  }
+
+  /** Morty, in his frame, flipped when he faces left; then the ball, if it is in the air. */
+  private drawMascot(ctx: CanvasRenderingContext2D, pose: MascotPose, playerId: string | undefined): void {
+    const def = MORTY_FRAMES[pose.frame]
+    const x = pose.point.x - 8
+    const y = pose.point.y - 4
+    ctx.save()
+    if (pose.mirror) {
+      ctx.translate(x + def.w, y)
+      ctx.scale(-1, 1)
+    } else {
+      ctx.translate(x, y)
+    }
+    ctx.drawImage(this.mascotCache.get(`morty:${pose.frame}`, def), 0, 0)
+    ctx.restore()
+
+    const ball = pose.play?.ball
+    const placement = playerId === undefined ? undefined : (this.scene as Scene).layout.placements.find((p) => p.agentId === playerId)
+    if (!pose.play || !ball || !placement) return
+    const player = this.playerBox(placement, pose.play.playerSide)
+    const hand = { x: player.mirror ? player.x + (16 - 1 - PLAY_HAND.x) : player.x + PLAY_HAND.x, y: player.y + PLAY_HAND.y }
+    const mouth = { x: pose.mirror ? x + (16 - 1 - MORTY_MOUTH.x) : x + MORTY_MOUTH.x, y: y + MORTY_MOUTH.y }
+    const from = ball.fromMorty ? mouth : hand
+    const to = ball.fromMorty ? hand : mouth
+    const lift = Math.round(10 * 4 * ball.f * (1 - ball.f))
+    const bx = Math.round(from.x + (to.x - from.x) * ball.f) - 2
+    const by = Math.round(from.y + (to.y - from.y) * ball.f) - 2 - lift
+    ctx.drawImage(this.mascotCache.get('prop:ball', MORTY_PROPS.ball), bx, by)
+  }
+
+  /** An agent playing ball: standing beside its desk, side-on, an arm out, the ball in its hand or
+   * gone. The desk is drawn over it as for anyone at that desk, so the lamp is still amber and the
+   * monitor still shows its screen; and it has no bubble, for `waiting_user` has none. */
+  private drawPlayer(ctx: CanvasRenderingContext2D, agent: Agent, placement: Placement, play: NonNullable<MascotPose['play']>, nowMs: number): void {
+    const scene = this.scene as Scene
+    const box = this.playerBox(placement, play.playerSide)
+    this.drawCharacter(ctx, agent, { name: play.player, dy: 0, mirror: box.mirror }, box.x, box.y, false, PLAY_FRAMES[play.player])
+    const desk = scene.layout.desks.find((d) => d.id === placement.deskId)
+    if (desk) this.drawDeskFront(ctx, desk.rect, agent, nowMs)
   }
 
   private drawSeated(ctx: CanvasRenderingContext2D, agent: Agent, placement: Placement, nowMs: number): void {
@@ -378,9 +464,9 @@ export class OfficeRenderer {
               : PROPS.monitor_on
     const lamp = lampFor(agent)
     const lampSprite = lamp === 'red' ? PROPS.lamp_red : lamp === 'amber' ? PROPS.lamp_amber : PROPS.lamp_off
-    const top = (cell.y + 2) * TILE
-    ctx.drawImage(this.cache.get(`prop:monitor:${screen}:${screen === 'flicker' ? Math.floor(nowMs / 100) % 2 : 0}`, monitor), cell.x * TILE + 4, top - 3)
-    ctx.drawImage(this.cache.get(`prop:lamp:${lamp}`, lampSprite), (cell.x + 2) * TILE + 5, top - 3)
+    const props = deskPropRects(cell)
+    ctx.drawImage(this.cache.get(`prop:monitor:${screen}:${screen === 'flicker' ? Math.floor(nowMs / 100) % 2 : 0}`, monitor), props.monitor.x, props.monitor.y)
+    ctx.drawImage(this.cache.get(`prop:lamp:${lamp}`, lampSprite), props.lamp.x, props.lamp.y)
   }
 
   private drawWalker(ctx: CanvasRenderingContext2D, agent: Agent, point: Point, facing: Direction, nowMs: number): void {
@@ -411,7 +497,7 @@ export class OfficeRenderer {
   private bubbleWidth(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble): number {
     const withText = placement.kind === 'desk' && bubble.text !== undefined
     const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
-    return 4 + 9 + (withText ? 3 + textWidth : 0) + 4
+    return Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + (withText ? 3 + textWidth : 0) + 4)
   }
 
   private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
@@ -462,7 +548,8 @@ export class OfficeRenderer {
     if (withText) {
       ctx.fillStyle = this.colour(style.text)
       ctx.textBaseline = 'middle'
-      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5)
+      // `width - 20` is the room the text has: the icon and the padding take the rest.
+      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5, width - 20)
     }
     ctx.restore()
   }

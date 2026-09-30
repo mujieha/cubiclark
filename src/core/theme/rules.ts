@@ -4,7 +4,7 @@
 // Each problem is one sentence that names the keys, worded for the person who wrote the palette.
 
 import { contrastRatio, rgbDistance } from './colour.js'
-import { PALETTE_KEYS, type PageTokens, type Palette } from './theme.js'
+import { MASCOT_KEYS, PALETTE_KEYS, type PageTokens, type Palette } from './theme.js'
 
 const HEX = /^#[0-9a-fA-F]{6}$/
 
@@ -18,6 +18,8 @@ export const MIN_MARK_DISTANCE = 80
 export const MIN_SHIRT_DISTANCE = 60
 /** Text on the page, WCAG AA for normal text. */
 export const MIN_TEXT_CONTRAST = 4.5
+/** Morty's coat must not be taken for a lamp. */
+export const MIN_COAT_DISTANCE = 50
 
 const MARKS = ['a', 'b', 'c'] as const
 const SHIRTS = ['3', 'c', 'd', 'e', 'f'] as const
@@ -45,6 +47,26 @@ export function paletteProblems(palette: Palette): string[] {
   }
   pairwise(MARKS, MIN_MARK_DISTANCE, at, problems, 'red, amber and green lamps and marks would look alike')
   pairwise(SHIRTS, MIN_SHIRT_DISTANCE, at, problems, 'two models would wear the same shirt')
+  return problems
+}
+
+/** Problems with Morty's three colours, judged against the palette he stands in: empty when fine. */
+export function mascotProblems(mascot: Palette, palette: Palette): string[] {
+  const problems: string[] = []
+  for (const key of MASCOT_KEYS) {
+    const value = mascot[key]
+    if (value === undefined) problems.push(`mascot key ${key} is missing`)
+    else if (!HEX.test(value)) problems.push(`mascot key ${key} is "${printableValue(value)}", not a #rrggbb colour`)
+  }
+  const extra = Object.keys(mascot).filter((key) => !(MASCOT_KEYS as readonly string[]).includes(key))
+  if (extra.length > 0) problems.push(`unknown mascot keys: ${extra.slice(0, 5).map(printableValue).join(', ')}`)
+  if (problems.length > 0) return problems
+  for (const [lamp, name] of [['a', 'red'], ['b', 'amber']] as const) {
+    const distance = rgbDistance(mascot.g as string, palette[lamp] as string)
+    if (distance < MIN_COAT_DISTANCE) {
+      problems.push(`Morty's coat (g) is too close to the ${name} lamp (${lamp}) (distance ${Math.round(distance)}, need ${MIN_COAT_DISTANCE}): a dog could be taken for a lamp`)
+    }
+  }
   return problems
 }
 

@@ -74,6 +74,7 @@ body {
 }
 
 #theme-toggle,
+#mascot-toggle,
 #view-toggle,
 #hud-toggle {
   font: inherit;
@@ -87,12 +88,14 @@ body {
 }
 
 #theme-toggle:hover,
+#mascot-toggle:hover,
 #view-toggle:hover,
 #hud-toggle:hover {
   border-color: var(--accent);
 }
 
 #theme-toggle:focus-visible,
+#mascot-toggle:focus-visible,
 #view-toggle:focus-visible,
 #hud-toggle:focus-visible {
   outline: 2px solid var(--accent);
@@ -152,7 +155,21 @@ body {
   outline-offset: -2px;
 }
 
-#office-tooltip {
+/* Morty, the office corgi: a box over his picture that names him for a pointer and a screen reader.
+   It comes before the overlay in the page, so an agent's button is always over it, and it is never a
+   Tab stop: he is not an agent. */
+.office-mascot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+  cursor: default;
+}
+
+#office-tooltip,
+.office-mascot-tip {
   position: absolute;
   left: 0;
   top: 0;

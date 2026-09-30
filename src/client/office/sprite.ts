@@ -18,14 +18,15 @@ export type { Palette, Subst, Variant }
 const PLACEHOLDERS = 'SKH'
 
 /** Problems with a sprite, worded for a test failure; empty when it is fine. With `allowPlaceholders`
- * false the S, K and H placeholders count as errors too, which is how a finished sprite is checked. */
-export function validateSprite(def: SpriteDef, name: string, allowPlaceholders = true): string[] {
+ * false the S, K and H placeholders count as errors too, which is how a finished sprite is checked.
+ * `palette` is the set of keys a pixel may use: the office's own by default, Morty's for his frames. */
+export function validateSprite(def: SpriteDef, name: string, allowPlaceholders = true, palette: Palette = PALETTE): string[] {
   const errors: string[] = []
   if (def.rows.length !== def.h) errors.push(`${name}: has ${def.rows.length} rows, expected ${def.h}`)
   def.rows.forEach((row, y) => {
     if (row.length !== def.w) errors.push(`${name}: row ${y} is ${row.length} wide, expected ${def.w}`)
     for (const char of row) {
-      if (char === '.' || char in PALETTE) continue
+      if (char === '.' || char in palette) continue
       if (PLACEHOLDERS.includes(char)) {
         if (!allowPlaceholders) errors.push(`${name}: row ${y} has the unsubstituted placeholder "${char}"`)
         continue

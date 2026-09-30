@@ -72,8 +72,18 @@ test.describe('the toggle', () => {
     }
   })
 
-  test('the toggle is the first control, before the panel and view toggles', async ({ page }) => {
+  test('the toggle is the first control, then Morty\'s, then the panel and view toggles', async ({ page }) => {
     const cli = await openWithFakeWorld(page)
+    try {
+      const order = await page.evaluate(() => [...document.querySelectorAll('header button')].map((button) => button.id))
+      expect(order).toEqual(['theme-toggle', 'mascot-toggle', 'hud-toggle', 'view-toggle'])
+    } finally {
+      await cli.stop()
+    }
+  })
+
+  test('started with --no-mascot there is no button for Morty, and the order is as it was before him', async ({ page }) => {
+    const cli = await openWithFakeWorld(page, { mascot: false })
     try {
       const order = await page.evaluate(() => [...document.querySelectorAll('header button')].map((button) => button.id))
       expect(order).toEqual(['theme-toggle', 'hud-toggle', 'view-toggle'])
@@ -129,7 +139,8 @@ test.describe('the whole page in each theme', () => {
   for (const id of ['day', 'night'] as const) {
     test(`${id}, against a baseline`, async ({ page }) => {
       await page.addInitScript((choice) => localStorage.setItem('cubiclark.theme', choice), id)
-      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+      // Compared with a pre-Morty baseline: Morty off.
+      const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
       try {
         await pushWorld(page, await loadWorld('rooms'), 400)
         expect(await theme(page)).toBe(id)

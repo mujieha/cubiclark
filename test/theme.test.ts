@@ -3,10 +3,12 @@
 import { describe, expect, test } from 'vitest'
 import {
   DAY,
+  MASCOT_KEYS,
   NIGHT,
   PALETTE_KEYS,
   THEMES,
   contrastRatio,
+  mascotProblems,
   mergePalette,
   nextThemeChoice,
   pageProblems,
@@ -108,6 +110,37 @@ describe('paletteProblems', () => {
     expect(paletteProblems(withKeys({ a: '#abc' }))).toEqual(['key a is "#abc", not a #rrggbb colour'])
     expect(paletteProblems(withKeys({ zz: '#000000' }))).toEqual(['unknown palette keys: zz'])
     expect(paletteProblems(withKeys({ a: 'red\u001b[31m' }))[0]).not.toContain('\u001b')
+  })
+})
+
+describe('Morty\'s colours', () => {
+  test('both themes have exactly the three mascot keys, none of them a palette key', () => {
+    for (const theme of [DAY, NIGHT]) expect(Object.keys(theme.mascot).sort(), theme.id).toEqual([...MASCOT_KEYS].sort())
+    for (const key of MASCOT_KEYS) expect(PALETTE_KEYS as readonly string[]).not.toContain(key)
+    expect(PALETTE_KEYS).toHaveLength(16)
+  })
+
+  test('both themes pass the mascot rule', () => {
+    for (const theme of [DAY, NIGHT]) expect(mascotProblems(theme.mascot, theme.palette), theme.id).toEqual([])
+  })
+
+  test('a coat as amber as the amber lamp is refused, naming the coat and the lamp', () => {
+    const problems = mascotProblems({ ...DAY.mascot, g: DAY.palette.b as string }, DAY.palette)
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toMatch(/coat \(g\).*amber lamp \(b\)/)
+  })
+
+  test('a coat as red as the red lamp is refused', () => {
+    const problems = mascotProblems({ ...DAY.mascot, g: DAY.palette.a as string }, DAY.palette)
+    expect(problems.some((p) => /red lamp \(a\)/.test(p))).toBe(true)
+  })
+
+  test('a missing key, a short colour and an unknown key are problems, not throws', () => {
+    const missing: Record<string, string> = { ...DAY.mascot }
+    delete missing.h
+    expect(mascotProblems(missing, DAY.palette)).toEqual(['mascot key h is missing'])
+    expect(mascotProblems({ ...DAY.mascot, i: '#fff' }, DAY.palette)).toEqual(['mascot key i is "#fff", not a #rrggbb colour'])
+    expect(mascotProblems({ ...DAY.mascot, zz: '#000000' }, DAY.palette)).toEqual(['unknown mascot keys: zz'])
   })
 })
 
