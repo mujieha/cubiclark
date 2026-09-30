@@ -4,6 +4,7 @@
 // A seated frame keeps its content in the top 16 rows and leaves the bottom 8 clear: the tile row
 // the character sits in is 16 px tall, the desk is drawn over the rest (PLAN.md phase 3 §2.4).
 
+import type { Point } from '../../../core/office/geometry.js'
 import type { SpriteDef } from '../sprite.js'
 
 const W = 16
@@ -230,3 +231,41 @@ export const CHARACTER_FRAMES: Record<string, SpriteDef> = {
   walk_side_a: frameOf(walking(HEAD_SIDE, 'SSSSKKSSSSSS', legsStride)),
   walk_side_b: frameOf(walking(HEAD_SIDE, 'SSSSSSKKSSSS', legsStanding)),
 }
+
+// --- Playing ball with Morty ------------------------------------------------------------------
+// An agent that has waited for you a while stands at the end of its desk, side-on, one arm held
+// straight out to the side with a ball in the hand. These two frames are not in CHARACTER_FRAMES:
+// the catalogue of frames a custom pack may replace stays as it was, and they are never drawn for
+// any state but `waiting_user`. They do not look like the standing wave (arm straight up), the
+// frozen pose (seated) or a walk (no swinging arm, no stride).
+
+/** A horizontal arm: a sleeve through the shoulder line and a hand beyond it, rows 9 and 10. */
+const THROW_ARM: readonly (readonly [number, number, string])[] = [
+  [14, 9, 'S'],
+  [14, 10, 'S'],
+  [15, 9, 'K'],
+  [15, 10, 'K'],
+]
+
+/** The ball in the hand: paper, edged dark, resting on the hand. */
+const THROW_BALL: readonly (readonly [number, number, string])[] = [
+  [14, 6, '0'],
+  [15, 6, '0'],
+  [13, 7, '0'],
+  [14, 7, '1'],
+  [15, 7, '1'],
+  [14, 8, '1'],
+  [15, 8, '1'],
+]
+
+const throwBase = standing(HEAD_SIDE, standingBody(HANDS_LEFT, legsStanding))
+
+export const PLAY_FRAMES: Record<'throw_a' | 'throw_b', SpriteDef> = {
+  /** The ball is in the hand. */
+  throw_a: frameOf({ ...throwBase, rows: paint(throwBase.rows, [...THROW_ARM, ...THROW_BALL]) }),
+  /** The ball has gone. */
+  throw_b: frameOf({ ...throwBase, rows: paint(throwBase.rows, THROW_ARM) }),
+}
+
+/** The hand of the throw frames, in the frame's own pixels: where the ball leaves and lands. */
+export const PLAY_HAND: Point = { x: 15, y: 9 }
