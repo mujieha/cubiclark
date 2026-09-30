@@ -11,6 +11,7 @@ describe('parseCli: serve (the default command)', () => {
       sinceHours: 12,
       stateDir: undefined,
       mascot: true,
+      idleDesks: 5,
     })
   })
 
@@ -25,6 +26,7 @@ describe('parseCli: serve (the default command)', () => {
       sinceHours: 6,
       stateDir: '/tmp/state',
       mascot: true,
+      idleDesks: 5,
     })
   })
 
@@ -155,6 +157,7 @@ describe('parseCli: replay', () => {
       stateDir: undefined,
       config: undefined,
       mascot: true,
+      idleDesks: 5,
     })
   })
 
@@ -173,6 +176,7 @@ describe('parseCli: replay', () => {
       stateDir: '/s',
       config: '/c.json',
       mascot: true,
+      idleDesks: 5,
     })
     expect(parseCli(['replay', '--since', '0.5s', '--speed', '1000'])).toMatchObject({ sinceMs: 500, speed: 1000 })
   })
@@ -237,6 +241,41 @@ describe('parseCli: --no-mascot', () => {
 
   test('the help text names it', () => {
     expect(HELP_TEXT).toContain('--no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)')
+  })
+})
+
+describe('parseCli: --idle-desks', () => {
+  test('five by default, for serve and for replay', () => {
+    expect(parseCli([])).toMatchObject({ command: 'serve', idleDesks: 5 })
+    expect(parseCli(['replay', '--since', '1h'])).toMatchObject({ command: 'replay', idleDesks: 5 })
+  })
+
+  test('a whole number from 0 to 1000', () => {
+    expect(parseCli(['--idle-desks', '0'])).toMatchObject({ command: 'serve', idleDesks: 0 })
+    expect(parseCli(['--idle-desks', '12'])).toMatchObject({ command: 'serve', idleDesks: 12 })
+    expect(parseCli(['--idle-desks=1000'])).toMatchObject({ command: 'serve', idleDesks: 1000 })
+    expect(parseCli(['replay', '--since', '1h', '--idle-desks', '0'])).toMatchObject({ command: 'replay', idleDesks: 0 })
+    expect(parseCli(['replay', '--since', '1h', '--idle-desks', '20'])).toMatchObject({ command: 'replay', idleDesks: 20 })
+  })
+
+  test.each(['1001', '-1', '2.5', 'abc', '', '1e2', ' 5'])('%j is refused with the range in the message', (raw) => {
+    const expected = new RegExp(`invalid --idle-desks: ${raw.replace('.', '\\.')} \\(a whole number from 0 to 1000\\)`)
+    if (raw === '-1') {
+      // parseArgs takes a leading dash for a flag of its own
+      expect(() => parseCli(['--idle-desks', raw])).toThrow(/invalid arguments/)
+      expect(() => parseCli([`--idle-desks=${raw}`])).toThrow(expected)
+    } else {
+      expect(() => parseCli(['--idle-desks', raw])).toThrow(expected)
+    }
+  })
+
+  test('doctor and hooks do not take it', () => {
+    expect(() => parseCli(['doctor', '--idle-desks', '3'])).toThrow(/--idle-desks is not valid for doctor/)
+    expect(() => parseCli(['hooks', 'on', '--idle-desks', '3'])).toThrow(/not valid for hooks/)
+  })
+
+  test('the help text names it', () => {
+    expect(HELP_TEXT).toContain('--idle-desks <n>     How many idle sessions keep a desk: the n most recently active (default 5,')
   })
 })
 

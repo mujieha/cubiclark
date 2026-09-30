@@ -12,6 +12,7 @@ import { openBrowser } from '../app.js'
 import type { RunningApp } from '../app.js'
 import { orderReplay, replayClockMs, splitAt, takeDue, toReplayItems, type ReplayItem } from '../core/replay.js'
 import type { AgentEvent, HooksSourceStatus, World } from '../core/types.js'
+import { DEFAULT_IDLE_DESKS } from '../core/visible.js'
 import { AdapterHost } from './adapters/host.js'
 import { createAdapters } from './adapters/registry.js'
 import { loadConfig } from './config-file.js'
@@ -38,6 +39,8 @@ export interface ReplayOptions {
   open: boolean
   /** Morty, the office corgi, is in the page. Default true; `--no-mascot` turns it off. */
   mascot?: boolean
+  /** How many idle sessions keep a desk in the page. Default 5; `--idle-desks` changes it. */
+  idleDesks?: number
   /** Test seams: the real clock, and stepping by hand instead of a timer. */
   realNowMs?: () => number
   manual?: boolean
@@ -193,7 +196,7 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
     store,
     home: o.home,
     customAssets: assets.overrides,
-    pageOptions: { mascot: o.mascot ?? true },
+    pageOptions: { mascot: o.mascot ?? true, idleDesks: o.idleDesks ?? DEFAULT_IDLE_DESKS },
   })
   if (o.open) openBrowser(http.url)
 

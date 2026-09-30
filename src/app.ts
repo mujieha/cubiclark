@@ -8,6 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { hooksSourceStatus } from './core/hooks/status.js'
+import { DEFAULT_IDLE_DESKS } from './core/visible.js'
 import { AdapterHost } from './server/adapters/host.js'
 import { loadAssets } from './server/assets-file.js'
 import { createAdapters, type AdapterDeps } from './server/adapters/registry.js'
@@ -37,6 +38,8 @@ export interface AppOptions {
   assetsPath?: string
   /** Morty, the office corgi, is in the page. Default true; `--no-mascot` turns it off. */
   mascot?: boolean
+  /** How many idle sessions keep a desk in the page. Default 5; `--idle-desks` changes it. */
+  idleDesks?: number
   /** Test seam: how the claude-agents adapter runs its program. */
   adapterDeps?: AdapterDeps
 }
@@ -162,7 +165,7 @@ export async function startApp(options: AppOptions): Promise<RunningApp> {
     store,
     home,
     customAssets: assets.overrides,
-    pageOptions: { mascot: options.mascot ?? true },
+    pageOptions: { mascot: options.mascot ?? true, idleDesks: options.idleDesks ?? DEFAULT_IDLE_DESKS },
   })
 
   const statusTimer = setInterval(() => {

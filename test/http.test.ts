@@ -204,11 +204,11 @@ describe('createHttpServer', () => {
     }
   })
 
-  test('page-options.json says Morty is on by default and off with --no-mascot, as JSON, behind the token', async () => {
+  test('page-options.json says Morty is on and five idle desks by default, and what --no-mascot and --idle-desks say, as JSON, behind the token', async () => {
     const on = await request(server.port, `/${token}/page-options.json`)
     expect(on.status).toBe(200)
     expect(on.headers['content-type']).toContain('application/json')
-    expect(JSON.parse(on.body)).toEqual({ mascot: true })
+    expect(JSON.parse(on.body)).toEqual({ mascot: true, idleDesks: 5 })
 
     const head = await request(server.port, `/${token}/page-options.json`, { method: 'HEAD' })
     expect(head.status).toBe(200)
@@ -216,9 +216,9 @@ describe('createHttpServer', () => {
     expect((await request(server.port, '/page-options.json')).status).toBe(403)
     expect((await request(server.port, `/${token}/page-options.json`, { method: 'POST' })).status).toBe(405)
 
-    const off = await createHttpServer({ token, port: 0, clientDir, store, pageOptions: { mascot: false } })
+    const off = await createHttpServer({ token, port: 0, clientDir, store, pageOptions: { mascot: false, idleDesks: 0 } })
     try {
-      expect(JSON.parse((await request(off.port, `/${token}/page-options.json`)).body)).toEqual({ mascot: false })
+      expect(JSON.parse((await request(off.port, `/${token}/page-options.json`)).body)).toEqual({ mascot: false, idleDesks: 0 })
     } finally {
       await off.close()
     }
