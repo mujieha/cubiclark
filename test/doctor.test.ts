@@ -1,4 +1,4 @@
-import { chmod, cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -7,6 +7,7 @@ import {
   doctorExitCode,
   formatDoctorReport,
   runDoctor,
+  scansText,
   type DoctorOptions,
   type DoctorReport,
 } from '../src/server/doctor.js'
@@ -192,6 +193,39 @@ describe('formatDoctorReport', () => {
 })
 
 describe('doctorExitCode', () => {
+  const scans = {
+    scans: 1,
+    scansLastMinute: 1,
+    lastScanFiles: 5,
+    lastScanDirs: 6,
+    lastScanMs: 2,
+    rootEntriesSkipped: 0,
+    maxConcurrentScans: 1,
+    rescanMs: 5000,
+    watchEvents: 0,
+    watchEventsIgnored: 0,
+  }
+
+  test('the scans line follows the transcripts line and says what a scan costs', () => {
+    const lines = formatDoctorReport(report({ scans })).split('\n')
+    expect(lines[2]).toMatch(/^transcripts /)
+    expect(lines[3]).toBe(
+      'scans         1 scan in this check, at most 12 a minute while serving · 5 files walked in 6 folders, 2 ms · 0 other entries at the root not walked'
+    )
+  })
+
+  test('the scans line uses singular words, and says so when every pass rescans', () => {
+    const one = formatDoctorReport(report({ scans: { ...scans, scans: 2, lastScanFiles: 1, lastScanDirs: 1, rootEntriesSkipped: 1 } }))
+    expect(one).toContain('2 scans in this check')
+    expect(one).toContain('1 file walked in 1 folder, 2 ms · 1 other entry at the root not walked')
+    const always = formatDoctorReport(report({ scans: { ...scans, rescanMs: 0 } }))
+    expect(always).toContain('a scan on every pass while serving')
+  })
+
+  test('scansText is exported for anyone who wants the words', () => {
+    expect(scansText({ ...scans, rescanMs: 30_000 })).toContain('at most 2 a minute')
+  })
+
   test('0 unless a source is failing; missing is not a failure', () => {
     expect(doctorExitCode(report())).toBe(0)
     expect(doctorExitCode(report({ transcripts: { status: 'missing', reason: 'no transcripts folder at /x' } }))).toBe(0)
@@ -211,6 +245,20 @@ describe('runDoctor', () => {
     expect(r.diagnostics.versions).toContain('2.1.284')
     expect(r.diagnostics.unparsedLines).toBe(0)
     expect(doctorExitCode(r)).toBe(0)
+  })
+
+  test('it reports what its one scan cost: the files walked under projects/, and nothing else', async () => {
+    const files = async (path: string): Promise<number> => {
+      let count = 0
+      for (const entry of await readdir(path, { withFileTypes: true })) {
+        count += entry.isDirectory() ? await files(join(path, entry.name)) : 1
+      }
+      return count
+    }
+    const r = await runDoctor(options())
+    expect(r.scans).toMatchObject({ scans: 1, rootEntriesSkipped: 0, maxConcurrentScans: 1, rescanMs: 5000 })
+    expect(r.scans?.lastScanFiles).toBe(await files(join(FIXTURE_HOME, 'projects')))
+    expect(r.scans?.lastScanDirs).toBeGreaterThanOrEqual(3)
   })
 
   test('a missing transcripts folder is missing, not failing', async () => {

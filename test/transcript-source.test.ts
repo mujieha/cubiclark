@@ -1,8 +1,8 @@
-import { mkdir, mkdtemp, rm, symlink, utimes, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
-import { TranscriptSource } from '../src/server/transcript-source.js'
+import { TranscriptSource, type ReaddirFn, type WatchFn } from '../src/server/transcript-source.js'
 import type { AgentEvent } from '../src/core/types.js'
 
 let dir: string
@@ -34,6 +34,66 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 function collector(): { events: AgentEvent[]; onEvents: (events: AgentEvent[]) => void } {
   const events: AgentEvent[] = []
   return { events, onEvents: (batch) => events.push(...batch) }
+}
+
+/** The real listing, remembering every path it was asked for. */
+function spyReaddir(): { readdir: ReaddirFn; listed: string[] } {
+  const listed: string[] = []
+  return {
+    listed,
+    readdir: async (path, options) => {
+      listed.push(path)
+      return readdir(path, options)
+    },
+  }
+}
+
+/** A watch the test drives by hand: `fire('projects/…')` is a file-system event. */
+function fakeWatch(): { watchFn: WatchFn; fire: (filename: string | null) => void; closed: () => boolean } {
+  let listener: ((filename: string | null) => void) | undefined
+  let closed = false
+  return {
+    watchFn: (_root, l) => {
+      listener = l
+      return { close: () => void (closed = true) }
+    },
+    fire: (filename) => listener?.(filename),
+    closed: () => closed,
+  }
+}
+
+/** A listing that can be held shut: while the gate is closed every readdir waits for it. */
+function gatedReaddir(root: string): { readdir: ReaddirFn; close: () => void; open: () => void; rootListings: () => number } {
+  let gate: Promise<void> | undefined
+  let release: (() => void) | undefined
+  let rootListings = 0
+  return {
+    readdir: async (path, options) => {
+      if (path === root) rootListings += 1
+      if (gate) await gate
+      return readdir(path, options)
+    },
+    close: () => {
+      gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+    },
+    open: () => {
+      release?.()
+      gate = undefined
+    },
+    rootListings: () => rootListings,
+  }
+}
+
+/** `count` small files named `<prefix>-<n>.<ext>` in `dirPath`, written in batches. */
+async function fillDir(dirPath: string, count: number, ext = 'log'): Promise<void> {
+  await mkdir(dirPath, { recursive: true })
+  for (let start = 0; start < count; start += 250) {
+    await Promise.all(
+      Array.from({ length: Math.min(250, count - start) }, (_, i) => writeFile(join(dirPath, `f-${start + i}.${ext}`), 'x'))
+    )
+  }
 }
 
 describe('TranscriptSource', () => {
@@ -98,6 +158,7 @@ describe('TranscriptSource', () => {
       windowHours: null,
       watch: false,
       pollMs: 30,
+      rescanMs: 20, // the default (5 s) is longer than this test waits for a new directory
       onEvents,
       nowMs: () => Date.now(),
     })
@@ -195,7 +256,7 @@ describe('TranscriptSource', () => {
   test('the folder is picked up when it appears', async () => {
     const root = join(dir, 'later')
     const { events, onEvents } = collector()
-    const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 30, onEvents, nowMs: () => Date.now() })
+    const source = new TranscriptSource({ root, sinceMs: null, windowHours: null, watch: false, pollMs: 30, rescanMs: 20, onEvents, nowMs: () => Date.now() })
     await source.start()
     expect(source.getStatus().rootMissing).toBe(true)
     const sid = '00000000-0000-4000-8000-000000000009'
@@ -317,5 +378,394 @@ describe('TranscriptSource survives what it is given', () => {
     await s.start() // the root has no projects at all
     s.stop()
     expect(events).toEqual([])
+  })
+})
+
+describe('TranscriptSource walks only where transcripts live', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const OTHER = '00000000-0000-4000-8000-000000000002'
+  const AID = 'fx000000000000a1'
+
+  function walker(spy: ReturnType<typeof spyReaddir>, onEvents: (events: AgentEvent[]) => void): TranscriptSource {
+    return new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: false,
+      pollMs: 60_000,
+      onEvents,
+      nowMs: () => Date.now(),
+      readdir: spy.readdir,
+    })
+  }
+
+  test('thousands of files elsewhere in the config folder are never listed', async () => {
+    // What a busy config folder holds besides transcripts.
+    await fillDir(join(dir, 'debug'), 1500)
+    for (let d = 0; d < 20; d++) await fillDir(join(dir, 'file-history', `h${d}`), 50)
+    await fillDir(join(dir, 'shell-snapshots'), 1000, 'sh')
+    await fillDir(join(dir, 'todos'), 500, 'json')
+    await fillDir(join(dir, 'statsig'), 10, 'json')
+    await writeFile(join(dir, 'history.jsonl'), 'x')
+    await writeFile(join(dir, 'settings.json'), '{}')
+
+    const project = join(dir, 'projects', '-tmp-demo')
+    await mkdir(join(project, SID, 'subagents'), { recursive: true })
+    await writeFile(join(project, `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+    await writeFile(join(project, `${OTHER}.jsonl`), promptLine(OTHER, '/tmp/demo', '2026-01-15T10:00:01.000Z') + '\n')
+    await writeFile(join(project, SID, 'subagents', `agent-${AID}.jsonl`), promptLine(AID, '/tmp/demo', '2026-01-15T10:00:02.000Z') + '\n')
+    await writeFile(join(project, SID, 'subagents', `agent-${AID}.meta.json`), JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000001' }))
+    await fillDir(join(project, SID, 'tool-results'), 50, 'txt')
+    await fillDir(join(project, 'memory'), 5, 'md')
+
+    const spy = spyReaddir()
+    const { events, onEvents } = collector()
+    const source = walker(spy, onEvents)
+    await source.start()
+    source.stop()
+
+    // Only the root, projects/, a project folder, and a session's subagents/ folder are listed. (A
+    // folder next to the session, like memory/, gets its <name>/subagents looked up too: that path
+    // does not exist, and nothing under it is ever listed.)
+    const allowed = new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(/projects(/[^/]+(/[^/]+/subagents)?)?)?$`)
+    for (const path of spy.listed) expect(path).toMatch(allowed)
+    for (const name of ['debug', 'file-history', 'shell-snapshots', 'todos', 'statsig', 'tool-results']) {
+      expect(spy.listed.some((path) => path.includes(name))).toBe(false)
+    }
+
+    expect(events.filter((e) => e.t === 'prompt').map((e) => (e.t === 'prompt' ? e.agentId : '')).sort()).toEqual([SID, OTHER, AID].sort())
+    expect(events.some((e) => e.t === 'subagent_link')).toBe(true)
+
+    // The root holds 5 folders + 2 files besides projects/: seven entries never walked.
+    expect(source.getScanStats()).toMatchObject({ scans: 1, lastScanFiles: 4, rootEntriesSkipped: 7, maxConcurrentScans: 1 })
+    expect(source.getStatus()).toMatchObject({ status: 'live', files: 3, inWindow: 3 })
+  })
+
+  test('a root without projects/ lists only the root', async () => {
+    await fillDir(join(dir, 'debug'), 100)
+    const spy = spyReaddir()
+    const source = walker(spy, () => undefined)
+    await source.start()
+    source.stop()
+    expect(spy.listed).toEqual([dir])
+    expect(source.getStatus()).toMatchObject({ status: 'live', files: 0, inWindow: 0 })
+    expect(source.getScanStats()).toMatchObject({ lastScanFiles: 0, rootEntriesSkipped: 1 })
+  })
+
+  test('a file directly under projects/ and a symlinked project folder are not descended into', async () => {
+    const elsewhere = join(dir, 'elsewhere')
+    await mkdir(elsewhere)
+    await writeFile(join(elsewhere, `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+    await mkdir(join(dir, 'projects'))
+    await symlink(elsewhere, join(dir, 'projects', '-tmp-linked'))
+    await writeFile(join(dir, 'projects', 'stray.jsonl'), 'x')
+
+    const spy = spyReaddir()
+    const { events, onEvents } = collector()
+    const source = walker(spy, onEvents)
+    await source.start()
+    source.stop()
+
+    expect(spy.listed).toEqual([dir, join(dir, 'projects')])
+    expect(events.some((e) => e.t === 'prompt')).toBe(false)
+  })
+})
+
+describe('TranscriptSource runs one pass at a time', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const SESSION_EVENT = `projects/-tmp-demo/${SID}.jsonl`
+
+  async function seed(): Promise<void> {
+    await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
+    await writeFile(join(dir, 'projects', '-tmp-demo', `${SID}.jsonl`), promptLine(SID, '/tmp/demo', '2026-01-15T10:00:00.000Z') + '\n')
+  }
+
+  function slowSource(
+    io: ReturnType<typeof gatedReaddir>,
+    watch: ReturnType<typeof fakeWatch>,
+    onEvents: (events: AgentEvent[]) => void,
+    pollMs = 60_000
+  ): TranscriptSource {
+    return new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: true,
+      pollMs,
+      onEvents,
+      nowMs: () => Date.now(),
+      rescanMs: 0, // every pass is a full scan: the guard is what is under test
+      readdir: io.readdir,
+      watchFn: watch.watchFn,
+    })
+  }
+
+  test('requests during a pass ask for exactly one more, not one each', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const source = slowSource(io, watch, () => undefined)
+    await source.start()
+    expect(io.rootListings()).toBe(1)
+
+    io.close()
+    watch.fire(SESSION_EVENT)
+    await waitFor(() => io.rootListings() === 2) // the second scan has begun and is held
+    for (let i = 0; i < 10; i++) watch.fire(SESSION_EVENT)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(io.rootListings()).toBe(2)
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+
+    io.open()
+    await source.whenIdle()
+    expect(io.rootListings()).toBe(3) // one more pass for the ten requests
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+    source.stop()
+  })
+
+  test('a timer tick during a pass is coalesced the same way', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const source = slowSource(io, watch, () => undefined, 20)
+    await source.start()
+    io.close()
+    await waitFor(() => io.rootListings() >= 2) // a tick began a scan, which is now held
+    await new Promise((resolve) => setTimeout(resolve, 200)) // about ten more ticks meanwhile
+    expect(io.rootListings()).toBe(2)
+    source.stop()
+    io.open()
+    await source.whenIdle()
+    expect(source.getScanStats().maxConcurrentScans).toBe(1)
+  })
+
+  test('stop() during a held pass: it ends, and reads and reports nothing afterwards', async () => {
+    await seed()
+    const io = gatedReaddir(dir)
+    const watch = fakeWatch()
+    const { events, onEvents } = collector()
+    const source = slowSource(io, watch, onEvents)
+    await source.start()
+    const seen = events.length
+
+    const later = '00000000-0000-4000-8000-000000000002'
+    await writeFile(join(dir, 'projects', '-tmp-demo', `${later}.jsonl`), promptLine(later, '/tmp/demo', '2026-01-15T10:00:05.000Z') + '\n')
+    io.close()
+    watch.fire(SESSION_EVENT)
+    await waitFor(() => io.rootListings() === 2)
+    source.stop()
+    expect(watch.closed()).toBe(true)
+    io.open()
+    await source.whenIdle()
+    expect(events.length).toBe(seen)
+  })
+})
+
+describe('TranscriptSource rescans on a throttle', () => {
+  const SID = '00000000-0000-4000-8000-000000000001'
+  const NEW = '00000000-0000-4000-8000-000000000002'
+  const AID = 'fx000000000000b1'
+  const project = (): string => join(dir, 'projects', '-tmp-demo')
+  const rel = (name: string): string => `projects/-tmp-demo/${name}`
+
+  async function session(id: string, ts: string): Promise<void> {
+    await mkdir(project(), { recursive: true })
+    await writeFile(join(project(), `${id}.jsonl`), promptLine(id, '/tmp/demo', ts) + '\n')
+  }
+
+  async function append(id: string, ts: string): Promise<void> {
+    await appendFile(join(project(), `${id}.jsonl`), promptLine(id, '/tmp/demo', ts) + '\n')
+  }
+
+  const prompts = (events: AgentEvent[], id?: string): number =>
+    events.filter((e) => e.t === 'prompt' && (id === undefined || e.agentId === id)).length
+
+  /** A source whose clock and watch the test drives; the poll timer is too slow to matter. */
+  function driven(extra: { sinceMs?: number | null; rescanMs?: number } = {}) {
+    const clock = { now: 1_000 }
+    const spy = spyReaddir()
+    const watch = fakeWatch()
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: extra.sinceMs ?? null,
+      windowHours: null,
+      watch: true,
+      pollMs: 60_000,
+      onEvents,
+      nowMs: () => Date.now(),
+      rescanMs: extra.rescanMs ?? 5000,
+      monoMs: () => clock.now,
+      readdir: spy.readdir,
+      watchFn: watch.watchFn,
+    })
+    return { clock, spy, watch, events, source }
+  }
+
+  test('named events between rescans never walk anything', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    for (let i = 0; i < 50; i++) watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(spy.listed).toEqual([])
+    expect(source.getScanStats()).toMatchObject({ scans: 1, watchEvents: 50, watchEventsIgnored: 0 })
+  })
+
+  test('a line appended to a known file arrives through a named event, without a scan', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, events, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
+    expect(spy.listed).toEqual([])
+  })
+
+  test('a new session file named by an event is registered and read, without a scan', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, events, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    watch.fire(rel(`${NEW}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(1)
+    expect(source.getScanStats().scans).toBe(1)
+    expect(source.getStatus()).toMatchObject({ files: 2, inWindow: 2 })
+    expect(spy.listed).toEqual([])
+  })
+
+  test('a named file older than the window is counted but not read', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven({ sinceMs: Date.now() - 60_000 })
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    const old = new Date('2020-01-01T00:00:00.000Z')
+    await utimes(join(project(), `${NEW}.jsonl`), old, old)
+    watch.fire(rel(`${NEW}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(0)
+    expect(source.getStatus()).toMatchObject({ files: 2, inWindow: 1 })
+  })
+
+  test('a named subagent transcript and its meta file register together, the transcript first', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    const subagents = join(project(), SID, 'subagents')
+    await mkdir(subagents, { recursive: true })
+    await writeFile(join(subagents, `agent-${AID}.jsonl`), promptLine(AID, '/tmp/demo', '2026-01-15T10:00:05.000Z') + '\n')
+    await writeFile(join(subagents, `agent-${AID}.meta.json`), JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000001' }))
+    // The meta file's event arrives first, in the same tick as the transcript's.
+    watch.fire(rel(`${SID}/subagents/agent-${AID}.meta.json`))
+    watch.fire(rel(`${SID}/subagents/agent-${AID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    const kinds = events.filter((e) => (e.t === 'prompt' && e.agentId === AID) || e.t === 'subagent_link').map((e) => e.t)
+    expect(kinds).toEqual(['prompt', 'subagent_link'])
+    expect(source.getScanStats().scans).toBe(1)
+  })
+
+  test('an event outside projects/ starts no pass at all', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { spy, watch, source } = driven()
+    await source.start()
+    spy.listed.length = 0
+    watch.fire('debug/x.txt')
+    watch.fire('file-history/a/b')
+    watch.fire('projects')
+    await source.whenIdle()
+    source.stop()
+    expect(spy.listed).toEqual([])
+    expect(source.getScanStats()).toMatchObject({ scans: 1, watchEvents: 3, watchEventsIgnored: 3 })
+  })
+
+  test('an event that names no file polls every known file, without a scan', async () => {
+    const second = '00000000-0000-4000-8000-000000000003'
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    await session(second, '2026-01-15T10:00:01.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    await append(second, '2026-01-15T10:00:06.000Z')
+    watch.fire(null)
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(prompts(events, second)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
+  })
+
+  test('a due rescan finds what no event named', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { clock, watch, events, source } = driven()
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z') // no event names it
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    expect(prompts(events, NEW)).toBe(0) // 0 ms since the last scan: not due
+    clock.now += 5000
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(1)
+    expect(source.getScanStats().scans).toBe(2)
+  })
+
+  test('with no watch at all, the timer still finds a new file (polling is the guarantee)', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({
+      root: dir,
+      sinceMs: null,
+      windowHours: null,
+      watch: false,
+      pollMs: 20,
+      rescanMs: 50,
+      onEvents,
+      nowMs: () => Date.now(),
+    })
+    await source.start()
+    await session(NEW, '2026-01-15T10:00:05.000Z')
+    await waitFor(() => prompts(events, NEW) === 1)
+    source.stop()
+  })
+
+  test('scans in the last minute are counted by the monotonic clock', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { clock, watch, source } = driven({ rescanMs: 0 })
+    await source.start()
+    for (let i = 0; i < 3; i++) {
+      watch.fire(rel(`${SID}.jsonl`))
+      await source.whenIdle()
+    }
+    expect(source.getScanStats()).toMatchObject({ scans: 4, scansLastMinute: 4, rescanMs: 0 })
+    clock.now += 61_000
+    expect(source.getScanStats()).toMatchObject({ scans: 4, scansLastMinute: 0 })
+    watch.fire(rel(`${SID}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(source.getScanStats()).toMatchObject({ scans: 5, scansLastMinute: 1 })
+  })
+
+  test('a burst of more names than it will remember falls back to polling every known file', async () => {
+    await session(SID, '2026-01-15T10:00:00.000Z')
+    const { watch, events, source } = driven()
+    await source.start()
+    await append(SID, '2026-01-15T10:00:05.000Z')
+    for (let i = 0; i < 1001; i++) watch.fire(rel(`unknown-${i}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, SID)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
   })
 })

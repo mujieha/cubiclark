@@ -22,7 +22,7 @@ import { loadAssets } from './assets-file.js'
 import { loadConfig } from './config-file.js'
 import { HookSource } from './hook-source.js'
 import { inspectHooks } from './hooks-install.js'
-import { TranscriptSource } from './transcript-source.js'
+import { TranscriptSource, type TranscriptScanStats } from './transcript-source.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -30,6 +30,8 @@ export interface DoctorReport {
   claude: { version?: string; verified: boolean; error?: string }
   hookEvents: { verifiedOn: string; events: readonly string[] }
   transcripts: SourceCheck
+  /** What the one scan of this check cost, and the rate a running server is held to. */
+  scans?: TranscriptScanStats
   hooks: SourceCheck
   diagnostics: {
     unparsedLines: number
@@ -160,6 +162,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
   })
   await transcripts.start()
   const transcriptStatus = transcripts.getStatus()
+  const scans = transcripts.getScanStats()
   transcripts.stop()
 
   let hooks: SourceCheck
@@ -197,6 +200,7 @@ export async function runDoctor(o: DoctorOptions): Promise<DoctorReport> {
     claude: await claudeVersion(o.claudeBin),
     hookEvents: { verifiedOn: HOOK_EVENTS_VERIFIED_ON, events: HOOK_EVENT_NAMES },
     transcripts: classifyTranscripts(transcriptStatus),
+    scans,
     hooks,
     diagnostics: {
       unparsedLines: d.unparsedLines,
@@ -221,6 +225,19 @@ function sourceLine(label: string, check: SourceCheck): string {
   return `${label.padEnd(14)}${check.status.padEnd(10)}${check.reason}`
 }
 
+/** "1 scan in this check, at most 12 a minute while serving · 5 files walked in 6 folders, 2 ms ·
+ * 0 other entries at the root not walked": the cost of looking, so it can be seen. A running server
+ * rescans at most once per `rescanMs`, whatever the config folder is doing; a check is one scan. */
+export function scansText(s: TranscriptScanStats): string {
+  const many = (n: number, one: string, more: string): string => `${n} ${n === 1 ? one : more}`
+  const rate = s.rescanMs > 0 ? `at most ${Math.floor(60_000 / s.rescanMs)} a minute while serving` : 'a scan on every pass while serving'
+  return [
+    `${many(s.scans, 'scan', 'scans')} in this check, ${rate}`,
+    `${many(s.lastScanFiles, 'file', 'files')} walked in ${many(s.lastScanDirs, 'folder', 'folders')}, ${s.lastScanMs} ms`,
+    `${many(s.rootEntriesSkipped, 'other entry', 'other entries')} at the root not walked`,
+  ].join(' · ')
+}
+
 export function formatDoctorReport(r: DoctorReport): string {
   const d = r.diagnostics
   const unknownNames = Object.keys(d.unknownTypes)
@@ -236,6 +253,7 @@ export function formatDoctorReport(r: DoctorReport): string {
     `${'Claude Code'.padEnd(14)}${claudeLine(r.claude)}`,
     `${'Hook events'.padEnd(14)}${r.hookEvents.events.join(', ')}`,
     sourceLine('transcripts', r.transcripts),
+    ...(r.scans ? [`${'scans'.padEnd(14)}${scansText(r.scans)}`] : []),
     sourceLine('hooks', r.hooks),
     `${'diagnostics'.padEnd(14)}${parts.join(', ')}`,
     `${'unparsed by'.padEnd(14)}${unparsedByText(d.unparsedBy)}`,
