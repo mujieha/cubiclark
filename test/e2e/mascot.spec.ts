@@ -241,6 +241,26 @@ test.describe('Morty is not an agent', () => {
   })
 })
 
+test.describe('the empty offices', () => {
+  test('he is not in one: the picture there says why the office is empty; he comes with the first agent', async ({ page }) => {
+    const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
+    try {
+      await pushWorld(page, await loadWorld('empty-no-agents'), 200)
+      await expect(page.locator('[data-empty]')).toHaveAttribute('data-empty', 'no-agents')
+      await expect(canvasOf(page)).toHaveAttribute('data-mascot', 'off')
+      await expect(page.locator('.office-mascot')).toHaveCount(0)
+      expect(await pixelsIn(page, await boxOf(canvasOf(page)), DAY.mascot.g as string), 'no coat on the canvas').toBe(0)
+
+      await pushWorld(page, await loadWorld('mascot-play'), 100)
+      await expect(page.locator('button.office-agent')).toHaveCount(4)
+      expect((await reading(page)).activity).toBe('nap')
+      await expect(page.locator('.office-mascot')).toHaveCount(1)
+    } finally {
+      await cli.stop()
+    }
+  })
+})
+
 test.describe('reduced motion', () => {
   test('he is asleep in his basket, there is no ball, and nothing moves', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })

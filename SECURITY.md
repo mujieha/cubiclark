@@ -17,7 +17,7 @@ Anything running on the same machine can, in principle, try to reach a server bo
 
 - The server binds `127.0.0.1` only, never `0.0.0.0` or `::` (a code-level guarantee, not just a
   default — see `src/server/http.ts`).
-- Every route (the page, `world.json`, `events`, `custom-assets.json` and the built assets) requires
+- Every route (the page, `world.json`, `events`, `custom-assets.json`, `page-options.json` and the built assets) requires
   a random, per-run token in the URL path (`http://127.0.0.1:<port>/<token>/`), generated fresh with
   `node:crypto`'s `randomBytes(32)` each time the CLI starts and compared with a timing-safe check
   (including the redirect from `/<token>`; `test/http.test.ts` fails if a plain comparison returns).
