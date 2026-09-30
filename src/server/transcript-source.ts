@@ -3,6 +3,13 @@
 // used when available to react quickly, but a polling loop always runs underneath it — watch is
 // unreliable on some file systems (PLAN.md's risk list), so it is only ever a speed-up, never
 // the only way new content is found.
+//
+// The cost is bounded three ways, because the config root holds far more than transcripts (debug
+// logs, file history, shell snapshots: written many times a second) and once grew the heap to
+// gigabytes: only `projects/<dir>/` and each session's `subagents/` folder are ever listed; only
+// one pass runs at a time (a request during a pass asks for one more, not one each); and a full
+// listing happens at most once per `rescanMs` — a watch event in between polls only the file it
+// names, and an event outside `projects/` starts nothing.
 
 import { watch as fsWatch, type Dirent } from 'node:fs'
 import { readFile, readdir, stat } from 'node:fs/promises'

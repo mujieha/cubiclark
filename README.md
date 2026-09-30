@@ -292,6 +292,14 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **Nested subagents are parented to the session** until the transcript's sidecar file says
   otherwise; hooks report a subagent's session, not which subagent started it.
 - **The rotated `events.1.jsonl` is not read at start-up.** Only the current file is.
+- **A brand-new transcript can take up to about seven seconds to appear** when the file system's
+  change events do not name it (it is a rescan of `projects/`, at most once every 5 seconds, plus the
+  2-second poll). A line added to a transcript already known arrives within the poll, as before, and
+  where the events do name the file it is found at once. Nothing outside `projects/` and each
+  session's `subagents/` folder is ever listed, so a busy config folder costs nothing.
+- **A rescan lists every file under `projects/`, old sessions included,** so its cost grows with the
+  history Claude Code keeps there. `cubiclark doctor` prints it (the `scans` line: files walked,
+  folders listed, milliseconds).
 - **Two collectors rotating at the same instant can lose a few lines.** Rare, and only at the
   5 MB boundary.
 - **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always) and,

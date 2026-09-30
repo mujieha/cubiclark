@@ -89,6 +89,14 @@ list, so it 404s the same as any other unknown path.
   clock tick or a client's socket is caught and shown as a source error; and `serve` and `replay`
   log an unhandled rejection (its name only) and keep serving
   (`test/prototype-keys.test.ts`, `test/store.test.ts`, `test/transcript-source.test.ts`).
+- **A busy config folder cannot exhaust the server's memory.** The transcript source lists only
+  `projects/<dir>/` and each session's `subagents/` folder (a project folder that is a symlink is not
+  followed; a `subagents` folder is listed by its path, and its files must still be regular files to
+  be read), runs one pass at a time, and rescans at most once every 5 seconds; file-system events
+  outside `projects/` start nothing. Before this, every event started a full walk of the whole
+  config folder, and walks piled up until the heap was gone
+  (`test/transcript-source.test.ts`, `test/transcript-source-stress.test.ts`: 500 events over 5 000
+  files, one scan at a time, the heap unchanged).
 
 ### The collector leaking prompt text, file contents or secrets
 
