@@ -260,17 +260,19 @@ export function reachableTiles(grid: MascotGrid, from: Tile): Tile[] {
   return tiles
 }
 
+/** How many tiles a tile is from a cell (both in tiles): 0 inside it, else the Chebyshev distance. */
+export function distanceToCell(cell: Rect, t: Tile): number {
+  const dx = Math.max(cell.x - t.x, 0, t.x - (cell.x + cell.w - 1))
+  const dy = Math.max(cell.y - t.y, 0, t.y - (cell.y + cell.h - 1))
+  return Math.max(dx, dy)
+}
+
 /** The reachable walkable tile nearest a desk cell (in tiles), not inside it and at most `maxDist`
  * tiles away (Chebyshev); ties go to the tile level with the cell's middle row, then reading order. */
 export function spotNearCell(grid: MascotGrid, cell: Rect, maxDist: number, from: Tile): Tile | undefined {
   const middle = cell.y + Math.floor(cell.h / 2)
-  const distanceTo = (t: Tile): number => {
-    const dx = Math.max(cell.x - t.x, 0, t.x - (cell.x + cell.w - 1))
-    const dy = Math.max(cell.y - t.y, 0, t.y - (cell.y + cell.h - 1))
-    return Math.max(dx, dy)
-  }
   return reachableTiles(grid, from)
-    .map((tile) => ({ tile, distance: distanceTo(tile) }))
+    .map((tile) => ({ tile, distance: distanceToCell(cell, tile) }))
     .filter(({ distance }) => distance >= 1 && distance <= maxDist)
     .sort(
       (a, b) =>
