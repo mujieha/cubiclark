@@ -6,6 +6,7 @@
 
 import { TILE, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
+import { BUBBLE_H, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
 import { deskObjects, type TileId, type TileMap } from '../../core/office/tilemap.js'
@@ -51,7 +52,6 @@ export interface DrawStats {
 const MAX_SCALE = 4
 const FONT = "6px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const SIGN_FONT = "bold 7px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
-const BUBBLE_H = 13
 const PULSE_MS = 350
 
 /** What the office is drawn from: the palette (a theme's, with any custom colours merged in), the
@@ -267,7 +267,7 @@ export class OfficeRenderer {
       draw: () => void
     }
     const items: Item[] = []
-    const bubbles: (() => void)[] = []
+    const wanted: { placement: Placement; bubble: ResolvedBubble }[] = []
     for (const placement of scene.layout.placements) {
       const agent = scene.world.agents[placement.agentId]
       const actor = scene.actors.get(placement.agentId)
@@ -283,12 +283,24 @@ export class OfficeRenderer {
       } else {
         items.push({ sortY: placement.seat.y, draw: () => this.drawSeated(ctx, agent, placement, nowMs) })
         const bubble = resolveBubble(agent, scene.world, scene.layout, scene.reducedMotion)
-        if (bubble) bubbles.push(() => this.drawBubble(ctx, placement, bubble, nowMs))
+        if (bubble) wanted.push({ placement, bubble })
       }
     }
     items.sort((a, b) => a.sortY - b.sortY)
     for (const item of items) item.draw()
-    for (const draw of bubbles) draw()
+    // Where each bubble goes is decided together (src/core/office/bubbles.ts), so a helper's bubble
+    // does not land on a sign or on the head of the helper above it.
+    ctx.font = FONT
+    const boxes = new Map(
+      placeBubbles(
+        scene.layout,
+        wanted.map(({ placement, bubble }) => ({ agentId: placement.agentId, width: this.bubbleWidth(ctx, placement, bubble) }))
+      ).map((box) => [box.agentId, box])
+    )
+    for (const { placement, bubble } of wanted) {
+      const box = boxes.get(placement.agentId)
+      if (box) this.drawBubble(ctx, placement, bubble, nowMs, box)
+    }
 
     if (focusedId) {
       const focused = scene.layout.placements.find((placement) => placement.agentId === focusedId)
@@ -395,17 +407,20 @@ export class OfficeRenderer {
     return this.arrows[direction]
   }
 
-  private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number): void {
-    const scene = this.scene as Scene
+  /** A desk's bubble carries text after its icon; a helper's is the icon alone. */
+  private bubbleWidth(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble): number {
+    const withText = placement.kind === 'desk' && bubble.text !== undefined
+    const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
+    return 4 + 9 + (withText ? 3 + textWidth : 0) + 4
+  }
+
+  private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
     const style = BUBBLE_STYLES[bubble.style]
     const withText = placement.kind === 'desk' && bubble.text !== undefined
     ctx.font = FONT
-    const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
-    const width = 4 + 9 + (withText ? 3 + textWidth : 0) + 4
-    const headX = placement.seat.x
-    const left = placement.kind === 'desk' ? placement.boxPx.x + 2 : headX - Math.floor(width / 2)
-    const x = Math.max(0, Math.min(scene.layout.cols * TILE - width, left))
-    const y = placement.kind === 'desk' ? placement.boxPx.y + 1 : placement.boxPx.y - BUBBLE_H - 2
+    const width = box.rect.w
+    const x = box.rect.x
+    const y = box.rect.y
     const dimmed = bubble.pulse && Math.floor(nowMs / PULSE_MS) % 2 === 1
 
     ctx.save()
@@ -432,7 +447,7 @@ export class OfficeRenderer {
       rect(x + 1, y + 2, 1, BUBBLE_H - 4, '1')
       rect(x + width - 2, y + 2, 1, BUBBLE_H - 4, '1')
     }
-    const tailX = Math.max(x + 3, Math.min(x + width - 4, headX))
+    const tailX = box.tailX
     rect(tailX - 1, y + BUBBLE_H, 3, 1, style.fill)
     rect(tailX, y + BUBBLE_H + 1, 1, 1, style.fill)
     rect(tailX - 2, y + BUBBLE_H, 1, 1, style.edge)
