@@ -84,8 +84,20 @@ export async function loadWorld(name: string): Promise<World> {
   return JSON.parse(await loadWorldText(name)) as World
 }
 
+/** The page makes its EventSource only after two requests (page options, custom assets) have answered,
+ * so on a busy machine `goto` can return first. Waited for from here, on the real clock, since a page
+ * clock that is paused would never fire a timer or a frame inside the page. */
+async function waitForEventSource(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt++) {
+    if (await page.evaluate(() => '__cubiclarkFake' in window)) return
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+  throw new Error('the page never made its EventSource')
+}
+
 /** Sends a World to the page as if the server had pushed it, then lets `settleMs` of page time pass (with a paused clock). */
 export async function pushWorld(page: Page, world: World, settleMs = 100): Promise<void> {
+  await waitForEventSource(page)
   await page.evaluate((data) => (window as unknown as { __cubiclarkPush: (d: string) => void }).__cubiclarkPush(data), JSON.stringify(world))
   if (clockedPages.has(page)) {
     // A new World can change the size of the office, and the page's ResizeObserver then clears the canvas
