@@ -26,33 +26,37 @@ describe('backingScale', () => {
     expect(329 * TILE * 2).toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
   })
 
-  test('a big scale on a small office is cut by the area, to a divisor: the stretch stays a whole number', () => {
-    // 36 x 30 tiles at 8 device px per px is 4608 x 3840 = 17.7 million px, over the area
-    expect(backingScale(4, 2, 36, 30)).toBe(4)
+  test('a big scale on a small office is cut by the area, to the largest whole number that fits', () => {
+    // 36 x 30 tiles at 8 device px per px is 4608 x 3840 = 17.7 million px, over the area; 7 fits
+    expect(backingScale(4, 2, 36, 30)).toBe(7)
     expect(backingScale(3, 2, 36, 200)).toBe(3)
   })
 
-  test('the result is always a divisor of the ideal density and never below 1', () => {
-    for (let cssScale = 1; cssScale <= 4; cssScale++) {
+  test('the result is a whole number, never above round(scale × ratio) nor below 1, inside the limits, and the largest that fits', () => {
+    for (const cssScale of [1, 1.25, 1.75, 2, 3.5]) {
       for (let dpr = 1; dpr <= 3; dpr++) {
         for (const rows of [5, 20, 44, 100, 150, 329, 700, 5000]) {
-          const ideal = cssScale * dpr
+          const ideal = Math.round(cssScale * dpr)
           const scale = backingScale(cssScale, dpr, 36, rows)
-          expect(scale, `${cssScale}x, dpr ${dpr}, ${rows} rows`).toBeGreaterThanOrEqual(1)
-          expect(ideal % scale, `${cssScale}x, dpr ${dpr}, ${rows} rows: ${scale} divides ${ideal}`).toBe(0)
-          if (scale > 1) {
-            const width = 36 * TILE * scale
-            const height = rows * TILE * scale
-            expect(height).toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
-            expect(width * height).toBeLessThanOrEqual(MAX_BACKING_AREA_PX)
+          const label = `${cssScale}x, dpr ${dpr}, ${rows} rows`
+          expect(Number.isInteger(scale), label).toBe(true)
+          expect(scale, label).toBeGreaterThanOrEqual(1)
+          expect(scale, label).toBeLessThanOrEqual(Math.max(1, ideal))
+          const fits = (candidate: number): boolean => {
+            const width = 36 * TILE * candidate
+            const height = rows * TILE * candidate
+            return width <= MAX_BACKING_SIDE_PX && height <= MAX_BACKING_SIDE_PX && width * height <= MAX_BACKING_AREA_PX
           }
+          if (scale > 1) expect(fits(scale), label).toBe(true)
+          if (scale < ideal) expect(fits(scale + 1), `${label}: ${scale + 1} would fit`).toBe(false)
         }
       }
     }
   })
 
-  test('a fractional display ratio is rounded as the renderer always did, and nonsense is 1', () => {
-    expect(backingScale(2, 1.5, 36, 30)).toBe(4)
+  test('a fractional product is rounded, and nonsense is 1', () => {
+    expect(backingScale(2, 1.5, 36, 30)).toBe(3)
+    expect(backingScale(1.75, 2, 36, 30)).toBe(4)
     expect(backingScale(2, 0, 36, 30)).toBe(2)
     expect(backingScale(0, 1, 36, 30)).toBe(1)
   })

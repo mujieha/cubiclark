@@ -47,19 +47,59 @@ export const HALL_X_PX = 8
 export const MAX_BACKING_SIDE_PX = 16384
 export const MAX_BACKING_AREA_PX = 16 * 1024 * 1024
 
-/** Device pixels per logical px for an office of `cols` by `rows` tiles shown at `cssScale` on a
- * display of `dpr`. Ideally `cssScale × dpr`. When that would make the canvas bigger than the limits,
- * the largest smaller divisor of it that fits: the browser then stretches the canvas by a whole
- * number, so the pixel art stays crisp (only a very tall office, or a very wide window, is affected). */
+/** The office's tile, in CSS px: as wide as the column allows, in whole px, from 16 (below that the
+ * column scrolls, as it always did) to 56 (so a wide window does not give giant tiles). */
+export const MIN_TILE_CSS_PX = 16
+export const MAX_TILE_CSS_PX = 56
+
+export interface OfficeSize {
+  /** CSS px per tile, a whole number. */
+  tileCssPx: number
+  /** CSS px per logical px: tileCssPx / TILE. Fractional between whole scales. */
+  cssScale: number
+  cssWidth: number
+  cssHeight: number
+  /** Backing px per logical px of the art canvas: a whole number (backingScale). */
+  backing: number
+  /** Backing px per CSS px of the text canvas: the display's ratio unless the office is very tall (textDensity). */
+  textDensity: number
+}
+
+const positive = (value: number, fallback: number): number => (Number.isFinite(value) && value > 0 ? value : fallback)
+
+/** How big the office of `cols` by `rows` tiles is drawn in a column `containerWidthCss` wide, on a
+ * display of `dpr`. */
+export function officeSize(containerWidthCss: number, dpr: number, cols: number, rows: number): OfficeSize {
+  const fit = Math.floor(positive(containerWidthCss, 0) / cols)
+  const tileCssPx = Math.min(MAX_TILE_CSS_PX, Math.max(MIN_TILE_CSS_PX, fit))
+  const cssScale = tileCssPx / TILE
+  const ratio = positive(dpr, 1)
+  const cssWidth = cols * tileCssPx
+  const cssHeight = rows * tileCssPx
+  return { tileCssPx, cssScale, cssWidth, cssHeight, backing: backingScale(cssScale, ratio, cols, rows), textDensity: textDensity(cssWidth, cssHeight, ratio) }
+}
+
+/** Backing px per logical px of the art for an office of `cols` by `rows` tiles shown at `cssScale` on
+ * a display of `dpr`. Ideally round(cssScale × dpr), so the browser's stretch to the device stays
+ * within 2/3 and 3/2; when that would pass the limits, the largest smaller whole number that fits.
+ * Always a whole number, so no sprite pixel is ever split in the backing store. */
 export function backingScale(cssScale: number, dpr: number, cols: number, rows: number): number {
-  const ideal = Math.max(1, Math.floor(cssScale)) * Math.max(1, Math.round(dpr))
+  const ideal = Math.max(1, Math.round(positive(cssScale, 1) * positive(dpr, 1)))
   for (let scale = ideal; scale > 1; scale--) {
-    if (ideal % scale !== 0) continue
     const width = cols * TILE * scale
     const height = rows * TILE * scale
     if (width <= MAX_BACKING_SIDE_PX && height <= MAX_BACKING_SIDE_PX && width * height <= MAX_BACKING_AREA_PX) return scale
   }
   return 1
+}
+
+/** Backing px per CSS px of the text canvas: the display's ratio, lowered (to two decimals) only when
+ * the canvas would pass the same limits as the art. */
+export function textDensity(cssWidth: number, cssHeight: number, dpr: number): number {
+  const w = positive(cssWidth, 1)
+  const h = positive(cssHeight, 1)
+  const limit = Math.min(positive(dpr, 1), MAX_BACKING_SIDE_PX / w, MAX_BACKING_SIDE_PX / h, Math.sqrt(MAX_BACKING_AREA_PX / (w * h)))
+  return Math.floor(limit * 100) / 100
 }
 
 export interface Point {
