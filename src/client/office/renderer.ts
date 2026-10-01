@@ -451,14 +451,30 @@ export class OfficeRenderer {
     const boxes = new Map(placeBubbles(scene.layout, requests).map((box) => [box.agentId, box]))
     const words: Word[] = []
     const s = this.sizeNow.cssScale
-    for (const { placement, bubble } of wanted) {
+    const placed = wanted.flatMap(({ placement, bubble }) => {
       const box = boxes.get(placement.agentId)
-      if (!box) continue
+      return box ? [{ agentId: placement.agentId, bubble, box }] : []
+    })
+    placed.forEach(({ agentId, bubble, box }, index) => {
       this.drawBubble(ctx, bubble, nowMs, box)
-      const text = texts.get(placement.agentId)
+      const text = texts.get(agentId)
+      if (text === undefined) return
       // After the icon and its padding: 4 + 9 + 3 px in from the bubble's left edge.
-      if (text !== undefined) words.push({ text, x: (box.rect.x + 16) * s, y: (box.rect.y + BUBBLE_H / 2 + 0.5) * s, colour: BUBBLE_STYLES[bubble.style].text })
-    }
+      const left = box.rect.x + 16
+      // A bubble drawn after this one covers part of it where they meet (a helper's beside a long desk
+      // bubble, the Known limit in the README). The words are above the art, so they must stop where the
+      // later bubble starts, as the art under them does.
+      let cut = text
+      for (let next = index + 1; next < placed.length; next++) {
+        const o = (placed[next] as (typeof placed)[number]).box.rect
+        const meets = o.y < box.rect.y + BUBBLE_H && o.y + BUBBLE_H > box.rect.y
+        if (meets && o.x + o.w > left && o.x < left + this.fit(cut, Number.POSITIVE_INFINITY).width / s) {
+          cut = this.fit(bubble.text as string, Math.max(0, o.x - 1 - left) * s).text
+          if (cut === '') return
+        }
+      }
+      words.push({ text: cut, x: left * s, y: (box.rect.y + BUBBLE_H / 2 + 0.5) * s, colour: BUBBLE_STYLES[bubble.style].text })
+    })
 
     if (focusedId) {
       const focused = scene.layout.placements.find((placement) => placement.agentId === focusedId)
