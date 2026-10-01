@@ -134,7 +134,7 @@ export function setupScreen(world: World | undefined): SetupScreen {
 
 // --- The agent table -------------------------------------------------------------------------
 
-const STATE_LABELS: Record<AgentState, string> = {
+export const STATE_LABELS: Record<AgentState, string> = {
   starting: 'starting',
   thinking: 'thinking',
   reading: 'reading',

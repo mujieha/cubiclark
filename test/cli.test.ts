@@ -279,6 +279,82 @@ describe('parseCli: --idle-desks', () => {
   })
 })
 
+describe('parseCli: tui', () => {
+  test('defaults', () => {
+    expect(parseCli(['tui'])).toEqual({
+      command: 'tui',
+      fixtureHome: undefined,
+      sinceHours: 12,
+      stateDir: undefined,
+      config: undefined,
+      mascot: true,
+      idleDesks: 5,
+      once: false,
+      frames: undefined,
+      size: undefined,
+      color: true,
+      animation: true,
+      ascii: false,
+    })
+  })
+
+  test('every flag', () => {
+    expect(
+      parseCli(['tui', '--once', '--fixture-home', '/tmp/f', '--state-dir', '/tmp/s', '--config', '/tmp/c.json', '--since-hours', '3', '--no-mascot', '--idle-desks', '2', '--size', '120x40', '--no-color', '--no-animation', '--ascii'])
+    ).toEqual({
+      command: 'tui',
+      fixtureHome: '/tmp/f',
+      sinceHours: 3,
+      stateDir: '/tmp/s',
+      config: '/tmp/c.json',
+      mascot: false,
+      idleDesks: 2,
+      once: true,
+      frames: undefined,
+      size: { cols: 120, rows: 40 },
+      color: false,
+      animation: false,
+      ascii: true,
+    })
+  })
+
+  test('--frames takes a whole number from 1 to 1000', () => {
+    expect(parseCli(['tui', '--frames', '3'])).toMatchObject({ command: 'tui', frames: 3, once: false })
+    expect(parseCli(['tui', '--frames=1000'])).toMatchObject({ frames: 1000 })
+    for (const raw of ['0', '1001', '2.5', 'abc', '-1']) {
+      expect(() => parseCli(['tui', `--frames=${raw}`])).toThrow(`invalid --frames: ${raw} (a whole number from 1 to 1000)`)
+    }
+  })
+
+  test('--once and --frames cannot be used together', () => {
+    expect(() => parseCli(['tui', '--once', '--frames', '2'])).toThrow('--once and --frames cannot be used together')
+  })
+
+  test('--size is <cols>x<rows>', () => {
+    for (const raw of ['0x5', '80', '80x', 'x24', '1001x5', '80x24x1']) {
+      expect(() => parseCli(['tui', `--size=${raw}`])).toThrow(`invalid --size: ${raw} (<cols>x<rows>, for example 120x40)`)
+    }
+  })
+
+  test('--idle-desks is checked as for serve', () => {
+    expect(() => parseCli(['tui', '--idle-desks=1001'])).toThrow(/invalid --idle-desks: 1001/)
+  })
+
+  test('the flags of the other commands are not valid for it, and its flags are not valid for them', () => {
+    expect(() => parseCli(['tui', '--port', '1'])).toThrow(/--port is not valid for tui/)
+    expect(() => parseCli(['tui', '--no-open'])).toThrow(/--no-open is not valid for tui/)
+    expect(() => parseCli(['--once'])).toThrow(/--once is not valid for the default command/)
+    expect(() => parseCli(['doctor', '--ascii'])).toThrow(/--ascii is not valid for doctor/)
+    expect(() => parseCli(['replay', '--since', '1h', '--no-color'])).toThrow(/--no-color is not valid for replay/)
+    expect(() => parseCli(['tui', 'extra'])).toThrow(/unexpected argument: extra/)
+  })
+
+  test('the help text describes it', () => {
+    expect(HELP_TEXT).toContain('cubiclark tui [--once | --frames <n>] [--size <cols>x<rows>] [--no-color] [--no-animation] [--ascii]')
+    expect(HELP_TEXT).toContain('--no-animation')
+  })
+})
+
 describe('resolveRoot', () => {
   test('--fixture-home wins outright, and turns on fixture mode', () => {
     expect(resolveRoot('/tmp/fixture-home', { CLAUDE_CONFIG_DIR: '/should/not/matter' }, '/home/someone')).toEqual({

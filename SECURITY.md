@@ -277,6 +277,39 @@ shape again. Its file name (never its path) is all the status shows
 through the same parsers, and writes nothing. It serves the same page on `127.0.0.1` under the same
 token, Host and CSP rules. `--since` is capped at 14 days and `--speed` at 1000.
 
+### Escape sequences from a transcript reaching your terminal (`cubiclark tui`)
+
+`cubiclark tui` writes what transcripts, task folders and adapters say (a label, a project, a tool's
+target, a log line, an error message) into your terminal, where an escape sequence can retitle the
+window, clear the screen, leave the alternate screen or write to the clipboard (OSC 52). So every such
+string goes through one filter, `terminalText` (`src/core/tui/cells.ts`), before it is drawn:
+
+1. whole escape sequences are removed, not just their first byte: CSI (`ESC [` and the one-byte form),
+   OSC, DCS, SOS, PM and APC strings (to their terminator, or to the end of the text when they have none),
+   and any other `ESC` plus one character;
+2. tabs and line breaks (and `U+0085`, `U+2028`, `U+2029`) become one space, so text cannot start a new
+   line of the frame;
+3. every other C0 and C1 control character and DEL is removed;
+4. the text is normalised, and invisible characters are removed: zero-width characters and joiners,
+   bidirectional overrides, embeddings and isolates, the soft hyphen, the byte order mark, tag
+   characters (category `Cf`), and combining marks and variation selectors; a lone surrogate becomes
+   `U+FFFD`, an unassigned or private-use character `?`;
+5. with `--ascii`, or without a UTF-8 locale, anything but printable ASCII becomes `?` (the page's
+   own punctuation and accents get a plain stand-in first).
+
+The text is then cut to the width of its place, counting wide characters as two cells, so a line is
+never wider than the terminal. A line is built by one function (`line()`, `src/core/tui/line.ts`),
+which is the only place colour is written: the colour codes are a fixed table of numbers (foreground
+colours, bold and inverse), text from the World is never part of an escape sequence, and with colour
+off (`--no-color`, `NO_COLOR`) a frame holds no escape byte at all. The only other control sequences the
+program writes are four constants in `src/tui/terminal.ts` (enter the alternate screen and hide the
+cursor, leave it and show the cursor, cursor home, clear), and `test/tui-sources.test.ts` fails if any other source file in the terminal mode mentions
+an escape byte. The terminal is put back (cursor shown, main screen, raw mode off) on `q`, on SIGINT,
+SIGTERM and SIGHUP, on an error and on exit (`test/tui-terminal.test.ts`). The mode opens no port and
+no network connection and reads the same files as `serve`; `test/tui-render.test.ts` renders a World
+whose names, targets, models, log lines and error messages are full of escape sequences, line breaks and
+bidi overrides, at three sizes, and checks that nothing but the allowed colour codes survives.
+
 ## Known limits
 
 What the code does not do, so that nothing above is read as more than it is:
@@ -306,6 +339,10 @@ What the code does not do, so that nothing above is read as more than it is:
 - **A file's whole history is read on a first start**, in bounded pieces (memory stays bounded, the
   time it takes does not): a very large transcript is read in many polls.
 - **Windows is untested**: its path forms, file modes and opening a browser.
+- **`cubiclark tui` cannot know what your terminal does with what it is given.** It writes only printable
+  text and the colour codes above, but a terminal's own handling of very long lines, unusual fonts or
+  characters whose width it computes differently is outside Cubiclark; `--ascii` limits the output to
+  printable ASCII.
 
 ## Reporting a vulnerability
 

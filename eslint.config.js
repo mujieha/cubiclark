@@ -63,7 +63,7 @@ export default tseslint.config(
     rules: {
       'no-restricted-globals': [
         'error',
-        ...['window', 'document', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'localStorage', 'navigator'].map(
+        ...['window', 'document', 'requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'localStorage', 'navigator', 'process'].map(
           (name) => ({ name, message: 'src/core is pure: pass the value in instead of reading it from the environment.' })
         ),
       ],

@@ -101,6 +101,8 @@ npm run fixtures:check  # verify the checked-in fixtures still match the generat
 
 node dist/cli.js [--port <n>] [--no-open] [--fixture-home <dir>] [--since-hours <n>] [--state-dir <dir>] [--config <file>] [--assets <file>] [--no-mascot] [--idle-desks <n>]
 node dist/cli.js replay --since <duration> [--speed <n>] [--fixture-home <dir>] [--state-dir <dir>] [--assets <file>] [--no-mascot] [--idle-desks <n>]
+node dist/cli.js tui [--once | --frames <n>] [--size <cols>x<rows>] [--no-color] [--no-animation] [--ascii] [--fixture-home <dir>] [--state-dir <dir>] [--no-mascot] [--idle-desks <n>]
+node dist/cli.js tui --once --fixture-home test/fixtures/home --state-dir test/fixtures/state   # one frame of the office, as text
 node dist/cli.js doctor --adapters --fixture-home test/fixtures/day/home --state-dir test/fixtures/day/state
 node dist/cli.js doctor --fixture-home <an empty folder> --assets <manifest.json>   # checks a custom-assets pack; exit 1 if invalid
 ```
@@ -283,6 +285,95 @@ the log to select it; click it again to clear.
 The **wall meter** in the manager's office shows the 5-hour quota over the 7-day quota (green, amber
 from 70%, red from 90%; ringed red while an agent is rate limited).
 
+## In the terminal
+
+`cubiclark tui` shows the same World as the page, as text, in the terminal you ran it in: no server,
+no port, no browser. It reads the same sources as `serve` (transcripts, the hooks events file, the
+adapters), so it can run beside a `serve`; both only read the same files. It adds no dependency.
+
+```
+cubiclark tui [--once | --frames <n>] [--size <cols>x<rows>] [--no-color] [--no-animation] [--ascii]
+              [--fixture-home <dir>] [--state-dir <dir>] [--config <file>] [--since-hours <n>] [--no-mascot] [--idle-desks <n>]
+```
+
+What is on the screen, top to bottom:
+
+- **The header:** the time, the three views with the focused one in brackets, and the keys.
+- **The status bar** (two lines): the page's status bar (busy out of total, how many are not shown,
+  permission waits, quota, unparsed lines, sources), then the legend of the model letters.
+- **The office** in text: the three top rooms, a box for each project, the bench, and the lobby with
+  the finished agents. Who sits where is the page's own placement (`layout()`): a helper is drawn
+  beside its parent's desk, joined by a colon. A key line names the states that are drawn.
+- **The list** and **the log**, as on the page (side by side from 100 columns, stacked below that).
+  When an agent is selected, a line under the list names its state, model and task.
+
+Only the agents the page would show are there (`visibleAgents`, so `--idle-desks` works the same),
+and the counts in the status bar, above the office and above the list are of the same agents.
+
+An agent is two characters: a **glyph for its state**, then a **letter for its model**
+(`o` Opus, `s` Sonnet, `h` Haiku, `f` Fable, `.` other). The glyphs are `^` starting, `?` thinking,
+`R` reading, `E` editing, `X` running, `S` searching, `B` browsing, `D` delegating, `!` waiting for
+permission, `W` waiting for you, `C` compacting, `#` stuck, `$` rate limited, `F` failed, `+` finished
+and `-` ended. The list prints the state's word beside the glyph, so no state is told apart by
+colour alone; colour (Opus magenta, Sonnet blue, Haiku green, Fable bright magenta, the states that
+need a look in red) only helps.
+
+**Morty** is in the office as a dog emoji (`d` with `--ascii`) and a word for what he is doing:
+napping, wandering, drinking, greeting, sitting by, playing ball or sniffing. He is in the room the
+page's map puts him in, and he comes from the same mascot machine as on the page. He is absent with
+`--no-mascot`.
+
+```
+Cubiclark 11:02:26 |  Office [List] Log  | q quit | Tab focus | up/down select ~
+busy 5/8 | permission 1 | quota - | unparsed 0 | transcripts live - hooks live
+o Opus  s Sonnet  h Haiku  f Fable  . other
+Office - 8 agents - 5 busy - 1 waiting for permission - 1 rate limited
++- Manager's office -----++- Planning room --------++- Review corner ----------+
+|                        ||                        ||                          |
++------------------------++------------------------++--------------------------+
++- demo -------------------------------++- shop -------------------------------+
+|  Ws Xs Ds:Ss Do:S. !s                ||  $s                                  |
++--------------------------------------++--------------------------------------+
+Lobby: door - d napping
+Key: X running  S searching  D delegating  ! waiting for permission  W waiting ~
+[Agents 8]
+ Ws 00000001 waiting for you        2m ago   demo
+ Xs 00000002 running                2m ago   demo           Bash npm
+ Ds 00000003 delegating             2m ago   demo           Agent Explore
+   Ss 000000e1 searching              1m ago   demo           Glob
+ $s 00000005 rate limited           52s ago  shop           Bash npm
+ Do 00000006 delegating             22s ago  demo           Agent Explore
+   S. 000000e2 searching              14s ago  demo           Grep demo
+ Log 23
+11:02:20 00000007 builder     session      session started (startup)
+11:02:22 00000007 builder     prompt       prompt
+11:02:26 00000007 builder     permission   waiting for permission (Bash)
+```
+
+(`cubiclark tui --once --ascii --no-color --size 80x24` on `test/fixtures/home`.)
+
+**Keys:** `q` (or Ctrl+C) quits; `Tab` and `Shift+Tab` move the focus between the office, the list and
+the log; the arrow keys, `PageUp`/`PageDown`, `Home` and `End` select an agent in the focused view (in
+the log they scroll it); `Esc` clears the selection; `l` turns the office off and on.
+
+**Modes.** On a terminal it takes the whole screen (the alternate screen, with the cursor hidden) and
+redraws at most ten times a second; when it ends, by `q`, Ctrl+C, SIGINT, SIGTERM, SIGHUP or an error,
+the terminal is put back. When stdin or stdout is not a terminal (a pipe, a file) it prints one frame and
+exits, as `--once` does. `--once` prints one frame, `--frames <n>` prints n (a tenth of a second apart),
+and `--size 120x40` sets the size of a printed frame (otherwise the terminal's, else 80x24). The exit
+code is 0, or 130, 143 and 129 after SIGINT, SIGTERM and SIGHUP.
+
+**Colour and motion.** `NO_COLOR` or `--no-color` gives a frame with no escape code at all (the
+selection and the focus are then marked with `>` and brackets); `FORCE_COLOR` colours a pipe. Box
+drawing and the dog emoji are used only under a UTF-8 locale and without `--ascii`; `--ascii` also
+turns the page's accents and punctuation into plain ones. `--no-animation`, `CUBICLARK_REDUCED_MOTION=1`
+and `TERM=dumb` stop the motion: Morty sleeps in his basket and the typing letters (the model letter of a
+thinking, editing or running agent flips its case every half second) stay still. macOS's own "Reduce
+motion" setting is not read.
+
+**What is stripped.** Every string from a transcript, a task folder or a configuration file goes
+through one filter before it is drawn; see `SECURITY.md`.
+
 ## Adapters
 
 Optional, read-only, and off until `~/.cubiclark/config.json` names them. Three come with
@@ -343,6 +434,12 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **A session waiting for you that is not among the five most recently active is not in the office
   or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
   is shown for as long as it is stuck, however old, since it may need a look.
+- **In the terminal (`cubiclark tui`):** terminals disagree about the width of emoji and of some
+  punctuation (`--ascii` avoids both); agents do not walk, they are at their seats at once; Morty is
+  placed by room, not by tile; there is no mouse, no task timeline and no log filter; Ctrl+Z does not
+  suspend it (the keys are read raw); the interactive screen needs both stdin and stdout to be a
+  terminal; and the office is left out below 60 columns or 20 rows, which the second line of the
+  status bar says.
 - **A very tall office is drawn at a lower pixel density.** The canvas is capped at 16384 px a side
   and 16 million px in all (the size a GPU keeps a canvas in); a 300-row office on a display of twice
   the density has its pixel art drawn at half the detail and stretched by a whole number, and its
