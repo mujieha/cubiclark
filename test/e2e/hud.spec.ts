@@ -181,9 +181,17 @@ test('the panel collapses and comes back, and the office fills the column each t
         const host = document.querySelector('.office-host') as HTMLElement
         return art.getBoundingClientRect().width / host.clientWidth
       })
+    /** The text canvas is exactly over the art canvas: same place, same CSS size. */
+    const textOverArt = (): Promise<boolean> =>
+      page.evaluate(() => {
+        const art = (document.querySelector('canvas.office-canvas') as HTMLCanvasElement).getBoundingClientRect()
+        const text = (document.querySelector('canvas.office-text') as HTMLCanvasElement).getBoundingClientRect()
+        return art.x === text.x && art.y === text.y && art.width === text.width && art.height === text.height
+      })
     // 1600 px window, panel open: a 1172 px column, 32 px tiles, scale 2.
     await expect(canvas).toHaveAttribute('data-scale', '2')
     await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
+    await expect.poll(textOverArt).toBe(true)
     await expect(page.locator('#hud')).toBeVisible()
     await page.locator('#hud-toggle').click()
     await expect(page.locator('#hud')).toBeHidden()
@@ -192,10 +200,12 @@ test('the panel collapses and comes back, and the office fills the column each t
     // Panel hidden: a 1568 px column, 43 px tiles. The office grew into it.
     await expect(canvas).toHaveAttribute('data-scale', String(43 / 16))
     await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
+    await expect.poll(textOverArt).toBe(true)
     await page.locator('#hud-toggle').click()
     await expect(page.locator('#hud')).toBeVisible()
     await expect(canvas).toHaveAttribute('data-scale', '2')
     await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
+    await expect.poll(textOverArt).toBe(true)
   } finally {
     await stop()
   }

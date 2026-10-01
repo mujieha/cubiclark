@@ -162,6 +162,16 @@ body {
   outline-offset: -2px;
 }
 
+/* The words on the office: a second canvas exactly over the first, at the display's own resolution
+   and with ordinary smoothing (src/core/office/text.ts). Its size is set from script. */
+.office-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  image-rendering: auto;
+}
+
 /* Morty, the office corgi: a box over his picture that names him for a pointer and a screen reader.
    It comes before the overlay in the page, so an agent's button is always over it, and it is never a
    Tab stop: he is not an agent. */
