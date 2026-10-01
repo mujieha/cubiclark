@@ -1,15 +1,20 @@
-// Draws the office on a canvas (PLAN.md phase 3 §2.8). The static picture (floors, walls, desks,
-// room names, signs) is baked once per world update into an offscreen canvas at 1x; each frame
-// blits it and then draws the moving parts: characters, lamps, monitors, bubbles, board tags.
+// Draws the office on two canvases (PLAN.md phase 3 §2.8, cubiclark-readable). The art: the static
+// picture (floors, walls, desks) is baked once per world update into an offscreen canvas at 1x; each
+// frame blits it and then draws the moving parts: characters, lamps, monitors, bubbles, board tags.
 // Every coordinate is in logical px and every draw lands on a whole px, under a transform that
-// scales by a whole number, so pixels stay crisp. All text goes through fillText, never markup.
+// scales by a whole number of backing px, so pixels stay crisp; the browser stretches the canvas to
+// fill its column. The words (room names, project signs, the whiteboard label, bubble text) are on a
+// second canvas exactly over the first, in CSS px at the display's own resolution with ordinary
+// smoothing (src/core/office/text.ts), redrawn only when they change. All text goes through
+// fillText, never markup.
 
-import { TILE, backingScale, type Point, type Rect } from '../../core/office/geometry.js'
+import { TILE, officeSize, type OfficeSize, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
-import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
+import { BUBBLE_H, COMPACT_W, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
 import { deskObjects, deskPropRects, type TileId, type TileMap } from '../../core/office/tilemap.js'
+import { BUBBLE_STYLES, PROJECT_SIGN_TEXT, ROOM_NAME_TEXT, WHITEBOARD_TEXT, fitText, fontFor, labelBoxes, textMetrics, type LabelBox } from '../../core/office/text.js'
 import { whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
@@ -55,9 +60,6 @@ export interface DrawStats {
   walkers: { agentId: string; box: Rect }[]
 }
 
-const MAX_SCALE = 4
-const FONT = "6px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
-const SIGN_FONT = "bold 7px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const PULSE_MS = 350
 
 /** What the office is drawn from: the palette (a theme's, with any custom colours merged in), the
@@ -70,31 +72,53 @@ export interface Look {
   mascot: Palette
 }
 
-/** The ink, accent, fill and edge a bubble style is drawn in. */
-const BUBBLE_STYLES = {
-  plain: { fill: '1', edge: '0', ink: '0', accent: 'd', text: '0' },
-  alert: { fill: 'a', edge: '0', ink: '1', accent: '1', text: '1' },
-  muted: { fill: '2', edge: '3', ink: '3', accent: '2', text: '3' },
-} as const
+/** A word drawn this frame: where it starts (CSS px, vertical middle) and in which colour key. */
+interface Word {
+  text: string
+  x: number
+  y: number
+  colour: string
+}
+
+/** What the text canvas tells the tests: the sizes and fonts it draws in, and the labels. */
+export interface TextInfo {
+  signPx: number
+  smallPx: number
+  signFont: string
+  smallFont: string
+  labels: readonly LabelBox[]
+}
 
 export class OfficeRenderer {
   private cache: SpriteCache
   private mascotCache: SpriteCache
   private readonly context: CanvasRenderingContext2D
+  private readonly text: CanvasRenderingContext2D
   private staticLayer: HTMLCanvasElement | undefined
   private scene: Scene | undefined
-  private cssScale = 1
+  private sizeNow: OfficeSize = officeSize(0, 1, 36, 20)
+  private containerWidth = 0
   private dpr = 1
-  private backing = 1
   private arrows: Record<Direction, SpriteDef> | undefined
+  /** Room names and project signs for the scene and size now, in CSS px. */
+  private labels: LabelBox[] = []
+  /** The whiteboard's label, in CSS px; it sits on the board's own paper, so it has no plate. */
+  private board: Word | undefined
+  /** What the text canvas shows; undefined when it must be drawn again (a new size, scene or look). */
+  private textKey: string | undefined
+  /** Text cut to a width: measuring is the dear part of drawing words, so it is remembered. */
+  private readonly fits = new Map<string, { text: string; width: number }>()
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
+    private readonly textCanvas: HTMLCanvasElement,
     private look: Look
   ) {
     const context = canvas.getContext('2d')
-    if (!context) throw new Error('2D canvas is not available')
+    const text = textCanvas.getContext('2d')
+    if (!context || !text) throw new Error('2D canvas is not available')
     this.context = context
+    this.text = text
     this.cache = new SpriteCache(look.palette)
     this.mascotCache = new SpriteCache(look.mascot)
   }
@@ -110,23 +134,37 @@ export class OfficeRenderer {
     this.cache = new SpriteCache(look.palette)
     this.mascotCache = new SpriteCache(look.mascot)
     if (this.scene) this.staticLayer = this.bakeStatic(this.scene)
+    this.textKey = undefined
   }
 
+  /** CSS px per logical px: fractional between whole scales (src/core/office/geometry.ts officeSize). */
   get scale(): number {
-    return this.cssScale
+    return this.sizeNow.cssScale
   }
 
   /** Device pixels per logical px of the canvas's backing store (src/core/office/geometry.ts backingScale). */
   get density(): number {
-    return this.backing
+    return this.sizeNow.backing
   }
 
-  /** The largest whole-number scale that fits `containerWidthCss`, and the backing-store density. */
+  /** How big the office is drawn now: its tile, its CSS size and the densities of its canvases. */
+  get size(): OfficeSize {
+    return this.sizeNow
+  }
+
+  /** The sizes and fonts the words are drawn in now, and the labels (CSS px, relative to the text canvas). */
+  get textInfo(): TextInfo {
+    const { signPx, smallPx } = textMetrics(this.sizeNow.cssScale)
+    return { signPx, smallPx, signFont: fontFor(signPx, true), smallFont: fontFor(smallPx), labels: this.labels }
+  }
+
+  /** The office fills `containerWidthCss` in whole CSS px per tile; the art is a whole number of
+   * backing px per art px and the browser stretches it. */
   resize(containerWidthCss: number, devicePixelRatio: number): void {
-    const cols = this.scene?.layout.cols ?? 36
-    this.cssScale = Math.min(MAX_SCALE, Math.max(1, Math.floor(containerWidthCss / (cols * TILE))))
+    this.containerWidth = containerWidthCss
     this.dpr = devicePixelRatio
     this.applySize()
+    this.layoutText()
   }
 
   private applySize(): void {
@@ -134,17 +172,25 @@ export class OfficeRenderer {
     const cols = layout?.cols ?? 36
     const rows = layout?.rows ?? 20
     // The office grows with its agents, so this is decided again whenever its size changes.
-    this.backing = backingScale(this.cssScale, this.dpr, cols, rows)
-    this.canvas.width = cols * TILE * this.backing
-    this.canvas.height = rows * TILE * this.backing
-    this.canvas.style.width = `${cols * TILE * this.cssScale}px`
-    this.canvas.style.height = `${rows * TILE * this.cssScale}px`
+    this.sizeNow = officeSize(this.containerWidth, this.dpr, cols, rows)
+    this.canvas.width = cols * TILE * this.sizeNow.backing
+    this.canvas.height = rows * TILE * this.sizeNow.backing
+    this.canvas.style.width = `${this.sizeNow.cssWidth}px`
+    this.canvas.style.height = `${this.sizeNow.cssHeight}px`
+    // The words: the same CSS size, at the display's own density (setting the size clears the canvas).
+    this.textCanvas.width = Math.floor(this.sizeNow.cssWidth * this.sizeNow.textDensity)
+    this.textCanvas.height = Math.floor(this.sizeNow.cssHeight * this.sizeNow.textDensity)
+    this.textCanvas.style.width = `${this.sizeNow.cssWidth}px`
+    this.textCanvas.style.height = `${this.sizeNow.cssHeight}px`
+    this.fits.clear()
+    this.textKey = undefined
   }
 
   setScene(scene: Scene): void {
     const sizeChanged = !this.scene || this.scene.layout.rows !== scene.layout.rows || this.scene.layout.cols !== scene.layout.cols
     this.scene = scene
     if (sizeChanged) this.applySize()
+    this.layoutText()
     this.staticLayer = this.bakeStatic(scene)
   }
 
@@ -170,17 +216,7 @@ export class OfficeRenderer {
     for (const object of tilemap.objects) ctx.drawImage(this.tileCanvas(object.tile, variant), object.x * TILE, object.y * TILE)
     if (scene.mascot && !scene.empty) this.drawMascotProps(ctx, scene.mascot)
 
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = this.colour(variant === 'dark' ? '2' : '1')
-    ctx.font = SIGN_FONT
-    for (const room of layout.rooms) {
-      if (room.id === 'manager' || room.id === 'planning' || room.id === 'review') {
-        ctx.fillText(room.name, room.rect.x * TILE + 4, TILE + 8, room.rect.w * TILE - 8)
-      }
-    }
-    for (const cluster of layout.clusters) {
-      ctx.fillText(cluster.project, cluster.signRect.x * TILE + 4, cluster.signRect.y * TILE + 8, cluster.signRect.w * TILE - 8)
-    }
+    // Room names and project signs are not here: they are words, on the text canvas (drawText).
     if (world.quota) this.drawMeter(ctx, layout, world)
     if (scene.task && !scene.empty) this.drawWhiteboard(ctx, layout, scene.task)
     if (scene.empty) this.drawEmptyProps(ctx, layout, scene.empty, variant)
@@ -194,20 +230,16 @@ export class OfficeRenderer {
     ctx.drawImage(this.mascotCache.get('prop:bowl', MORTY_PROPS.bowl), spots.bowl.x * TILE + 3, spots.bowl.y * TILE + 15)
   }
 
-  /** The whiteboard (two tiles wide, in the planning room): the task's short id, its four stages
-   * (past filled, current filled with a mark above it, future hollow, blocked red with a cross) and
-   * a dot for each change of model. The interior is 30 px wide and rows 2 to 11 of the tiles: the
-   * label sits on row 7, the stage boxes on rows 9 to 11, the dots at the top right. */
+  /** The whiteboard (two tiles wide, in the planning room): the task's four stages (past filled,
+   * current filled with a mark above it, future hollow, blocked red with a cross) and a dot for each
+   * change of model. The interior is 30 px wide and rows 2 to 11 of the tiles: the stage boxes are
+   * on rows 9 to 11, the dots at the top right. The task's short id is a word, on the text canvas. */
   private drawWhiteboard(ctx: CanvasRenderingContext2D, layout: OfficeLayout, task: Task): void {
     const planning = layout.rooms.find((room) => room.id === 'planning')
     const model = whiteboardModel(task)
     if (!planning || !model) return
     const x = (planning.rect.x + 4) * TILE
     const y = TILE
-    ctx.fillStyle = this.colour('0')
-    ctx.font = FONT
-    ctx.textBaseline = 'alphabetic'
-    ctx.fillText(model.label, x + 2, y + 7, 20)
 
     model.stages.forEach((state, index) => {
       const bx = x + 2 + index * 7
@@ -272,19 +304,101 @@ export class OfficeRenderer {
     if (prop === 'cabinet') draw(PROPS.cabinet_locked, 'prop:cabinet_locked', (floor.rect.x + 12) * TILE, (floor.rect.y + 1) * TILE)
   }
 
+  // --- The words ----------------------------------------------------------------------------
+
+  /** Width in CSS px of `text` in the sign font (bold) or the small one. */
+  private measureText(text: string, px: number, bold: boolean): number {
+    this.text.font = fontFor(px, bold)
+    return this.text.measureText(text).width
+  }
+
+  /** `text` cut to `maxCss` CSS px in the small font, and how wide that is. Remembered until the size changes. */
+  private fit(text: string, maxCss: number): { text: string; width: number } {
+    const { smallPx } = textMetrics(this.sizeNow.cssScale)
+    const key = `${smallPx}|${maxCss}|${text}`
+    const known = this.fits.get(key)
+    if (known) return known
+    const cut = fitText(text, maxCss, (t) => this.measureText(t, smallPx, false))
+    const fitted = { text: cut, width: cut === '' ? 0 : this.measureText(cut, smallPx, false) }
+    if (this.fits.size > 500) this.fits.clear()
+    this.fits.set(key, fitted)
+    return fitted
+  }
+
+  /** The room names, project signs and whiteboard label for the scene and size now. */
+  private layoutText(): void {
+    this.textKey = undefined
+    const scene = this.scene
+    if (!scene) {
+      this.labels = []
+      this.board = undefined
+      return
+    }
+    const s = this.sizeNow.cssScale
+    this.labels = labelBoxes(scene.layout, s, (text, px) => this.measureText(text, px, true))
+    this.board = undefined
+    const planning = scene.layout.rooms.find((room) => room.id === 'planning')
+    const model = scene.task && !scene.empty ? whiteboardModel(scene.task) : undefined
+    if (!planning || !model) return
+    // The label's room on the board is x + 2 .. x + 23 (the dots start at x + 23): see drawWhiteboard.
+    const fitted = this.fit(model.label, 21 * s)
+    if (fitted.text === '') return
+    this.board = { text: fitted.text, x: ((planning.rect.x + 4) * TILE + 2) * s, y: (TILE + 5) * s, colour: WHITEBOARD_TEXT.ink }
+  }
+
+  /** The words on the text canvas, drawn again only when they differ from what is there. */
+  private paintText(words: readonly Word[]): void {
+    const key = words.map((word) => `${word.x},${word.y},${word.colour},${word.text}`).join('\n')
+    if (key === this.textKey) return
+    this.textKey = key
+    const t = this.text
+    const d = this.sizeNow.textDensity
+    // Starts land on whole device px: a glyph's stem is then not half on a pixel.
+    const snap = (value: number): number => Math.round(value * d) / d
+    t.setTransform(d, 0, 0, d, 0, 0)
+    t.clearRect(0, 0, this.sizeNow.cssWidth, this.sizeNow.cssHeight)
+    t.textBaseline = 'middle'
+    const { signPx, smallPx } = textMetrics(this.sizeNow.cssScale)
+    // With the lights off (an empty screen) the wall is already drawn dark: grey words, no plates, as before.
+    const lightsOff = this.scene?.empty !== undefined && EMPTY_SCENES[this.scene.empty].lights === 'off'
+    t.font = fontFor(signPx, true)
+    for (const label of this.labels) {
+      const pair = label.kind === 'room' ? ROOM_NAME_TEXT : PROJECT_SIGN_TEXT
+      if (!lightsOff) {
+        t.fillStyle = this.colour(pair.plate)
+        t.fillRect(label.plate.x, label.plate.y, label.plate.w, label.plate.h)
+      }
+      t.fillStyle = this.colour(lightsOff ? '2' : pair.ink)
+      t.fillText(label.text, snap(label.x), snap(label.y))
+    }
+    t.font = fontFor(smallPx)
+    if (this.board) {
+      t.fillStyle = this.colour(this.board.colour)
+      t.fillText(this.board.text, snap(this.board.x), snap(this.board.y))
+    }
+    for (const word of words) {
+      t.fillStyle = this.colour(word.colour)
+      t.fillText(word.text, snap(word.x), snap(word.y))
+    }
+  }
+
   // --- Each frame ---------------------------------------------------------------------------
 
   /** One frame. `mascot` is Morty's picture for this frame, if he is shown: he is drawn straight after
    * the floor, under every character, desk front, lamp, monitor, tag and bubble. */
   draw(nowMs: number, focusedId?: string, mascot?: MascotPose): DrawStats {
     const ctx = this.context
-    ctx.setTransform(this.backing, 0, 0, this.backing, 0, 0)
+    const backing = this.sizeNow.backing
+    ctx.setTransform(backing, 0, 0, backing, 0, 0)
     ctx.imageSmoothingEnabled = false
     const stats: DrawStats = { drawn: 0, walkers: [] }
     if (!this.scene || !this.staticLayer) return stats
     ctx.drawImage(this.staticLayer, 0, 0)
     const scene = this.scene
-    if (scene.empty) return stats
+    if (scene.empty) {
+      this.paintText([])
+      return stats
+    }
 
     // Only ever the agent the World says is waiting for you, at its own desk: Morty's word is not enough.
     const playerId = this.playerOf(mascot)
@@ -328,22 +442,45 @@ export class OfficeRenderer {
     for (const item of items) item.draw()
     // Where each bubble goes is decided together (src/core/office/bubbles.ts), so a helper's bubble
     // does not land on a sign or on the head of the helper above it.
-    ctx.font = FONT
-    const boxes = new Map(
-      placeBubbles(
-        scene.layout,
-        wanted.map(({ placement, bubble }) => ({ agentId: placement.agentId, width: this.bubbleWidth(ctx, placement, bubble) }))
-      ).map((box) => [box.agentId, box])
-    )
-    for (const { placement, bubble } of wanted) {
+    const texts = new Map<string, string>()
+    const requests = wanted.map(({ placement, bubble }) => {
+      const size = this.bubbleSize(placement, bubble)
+      if (size.text !== undefined) texts.set(placement.agentId, size.text)
+      return { agentId: placement.agentId, width: size.width }
+    })
+    const boxes = new Map(placeBubbles(scene.layout, requests).map((box) => [box.agentId, box]))
+    const words: Word[] = []
+    const s = this.sizeNow.cssScale
+    const placed = wanted.flatMap(({ placement, bubble }) => {
       const box = boxes.get(placement.agentId)
-      if (box) this.drawBubble(ctx, placement, bubble, nowMs, box)
-    }
+      return box ? [{ agentId: placement.agentId, bubble, box }] : []
+    })
+    placed.forEach(({ agentId, bubble, box }, index) => {
+      this.drawBubble(ctx, bubble, nowMs, box)
+      const text = texts.get(agentId)
+      if (text === undefined) return
+      // After the icon and its padding: 4 + 9 + 3 px in from the bubble's left edge.
+      const left = box.rect.x + 16
+      // A bubble drawn after this one covers part of it where they meet (a helper's beside a long desk
+      // bubble, the Known limit in the README). The words are above the art, so they must stop where the
+      // later bubble starts, as the art under them does.
+      let cut = text
+      for (let next = index + 1; next < placed.length; next++) {
+        const o = (placed[next] as (typeof placed)[number]).box.rect
+        const meets = o.y < box.rect.y + BUBBLE_H && o.y + BUBBLE_H > box.rect.y
+        if (meets && o.x + o.w > left && o.x < left + this.fit(cut, Number.POSITIVE_INFINITY).width / s) {
+          cut = this.fit(bubble.text as string, Math.max(0, o.x - 1 - left) * s).text
+          if (cut === '') return
+        }
+      }
+      words.push({ text: cut, x: left * s, y: (box.rect.y + BUBBLE_H / 2 + 0.5) * s, colour: BUBBLE_STYLES[bubble.style].text })
+    })
 
     if (focusedId) {
       const focused = scene.layout.placements.find((placement) => placement.agentId === focusedId)
       if (focused) this.drawRing(ctx, focused.boxPx)
     }
+    this.paintText(words)
     return stats
   }
 
@@ -501,17 +638,20 @@ export class OfficeRenderer {
     return this.arrows[direction]
   }
 
-  /** A desk's bubble carries text after its icon; a helper's is the icon alone. */
-  private bubbleWidth(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble): number {
-    const withText = placement.kind === 'desk' && bubble.text !== undefined
-    const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
-    return Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + (withText ? 3 + textWidth : 0) + 4)
+  /** A desk's bubble carries text after its icon; a helper's is the icon alone. The text is cut to
+   * the room the bubble's widest size leaves it (the icon and the padding take 20 logical px), at the
+   * small font's size now: so a bubble is never wider than DESK_BUBBLE_MAX_W, and never squashes a word. */
+  private bubbleSize(placement: Placement, bubble: ResolvedBubble): { width: number; text?: string } {
+    const compact = { width: COMPACT_W }
+    if (placement.kind !== 'desk' || bubble.text === undefined) return compact
+    const s = this.sizeNow.cssScale
+    const fitted = this.fit(bubble.text, (DESK_BUBBLE_MAX_W - 20) * s)
+    if (fitted.text === '') return compact
+    return { width: Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + 3 + Math.ceil(fitted.width / s) + 4), text: fitted.text }
   }
 
-  private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
+  private drawBubble(ctx: CanvasRenderingContext2D, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
     const style = BUBBLE_STYLES[bubble.style]
-    const withText = placement.kind === 'desk' && bubble.text !== undefined
-    ctx.font = FONT
     const width = box.rect.w
     const x = box.rect.x
     const y = box.rect.y
@@ -553,12 +693,7 @@ export class OfficeRenderer {
     const def = bubble.icon === 'arrow' ? this.arrowSprite(bubble.direction ?? 'right') : ICONS[bubble.icon]
     // The cache key already includes the ink and accent, so the same icon on another bubble is another canvas.
     ctx.drawImage(this.cache.get(`icon:${bubble.icon}:${bubble.direction ?? ''}`, def, { S: style.ink, K: style.accent }), x + 4, y + 2)
-    if (withText) {
-      ctx.fillStyle = this.colour(style.text)
-      ctx.textBaseline = 'middle'
-      // `width - 20` is the room the text has: the icon and the padding take the rest.
-      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5, width - 20)
-    }
+    // The text is a word: on the text canvas, over this bubble (draw).
     ctx.restore()
   }
 

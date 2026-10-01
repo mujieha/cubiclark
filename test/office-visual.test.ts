@@ -37,6 +37,13 @@ describe('the state table (design §6)', () => {
     expect(Object.keys(STATE_VISUALS).sort()).toEqual([...AGENT_STATES].sort())
   })
 
+  test('every alert bubble and every pulsing bubble carries no text, so the 4.5 rule on bubble text (plain and muted) is the whole story', () => {
+    for (const state of AGENT_STATES) {
+      const bubble = STATE_VISUALS[state].bubble
+      if (bubble?.style === 'alert' || bubble?.pulse) expect(bubble.text, state).toBe('none')
+    }
+  })
+
   test('the 16 visuals are pairwise distinct', () => {
     const signatures = AGENT_STATES.map((state) => signature(STATE_VISUALS[state]))
     expect(new Set(signatures).size).toBe(AGENT_STATES.length)

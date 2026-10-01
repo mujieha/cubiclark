@@ -26,6 +26,12 @@ body {
   color: var(--fg);
 }
 
+/* A page whose scrollbar takes room would otherwise change width as the office grows past the
+   window's height, and the office (which fills its column) would then be drawn twice. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
   font-size: 14px;
@@ -33,7 +39,8 @@ body {
 }
 
 /* The page: the office (or the list) on the left, the HUD panel on the right. At a 1600 px window
-   the left column is 1600 - 32 - 16 - 380 = 1172 px, which keeps the office at scale 2. */
+   the left column is 1600 - 32 - 16 - 380 = 1172 px, which gives the office 32 px tiles (scale 2).
+   The office fills whatever its column is (src/core/office/geometry.ts officeSize). */
 #app {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
@@ -106,7 +113,7 @@ body {
   display: none !important;
 }
 
-/* The office: a canvas at a whole-number scale, with the accessible overlay on top of it. */
+/* The office: a canvas that fills its column in whole CSS px per tile, with the accessible overlay on top of it. */
 .office-host {
   position: relative;
   overflow-x: auto;
@@ -153,6 +160,16 @@ body {
 .office-agent:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+/* The words on the office: a second canvas exactly over the first, at the display's own resolution
+   and with ordinary smoothing (src/core/office/text.ts). Its size is set from script. */
+.office-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+  image-rendering: auto;
 }
 
 /* Morty, the office corgi: a box over his picture that names him for a pointer and a screen reader.

@@ -95,6 +95,27 @@ describe('paletteProblems', () => {
     expect(problems.some((p) => p.startsWith('keys 0 and 1 have contrast 1.0'))).toBe(true)
   })
 
+  test('project signs: wood dark as light as the paper is refused, naming both keys and the signs', () => {
+    const problems = paletteProblems(withKeys({ '6': '#c9955f' }))
+    expect(problems).toHaveLength(1)
+    expect(problems[0]).toMatch(/^keys 1 and 6 have contrast \d\.\d, need 4\.5: project signs would be hard to read$/)
+  })
+
+  test('room names: a wall face too close to the paper is refused', () => {
+    const problems = paletteProblems(withKeys({ '5': '#a8b0b8' }))
+    expect(problems.some((p) => /^keys 1 and 5 have contrast \d\.\d, need 4\.5: room names/.test(p))).toBe(true)
+  })
+
+  test("a quiet agent's bubble: ink on a light grey that is too dark is refused", () => {
+    const problems = paletteProblems(withKeys({ '2': '#3a3a40' }))
+    expect(problems.some((p) => /^keys 0 and 2 have contrast \d\.\d, need 4\.5: a quiet agent's bubble text/.test(p))).toBe(true)
+  })
+
+  test('ink on paper is said once, by the ink rule, not again by the list of canvas words', () => {
+    const problems = paletteProblems(withKeys({ '0': DAY.palette['1'] as string }))
+    expect(problems.filter((p) => p.startsWith('keys 0 and 1 '))).toHaveLength(1)
+  })
+
   test('paper on red too faint is refused: the alert bubble', () => {
     expect(paletteProblems(withKeys({ a: '#f0e8e0' })).some((p) => p.startsWith('keys 1 and a'))).toBe(true)
   })

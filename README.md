@@ -163,8 +163,11 @@ office draws once when the world changes, characters hold their first frame, nob
 bubble does not pulse. The states are still told apart by pose, bubble and lamp. Changing the
 setting while the page is open takes effect at once.
 
-**Performance.** The canvas is capped at 30 frames a second, pauses while the tab is hidden, draws
-at a whole-number scale (so pixels stay crisp) and stops entirely while the list is showing. With
+**Performance.** The canvas is capped at 30 frames a second, pauses while the tab is hidden, and
+stops entirely while the list is showing. The office fills its column in tiles of a whole number of
+CSS pixels (16 to 56); its pixel art is drawn at a whole number of canvas pixels per art pixel and
+stretched by the browser, so it stays crisp, and every word is on a second canvas laid exactly over
+it, drawn at the display's own resolution (10 to 20 CSS px) and redrawn only when a word changes. With
 50 agents a draw takes about a millisecond, and with 100 (`test/e2e/office-perf.spec.ts`, which fails
 under 30 frames a second) about two. A crowd of 250 agents (40 working, 200 idle, 10 gone) shows 49
 of them and holds 30 frames a second with no task over 200 ms while the World is pushed every second
@@ -342,8 +345,9 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   is shown for as long as it is stuck, however old, since it may need a look.
 - **A very tall office is drawn at a lower pixel density.** The canvas is capped at 16384 px a side
   and 16 million px in all (the size a GPU keeps a canvas in); a 300-row office on a display of twice
-  the density is drawn at half the detail and stretched by a whole number. Only text on the canvas
-  shows the difference.
+  the density has its pixel art drawn at half the detail and stretched by a whole number, and its
+  words (on their own canvas, under the same limits) at a little over half of the display's
+  density, so they are softer.
 - **Two collectors rotating at the same instant can lose a few lines.** Rare, and only at the
   5 MB boundary.
 - **Model and effort.** Hook payloads carry the model only on `SessionStart` (and not always) and,
@@ -360,11 +364,16 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **Without hooks, the permission wait is a guess and `compacting`/`ended` are never shown.**
 - **File paths are never shown in full**, only basenames.
 - **The office's screenshot baselines are macOS and Chromium.** The tests compare canvas pixels with
-  no tolerance, and the system font behind the text in bubbles and signs decides some of them. On
-  another system, regenerate them with `npx playwright test --update-snapshots` and look at them
-  before committing. Only Chromium is in CI; `npm run test:e2e:firefox` is a manual extra.
-- **Bubble text is cut to 12 characters** with an ellipsis, and is drawn in the system monospace
-  font, not a pixel font. The full text is in the tooltip.
+  no tolerance, and the system font behind the words (room names, signs, the whiteboard label and
+  bubble text, drawn in it at 10 to 20 CSS px on their own canvas at the display's resolution)
+  decides those pixels. On another system, regenerate them with `npx playwright test
+  --update-snapshots` and look at them before committing. Two of them are pictures at twice the
+  density (`test/e2e/readable.spec.ts`). Only Chromium is in CI; `npm run test:e2e:firefox` is a
+  manual extra.
+- **Words are drawn in the system monospace font, not a pixel font, and are cut to fit.** Bubble
+  text is cut to 12 characters with an ellipsis, and again to the room its bubble has when the
+  office is small, or when another bubble covers the end of it; a project name too long for its
+  sign is cut the same way. The full text is in the tooltip and the list.
 - **The quota file's format is read tolerantly.** The status line's own keys are documented in
   `docs/adapters.md`; other spellings of the reset times are accepted, and a reset it cannot read only
   means the sample is treated as stale after its window.
@@ -372,9 +381,15 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   wait, once per fetch, and never for an agent that hooks report on.
 - **Notes in a task's `LOG.md` (`- 2026-01-15 13:00 …`) are read as local time**, and the entry that
   `STATUS.md` adds is dated by the file's modification time.
-- **The panel takes 380 px, so the office stays at scale 2 only in a window at least 1580 px wide.**
-  Below that the office steps down to scale 1 (with the panel hidden it fits again); below 1100 px
-  the panel goes under the office.
+- **The office fills its column, in tiles of 16 to 56 CSS px.** The panel takes 380 px, so a 1600 px
+  window gives 32 px tiles and a 1280 px one 23 px tiles; below 1100 px the panel goes under the
+  office. With the panel hidden, a window wider than 2272 px stops at 56 px tiles and leaves the rest
+  of the column empty.
+- **Between whole scales, on a display of ratio 1, the art's pixels are not all the same width.**
+  A 1280 px window has 23 px tiles, whose art pixels are 1 or 2 device pixels wide, so a checkerboard
+  can look uneven. Tiles always line up, edges stay hard, and on a display of twice the density
+  the difference is not visible. The art itself is always drawn at a whole number of canvas pixels
+  per art pixel.
 - **A replay of adapter data is approximate.** A task's timeline is cut at the replay clock, but a
   file's contents are read as they are now.
 - **Developed and tested on macOS** (the CI runner is a Mac). Linux and Windows are untested.

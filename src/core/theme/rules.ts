@@ -1,8 +1,10 @@
 // What every palette and every set of page colours must satisfy (design §3.1: two different
 // situations never render the same way). A built-in theme, a custom palette merged over one, and a
-// test all go through these, so a theme can never make two states look alike or text unreadable.
+// test all go through these, so a theme can never make two states look alike or text unreadable, on
+// the page or on the canvas.
 // Each problem is one sentence that names the keys, worded for the person who wrote the palette.
 
+import { CANVAS_TEXT_PAIRS } from '../office/text.js'
 import { contrastRatio, rgbDistance } from './colour.js'
 import { MASCOT_KEYS, PALETTE_KEYS, type PageTokens, type Palette } from './theme.js'
 
@@ -10,6 +12,8 @@ const HEX = /^#[0-9a-fA-F]{6}$/
 
 /** Ink on paper is the text in every bubble. */
 export const MIN_INK_CONTRAST = 4.5
+/** Every word on the canvas on whatever is right behind it (src/core/office/text.ts): WCAG AA for normal text. */
+export const MIN_CANVAS_TEXT_CONTRAST = 4.5
 /** Paper on red is the alert bubble's text and cross. */
 export const MIN_ALERT_CONTRAST = 3
 /** The lamps and marks: red, amber and green must not look alike. */
@@ -44,6 +48,13 @@ export function paletteProblems(palette: Palette): string[] {
   const alert = contrastRatio(at('1'), at('a'))
   if (alert < MIN_ALERT_CONTRAST) {
     problems.push(`keys 1 and a have contrast ${alert.toFixed(1)}, need ${MIN_ALERT_CONTRAST}: the red alert bubble would be hard to read`)
+  }
+  for (const pair of CANVAS_TEXT_PAIRS) {
+    if (pair.ink === '0' && pair.plate === '1') continue // already said by the ink rule above
+    const ratio = contrastRatio(at(pair.ink), at(pair.plate))
+    if (ratio < MIN_CANVAS_TEXT_CONTRAST) {
+      problems.push(`keys ${pair.ink} and ${pair.plate} have contrast ${ratio.toFixed(1)}, need ${MIN_CANVAS_TEXT_CONTRAST}: ${pair.name} would be hard to read`)
+    }
   }
   pairwise(MARKS, MIN_MARK_DISTANCE, at, problems, 'red, amber and green lamps and marks would look alike')
   pairwise(SHIRTS, MIN_SHIRT_DISTANCE, at, problems, 'two models would wear the same shirt')

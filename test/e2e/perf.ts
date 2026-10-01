@@ -49,6 +49,14 @@ export async function pushEverySecond(page: Page, world: World, seconds: number)
   }
 }
 
+/** The text canvas's backing store, in device pixels, as text ("2304x10368"): the words are on their own canvas. */
+export async function textCanvasSize(page: Page): Promise<string> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('canvas.office-text')
+    return canvas ? `${canvas.width}x${canvas.height}` : 'none'
+  })
+}
+
 /** The canvas's backing store, in device pixels, as text ("2304x10368"). */
 export async function canvasSize(page: Page): Promise<string> {
   return page.evaluate(() => {

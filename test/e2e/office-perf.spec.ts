@@ -4,10 +4,10 @@
 // as a second opinion.
 
 import { expect, test, type Page } from '@playwright/test'
-import { MAX_BACKING_SIDE_PX } from '../../src/core/office/geometry.js'
+import { MAX_BACKING_AREA_PX, MAX_BACKING_SIDE_PX } from '../../src/core/office/geometry.js'
 import type { World } from '../../src/core/types.js'
 import { loadWorld, openWithFakeWorld, pushWorld, saveEvidence } from './fake-world.js'
-import { canvasSize, LONG_TASKS, longTasksSince, pageNow, pushEverySecond } from './perf.js'
+import { canvasSize, LONG_TASKS, longTasksSince, pageNow, pushEverySecond, textCanvasSize } from './perf.js'
 
 // The quiet office (cubiclark-quiet-office). A real home builds up a crowd like crowd-250-idle over a
 // day, and the page once froze for a minute at a time on one. It must not: with the defaults the office
@@ -79,13 +79,18 @@ async function unfilteredCrowd(page: Page): Promise<void> {
     const measured = (Number(await canvas.getAttribute('data-frames')) - framesBefore) / ((Date.now() - timeBefore) / 1000)
     const longTasks = await longTasksSince(page, startedAt)
     console.log(
-      `office perf: crowd-250-idle unfiltered, 244 shown, rows ${await canvas.getAttribute('data-rows')}, counted ${measured.toFixed(1)} fps, canvas ${await canvasSize(page)}, long tasks ${JSON.stringify(longTasks.slice(0, 8))} (${longTasks.length} in all)`
+      `office perf: crowd-250-idle unfiltered, 244 shown, rows ${await canvas.getAttribute('data-rows')}, counted ${measured.toFixed(1)} fps, canvas ${await canvasSize(page)}, text canvas ${await textCanvasSize(page)}, long tasks ${JSON.stringify(longTasks.slice(0, 8))} (${longTasks.length} in all)`
     )
     expect(longTasks[0] ?? 0, `the longest of ${longTasks.length} long tasks`).toBeLessThanOrEqual(LONG_TASK_LIMIT_MS)
     // The canvas stays under what a GPU keeps a canvas in (src/core/office/geometry.ts backingScale):
     // at twice the density this office, 329 rows, was 21056 px tall and ran at 21 fps with 50 to 85 ms tasks.
     const [, height] = (await canvasSize(page)).split('x').map(Number)
     expect(height, 'the canvas is not taller than a GPU texture').toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
+    // The words are on a canvas of their own, at the display's density: it stays inside the same limits.
+    const [textWidth, textHeight] = (await textCanvasSize(page)).split('x').map(Number) as [number, number]
+    expect(textWidth, 'the text canvas is not wider than a GPU texture').toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
+    expect(textHeight, 'the text canvas is not taller than a GPU texture').toBeLessThanOrEqual(MAX_BACKING_SIDE_PX)
+    expect(textWidth * textHeight, 'nor bigger in all than the limit').toBeLessThanOrEqual(MAX_BACKING_AREA_PX)
     expect(measured, 'counted from outside').toBeGreaterThanOrEqual(24)
   } finally {
     await cli.stop()
