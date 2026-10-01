@@ -4,7 +4,7 @@
 // Every coordinate is in logical px and every draw lands on a whole px, under a transform that
 // scales by a whole number, so pixels stay crisp. All text goes through fillText, never markup.
 
-import { TILE, backingScale, type Point, type Rect } from '../../core/office/geometry.js'
+import { TILE, officeSize, type OfficeSize, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
 import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
@@ -55,7 +55,6 @@ export interface DrawStats {
   walkers: { agentId: string; box: Rect }[]
 }
 
-const MAX_SCALE = 4
 const FONT = "6px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const SIGN_FONT = "bold 7px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const PULSE_MS = 350
@@ -83,9 +82,9 @@ export class OfficeRenderer {
   private readonly context: CanvasRenderingContext2D
   private staticLayer: HTMLCanvasElement | undefined
   private scene: Scene | undefined
-  private cssScale = 1
+  private sizeNow: OfficeSize = officeSize(0, 1, 36, 20)
+  private containerWidth = 0
   private dpr = 1
-  private backing = 1
   private arrows: Record<Direction, SpriteDef> | undefined
 
   constructor(
@@ -112,19 +111,25 @@ export class OfficeRenderer {
     if (this.scene) this.staticLayer = this.bakeStatic(this.scene)
   }
 
+  /** CSS px per logical px: fractional between whole scales (src/core/office/geometry.ts officeSize). */
   get scale(): number {
-    return this.cssScale
+    return this.sizeNow.cssScale
   }
 
   /** Device pixels per logical px of the canvas's backing store (src/core/office/geometry.ts backingScale). */
   get density(): number {
-    return this.backing
+    return this.sizeNow.backing
   }
 
-  /** The largest whole-number scale that fits `containerWidthCss`, and the backing-store density. */
+  /** How big the office is drawn now: its tile, its CSS size and the densities of its canvases. */
+  get size(): OfficeSize {
+    return this.sizeNow
+  }
+
+  /** The office fills `containerWidthCss` in whole CSS px per tile; the art is a whole number of
+   * backing px per art px and the browser stretches it. */
   resize(containerWidthCss: number, devicePixelRatio: number): void {
-    const cols = this.scene?.layout.cols ?? 36
-    this.cssScale = Math.min(MAX_SCALE, Math.max(1, Math.floor(containerWidthCss / (cols * TILE))))
+    this.containerWidth = containerWidthCss
     this.dpr = devicePixelRatio
     this.applySize()
   }
@@ -134,11 +139,11 @@ export class OfficeRenderer {
     const cols = layout?.cols ?? 36
     const rows = layout?.rows ?? 20
     // The office grows with its agents, so this is decided again whenever its size changes.
-    this.backing = backingScale(this.cssScale, this.dpr, cols, rows)
-    this.canvas.width = cols * TILE * this.backing
-    this.canvas.height = rows * TILE * this.backing
-    this.canvas.style.width = `${cols * TILE * this.cssScale}px`
-    this.canvas.style.height = `${rows * TILE * this.cssScale}px`
+    this.sizeNow = officeSize(this.containerWidth, this.dpr, cols, rows)
+    this.canvas.width = cols * TILE * this.sizeNow.backing
+    this.canvas.height = rows * TILE * this.sizeNow.backing
+    this.canvas.style.width = `${this.sizeNow.cssWidth}px`
+    this.canvas.style.height = `${this.sizeNow.cssHeight}px`
   }
 
   setScene(scene: Scene): void {
@@ -278,7 +283,8 @@ export class OfficeRenderer {
    * the floor, under every character, desk front, lamp, monitor, tag and bubble. */
   draw(nowMs: number, focusedId?: string, mascot?: MascotPose): DrawStats {
     const ctx = this.context
-    ctx.setTransform(this.backing, 0, 0, this.backing, 0, 0)
+    const backing = this.sizeNow.backing
+    ctx.setTransform(backing, 0, 0, backing, 0, 0)
     ctx.imageSmoothingEnabled = false
     const stats: DrawStats = { drawn: 0, walkers: [] }
     if (!this.scene || !this.staticLayer) return stats

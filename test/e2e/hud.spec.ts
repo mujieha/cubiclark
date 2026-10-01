@@ -170,20 +170,32 @@ test('the rooms the adapters put agents in: orchestrator, planner, reviewer and 
   }
 })
 
-test('the panel collapses and comes back, and the office does not change size', async ({ page }) => {
+test('the panel collapses and comes back, and the office fills the column each time', async ({ page }) => {
   const stop = await openDay(page)
   try {
     const canvas = page.locator('canvas.office-canvas')
+    /** How much of its column the office uses, as the page lays it out now. */
+    const widthUse = (): Promise<number> =>
+      page.evaluate(() => {
+        const art = document.querySelector('canvas.office-canvas') as HTMLCanvasElement
+        const host = document.querySelector('.office-host') as HTMLElement
+        return art.getBoundingClientRect().width / host.clientWidth
+      })
+    // 1600 px window, panel open: a 1172 px column, 32 px tiles, scale 2.
     await expect(canvas).toHaveAttribute('data-scale', '2')
+    await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
     await expect(page.locator('#hud')).toBeVisible()
     await page.locator('#hud-toggle').click()
     await expect(page.locator('#hud')).toBeHidden()
     await expect(page.locator('#hud-toggle')).toHaveText('Show panel')
     await expect(canvas).toBeVisible()
-    await expect(canvas).toHaveAttribute('data-scale', '2')
+    // Panel hidden: a 1568 px column, 43 px tiles. The office grew into it.
+    await expect(canvas).toHaveAttribute('data-scale', String(43 / 16))
+    await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
     await page.locator('#hud-toggle').click()
     await expect(page.locator('#hud')).toBeVisible()
     await expect(canvas).toHaveAttribute('data-scale', '2')
+    await expect.poll(widthUse).toBeGreaterThanOrEqual(0.9)
   } finally {
     await stop()
   }

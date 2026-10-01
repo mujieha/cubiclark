@@ -188,10 +188,17 @@ export class OfficeView {
   private resize(): void {
     const before = this.renderer.scale
     this.renderer.resize(this.container.clientWidth, this.env.devicePixelRatio())
-    this.canvas.dataset.scale = String(this.renderer.scale)
-    this.canvas.dataset.backing = String(this.renderer.density)
+    this.publishSize()
     if (this.renderer.scale !== before && this.previousLayout) this.overlay.setScale(this.renderer.scale, this.previousLayout.placements)
     this.loop.requestDraw()
+  }
+
+  /** What the tests read: how big the office is drawn (a taller office may need a lower density, geometry.ts backingScale). */
+  private publishSize(): void {
+    const size = this.renderer.size
+    this.canvas.dataset.scale = String(size.cssScale)
+    this.canvas.dataset.backing = String(size.backing)
+    this.canvas.dataset.tilePx = String(size.tileCssPx)
   }
 
   private publishMode(): void {
@@ -255,8 +262,7 @@ export class OfficeView {
     if (this.world && this.world.sources.transcripts.status !== 'starting') this.seeded = true
 
     this.renderer.setScene(scene)
-    // A taller office may need a lower density (geometry.ts backingScale): said here for the tests.
-    this.canvas.dataset.backing = String(this.renderer.density)
+    this.publishSize()
     if (this.empty) this.overlay.clear()
     else this.overlay.update(world, scene.layout, this.renderer.scale)
     this.canvas.dataset.rows = String(scene.layout.rows)
