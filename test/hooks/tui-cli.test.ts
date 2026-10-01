@@ -29,12 +29,20 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-/** The environment is spelled out: nothing about colour, locale or motion may come from the machine running the test. */
+/** The environment is spelled out: nothing about colour, locale or motion may come from the machine running
+ * the test (CI sets FORCE_COLOR). The keys are removed, not blanked: Node itself warns on stderr when both
+ * NO_COLOR and FORCE_COLOR are present, even empty. */
+function cleanEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  const drop = new Set(['NO_COLOR', 'FORCE_COLOR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'CUBICLARK_REDUCED_MOTION'])
+  const kept = Object.entries(process.env).filter(([key]) => !drop.has(key))
+  return { ...Object.fromEntries(kept), TERM: 'xterm', ...extra }
+}
+
 function tui(args: string[], extra: Record<string, string> = {}) {
   return spawnSync(process.execPath, [CLI, 'tui', '--fixture-home', home, '--state-dir', state, ...args], {
     encoding: 'utf8',
     timeout: 30_000,
-    env: { ...process.env, NO_COLOR: '', FORCE_COLOR: '', LANG: '', LC_ALL: '', LC_CTYPE: '', CUBICLARK_REDUCED_MOTION: '', TERM: 'xterm', ...extra },
+    env: cleanEnv(extra),
   })
 }
 
@@ -143,7 +151,7 @@ describe('bad input', () => {
     const result = spawnSync(process.execPath, [CLI, 'tui', '--once', '--fixture-home', join(root, 'nothing-here'), '--size', '100x30'], {
       encoding: 'utf8',
       timeout: 30_000,
-      env: { ...process.env, NO_COLOR: '1', LANG: '' },
+      env: cleanEnv({ NO_COLOR: '1' }),
     })
     expect(result.status).toBe(0)
     expect(linesOf(result.stdout)).toHaveLength(30)
