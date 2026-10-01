@@ -69,6 +69,11 @@ describe('the rules, each with its path', () => {
     expect(errorsOf({ ...okBase(), palettes: { day: { e: '#3d7fd9' } } })[0]).toMatch(/keys d and e are too close/)
   })
 
+  test('a palette whose project signs could not be read is refused: custom palettes are held to the same rule as the built-in ones', () => {
+    const errors = errorsOf({ ...okBase(), palettes: { day: { '6': '#d9a86c' } } })
+    expect(errors).toEqual([expect.stringMatching(/^\/palettes\/day: keys 1 and 6 have contrast \d\.\d, need 4\.5: project signs would be hard to read$/)])
+  })
+
   test('sprites: shape, id, size and characters', () => {
     expect(errorsOf({ ...okBase(), sprites: [] })).toEqual(['/sprites: must be an object of sprite id to { "rows": [...] }'])
     expect(errorsOf({ ...okBase(), sprites: { 'icon:question': { rows: [] } } })).toEqual([
