@@ -25,12 +25,38 @@ const INVISIBLE = /[\p{Cf}\p{Mn}\p{Me}]/gu
 const LONE_SURROGATE = /\p{Cs}/gu
 const UNASSIGNED = /[\p{Co}\p{Cn}]/gu
 
+// What the page's own wording uses that plain ASCII has a good stand-in for (middle dot, dashes, ellipsis,
+// arrows, quotes), so `--ascii` reads "quota -" and not "quota ?".
+const ASCII_FOLDS: Readonly<Record<string, string>> = {
+  '\u{b7}': '-',
+  '\u{2022}': '*',
+  '\u{2013}': '-',
+  '\u{2014}': '-',
+  '\u{2026}': '...',
+  '\u{2192}': '->',
+  '\u{2190}': '<-',
+  '\u{2191}': '^',
+  '\u{2193}': 'v',
+  '\u{d7}': 'x',
+  '\u{2018}': "'",
+  '\u{2019}': "'",
+  '\u{201c}': '"',
+  '\u{201d}': '"',
+  '\u{203a}': '>',
+  '\u{a0}': ' ',
+}
+const FOLDABLE = /[\u{b7}\u{2022}\u{2013}\u{2014}\u{2026}\u{2192}\u{2190}\u{2191}\u{2193}\u{d7}\u{2018}\u{2019}\u{201c}\u{201d}\u{203a}\u{a0}]/gu
+
 export function terminalText(text: string, opts: CellOptions): string {
   let out = text.replace(OSC, '').replace(STRING_SEQUENCE, '').replace(CSI, '').replace(TWO_BYTE, '')
   out = out.replace(SPACES, ' ')
   out = printable(out)
   out = out.normalize('NFC').replace(INVISIBLE, '').replace(LONE_SURROGATE, '\u{FFFD}').replace(UNASSIGNED, '?')
-  if (!opts.unicode) out = out.replace(/[^\u{20}-\u{7e}]/gu, '?')
+  if (!opts.unicode) {
+    // Letters with accents lose them (cafe), the page's punctuation gets its ASCII stand-in, the rest is `?`.
+    out = out.replace(FOLDABLE, (char) => ASCII_FOLDS[char] ?? '?')
+    out = out.normalize('NFD').replace(INVISIBLE, '').replace(/[^\u{20}-\u{7e}]/gu, '?')
+  }
   return out
 }
 

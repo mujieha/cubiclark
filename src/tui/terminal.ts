@@ -1,7 +1,7 @@
 // The terminal session of `cubiclark tui`: the alternate screen, a hidden cursor, raw keys, resizes,
-// and the terminal put back on every way out (a key, a signal, an exception, a normal exit). The five
-// control sequences below are the only ones this program ever writes besides colour (line.ts), and
-// none of them contains text from the World. The streams are injected, so a test needs no terminal.
+// and the terminal put back on every way out (a key, a signal, an exception, a normal exit). The four
+// constants below are the only control sequences this program ever writes besides colour (line.ts),
+// and none of them contains text from the World. The streams are injected, so a test needs no terminal.
 
 import { keyOf, type TuiKey } from '../core/tui/ui.js'
 

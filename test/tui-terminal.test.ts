@@ -61,7 +61,7 @@ function setup() {
 }
 
 describe('the sequences', () => {
-  test('are exactly the five fixed ones', () => {
+  test('are exactly the four fixed ones', () => {
     expect(ENTER).toBe('\x1b[?1049h\x1b[?25l')
     expect(LEAVE).toBe('\x1b[?25h\x1b[?1049l')
     expect(HOME).toBe('\x1b[H')

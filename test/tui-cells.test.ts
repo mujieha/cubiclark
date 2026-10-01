@@ -48,9 +48,12 @@ describe('terminalText: controls and invisible characters', () => {
     expect(terminalText('a\ud800b', U)).toBe('a\u{FFFD}b')
   })
 
-  test('without unicode everything above ~ becomes ?', () => {
-    expect(terminalText('café 漢🐕', A)).toBe('caf? ??')
+  test('without unicode accents are dropped, the page\'s punctuation gets an ASCII stand-in, the rest becomes ?', () => {
+    expect(terminalText('café 漢🐕', A)).toBe('cafe ??')
     expect(terminalText('plain', A)).toBe('plain')
+    expect(terminalText('quota — · a … b → c × d', A)).toBe('quota - - a ... b -> c x d')
+    expect(terminalText('it\u{2019}s \u{201c}x\u{201d}', A)).toBe('it\'s "x"')
+    expect(terminalText('café — 漢', U)).toBe('café — 漢')
   })
 })
 

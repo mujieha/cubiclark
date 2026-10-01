@@ -1,5 +1,5 @@
 // No file writes an escape byte unless it is one of the three that must: line.ts builds colour,
-// cells.ts strips sequences, terminal.ts has the five fixed control sequences. Anything else that
+// cells.ts strips sequences, terminal.ts has the four fixed control constants. Anything else that
 // mentions one is a place text could end up inside an escape sequence.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
