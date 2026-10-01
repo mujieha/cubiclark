@@ -16,6 +16,9 @@ import { DEFAULT_IDLE_DESKS, MAX_IDLE_DESKS, parseIdleDesks } from './core/visib
 import { defaultAssetsPath } from './server/assets-file.js'
 import { doctorExitCode, formatDoctorReport, runDoctor } from './server/doctor.js'
 import { startReplay } from './server/replay.js'
+import type { TuiSize } from './core/tui/render.js'
+import { parseSize } from './tui/env.js'
+import { runTui } from './tui/run.js'
 import {
   HooksCommandError,
   formatHooksStatus,
@@ -45,6 +48,13 @@ Usage:
   cubiclark replay --since <duration> [--speed <n>]
                                   Play back the events of the last <duration> (3h, 90m, 1h30m,
                                   2d; at most 14d) on the same page, <n> times as fast (default 10)
+  cubiclark tui [--once | --frames <n>] [--size <cols>x<rows>] [--no-color] [--no-animation] [--ascii]
+                                  The office in this terminal: status bar, a text office with
+                                  Morty, the list and the log. The same sources as serve, no
+                                  server. q quits, Tab moves the focus, arrows select, l toggles
+                                  the office. Not a terminal (a pipe): one frame, like --once.
+                                  Takes --fixture-home, --state-dir, --config, --since-hours,
+                                  --no-mascot and --idle-desks like the default command
   cubiclark hook                  The collector itself; Claude Code runs it, not people
 
   --config-dir <dir>   Claude config directory (default CLAUDE_CONFIG_DIR or ~/.claude)
@@ -58,6 +68,13 @@ Usage:
   --idle-desks <n>     How many idle sessions keep a desk: the n most recently active (default 5,
                        0 to 1000; serve, replay). The rest leave the office and the list, and
                        come back when they are active again; the status bar counts them
+  --once               tui only: print one frame and exit
+  --frames <n>         tui only: print n frames (1 to 1000), a tenth of a second apart, and exit
+  --size <cols>x<rows> tui only: the size of the frame (default the terminal's, else 80x24)
+  --no-color           tui only: no colour (NO_COLOR does the same; FORCE_COLOR forces it)
+  --no-animation       tui only: Morty sleeps and the typing letters stay still
+                       (CUBICLARK_REDUCED_MOTION=1 or TERM=dumb do the same)
+  --ascii              tui only: plain ASCII (no box drawing, no dog emoji)
   --claude-bin <path>  doctor only: the claude executable (default claude)
   --port <n>           Port to listen on (0 picks a free one). Default 4789.
   --since-hours <n>    How far back to read transcripts. Default 12. Ignored with
@@ -129,16 +146,37 @@ export interface ReplayCommand {
   idleDesks: number
 }
 
+export interface TuiCommand {
+  command: 'tui'
+  fixtureHome?: string
+  sinceHours: number
+  stateDir?: string
+  config?: string
+  mascot: boolean
+  idleDesks: number
+  /** Print one frame and exit. */
+  once: boolean
+  /** Print this many frames and exit. */
+  frames?: number
+  size?: TuiSize
+  /** False with `--no-color`. */
+  color: boolean
+  /** False with `--no-animation`. */
+  animation: boolean
+  ascii: boolean
+}
+
 export type Command =
   | ServeCommand
   | { command: 'hook' }
   | HooksCommand
   | DoctorCommand
   | ReplayCommand
+  | TuiCommand
   | { command: 'help' }
   | { command: 'version' }
 
-type CommandKind = 'serve' | 'hooks' | 'doctor' | 'replay'
+type CommandKind = 'serve' | 'hooks' | 'doctor' | 'replay' | 'tui'
 
 // Which flags each command accepts. A flag given to a command that ignores it is an error rather
 // than a silent no-op: `cubiclark hooks off --no-tools` should not look like it did something.
@@ -147,6 +185,7 @@ const ALLOWED_FLAGS: Record<CommandKind, readonly string[]> = {
   hooks: ['config-dir', 'state-dir', 'no-tools', 'purge', 'help', 'version'],
   doctor: ['config-dir', 'fixture-home', 'state-dir', 'since-hours', 'claude-bin', 'config', 'adapters', 'assets', 'help', 'version'],
   replay: ['since', 'speed', 'port', 'no-open', 'fixture-home', 'config-dir', 'state-dir', 'config', 'assets', 'no-mascot', 'idle-desks', 'help', 'version'],
+  tui: ['fixture-home', 'since-hours', 'state-dir', 'config', 'no-mascot', 'idle-desks', 'once', 'frames', 'size', 'no-color', 'no-animation', 'ascii', 'help', 'version'],
 }
 
 /** `--idle-desks`: a plain whole number from 0 to 1000 (0 means idle sessions never get a desk). */
@@ -156,6 +195,9 @@ function idleDesks(raw: string | undefined): number {
   if (value === undefined) throw new Error(`invalid --idle-desks: ${raw} (a whole number from 0 to ${MAX_IDLE_DESKS})`)
   return value
 }
+
+/** The most frames `tui --frames` prints. */
+const MAX_FRAMES = 1000
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
   if (raw === undefined) return fallback
@@ -190,6 +232,12 @@ export function parseCli(argv: readonly string[]): Command {
         adapters: { type: 'boolean' },
         'no-mascot': { type: 'boolean' },
         'idle-desks': { type: 'string' },
+        once: { type: 'boolean' },
+        frames: { type: 'string' },
+        size: { type: 'string' },
+        'no-color': { type: 'boolean' },
+        'no-animation': { type: 'boolean' },
+        ascii: { type: 'boolean' },
         'no-tools': { type: 'boolean' },
         purge: { type: 'boolean' },
         help: { type: 'boolean' },
@@ -205,7 +253,7 @@ export function parseCli(argv: readonly string[]): Command {
   if (values.version === true) return { command: 'version' }
 
   const name = positionals[0]
-  const kind: CommandKind = name === undefined ? 'serve' : name === 'hooks' || name === 'doctor' || name === 'replay' ? name : 'serve'
+  const kind: CommandKind = name === undefined ? 'serve' : name === 'hooks' || name === 'doctor' || name === 'replay' || name === 'tui' ? name : 'serve'
   if (name !== undefined && kind === 'serve') throw new Error(`unknown command: ${name} (see --help)`)
 
   for (const flag of Object.keys(values)) {
@@ -243,6 +291,34 @@ export function parseCli(argv: readonly string[]): Command {
       config: str('config'),
       assets: str('assets'),
       adapters: values.adapters === true,
+    }
+  }
+
+  if (kind === 'tui') {
+    const rawFrames = str('frames')
+    let frames: number | undefined
+    if (rawFrames !== undefined) {
+      frames = /^\d+$/.test(rawFrames) ? Number(rawFrames) : Number.NaN
+      if (!(frames >= 1 && frames <= MAX_FRAMES)) throw new Error(`invalid --frames: ${rawFrames} (a whole number from 1 to ${MAX_FRAMES})`)
+    }
+    if (values.once === true && frames !== undefined) throw new Error('--once and --frames cannot be used together')
+    const rawSize = str('size')
+    const size = rawSize === undefined ? undefined : parseSize(rawSize)
+    if (rawSize !== undefined && size === undefined) throw new Error(`invalid --size: ${rawSize} (<cols>x<rows>, for example 120x40)`)
+    return {
+      command: 'tui',
+      fixtureHome: str('fixture-home'),
+      sinceHours: positiveNumber(str('since-hours'), 12, 'since-hours'),
+      stateDir: str('state-dir'),
+      config: str('config'),
+      mascot: values['no-mascot'] !== true,
+      idleDesks: idleDesks(str('idle-desks')),
+      once: values.once === true,
+      frames,
+      size,
+      color: values['no-color'] !== true,
+      animation: values['no-animation'] !== true,
+      ascii: values.ascii === true,
     }
   }
 
@@ -483,6 +559,29 @@ async function runReplay(cmd: ReplayCommand): Promise<void> {
   process.on('SIGTERM', shutdown)
 }
 
+/** `tui`: resolved as serve resolves its own, so a fixture home never reaches the real state directory
+ * or the real configuration. Returns the exit code. */
+async function runTuiCommand(cmd: TuiCommand): Promise<number> {
+  const { root, fixtureMode } = resolveRoot(cmd.fixtureHome, process.env, homedir())
+  const stateDir = cmd.stateDir ?? (fixtureMode ? undefined : resolveStateDir(undefined, process.env, homedir()))
+  const configPath = cmd.config ?? (stateDir === undefined ? undefined : join(stateDir, 'config.json'))
+  return runTui({
+    root,
+    fixtureMode,
+    sinceHours: cmd.sinceHours,
+    stateDir,
+    configPath,
+    mascot: cmd.mascot,
+    idleDesks: cmd.idleDesks,
+    once: cmd.once,
+    frames: cmd.frames,
+    size: cmd.size,
+    color: cmd.color,
+    animation: cmd.animation,
+    ascii: cmd.ascii,
+  })
+}
+
 async function main(): Promise<void> {
   let cmd: Command
   try {
@@ -519,6 +618,14 @@ async function main(): Promise<void> {
     case 'replay':
       await runReplay(cmd)
       return
+    case 'tui': {
+      // Every frame has been written (and the terminal given back) by the time this resolves; the sources'
+      // timers are stopped too, but a watcher that is slow to close must not keep a one-shot waiting.
+      const code = await runTuiCommand(cmd)
+      process.exitCode = code
+      process.exit(code)
+      return
+    }
     case 'serve':
       await runServe(cmd)
       return
