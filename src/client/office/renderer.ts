@@ -10,11 +10,11 @@
 
 import { TILE, officeSize, type OfficeSize, type Point, type Rect } from '../../core/office/geometry.js'
 import type { OfficeLayout, Placement } from '../../core/office/layout.js'
-import { BUBBLE_H, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
+import { BUBBLE_H, COMPACT_W, DESK_BUBBLE_MAX_W, placeBubbles, type BubbleBox } from '../../core/office/bubbles.js'
 import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
 import { deskObjects, deskPropRects, type TileId, type TileMap } from '../../core/office/tilemap.js'
-import { PROJECT_SIGN_TEXT, ROOM_NAME_TEXT, WHITEBOARD_TEXT, fitText, fontFor, labelBoxes, textMetrics, type LabelBox } from '../../core/office/text.js'
+import { BUBBLE_STYLES, PROJECT_SIGN_TEXT, ROOM_NAME_TEXT, WHITEBOARD_TEXT, fitText, fontFor, labelBoxes, textMetrics, type LabelBox } from '../../core/office/text.js'
 import { whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
@@ -60,7 +60,6 @@ export interface DrawStats {
   walkers: { agentId: string; box: Rect }[]
 }
 
-const FONT = "6px ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace"
 const PULSE_MS = 350
 
 /** What the office is drawn from: the palette (a theme's, with any custom colours merged in), the
@@ -72,13 +71,6 @@ export interface Look {
   /** The palette Morty, his basket, bowl and ball are baked in: `palette` plus his three colours. */
   mascot: Palette
 }
-
-/** The ink, accent, fill and edge a bubble style is drawn in. */
-const BUBBLE_STYLES = {
-  plain: { fill: '1', edge: '0', ink: '0', accent: 'd', text: '0' },
-  alert: { fill: 'a', edge: '0', ink: '1', accent: '1', text: '1' },
-  muted: { fill: '2', edge: '3', ink: '3', accent: '2', text: '3' },
-} as const
 
 /** A word drawn this frame: where it starts (CSS px, vertical middle) and in which colour key. */
 interface Word {
@@ -450,23 +442,29 @@ export class OfficeRenderer {
     for (const item of items) item.draw()
     // Where each bubble goes is decided together (src/core/office/bubbles.ts), so a helper's bubble
     // does not land on a sign or on the head of the helper above it.
-    ctx.font = FONT
-    const boxes = new Map(
-      placeBubbles(
-        scene.layout,
-        wanted.map(({ placement, bubble }) => ({ agentId: placement.agentId, width: this.bubbleWidth(ctx, placement, bubble) }))
-      ).map((box) => [box.agentId, box])
-    )
+    const texts = new Map<string, string>()
+    const requests = wanted.map(({ placement, bubble }) => {
+      const size = this.bubbleSize(placement, bubble)
+      if (size.text !== undefined) texts.set(placement.agentId, size.text)
+      return { agentId: placement.agentId, width: size.width }
+    })
+    const boxes = new Map(placeBubbles(scene.layout, requests).map((box) => [box.agentId, box]))
+    const words: Word[] = []
+    const s = this.sizeNow.cssScale
     for (const { placement, bubble } of wanted) {
       const box = boxes.get(placement.agentId)
-      if (box) this.drawBubble(ctx, placement, bubble, nowMs, box)
+      if (!box) continue
+      this.drawBubble(ctx, bubble, nowMs, box)
+      const text = texts.get(placement.agentId)
+      // After the icon and its padding: 4 + 9 + 3 px in from the bubble's left edge.
+      if (text !== undefined) words.push({ text, x: (box.rect.x + 16) * s, y: (box.rect.y + BUBBLE_H / 2 + 0.5) * s, colour: BUBBLE_STYLES[bubble.style].text })
     }
 
     if (focusedId) {
       const focused = scene.layout.placements.find((placement) => placement.agentId === focusedId)
       if (focused) this.drawRing(ctx, focused.boxPx)
     }
-    this.paintText([])
+    this.paintText(words)
     return stats
   }
 
@@ -624,17 +622,20 @@ export class OfficeRenderer {
     return this.arrows[direction]
   }
 
-  /** A desk's bubble carries text after its icon; a helper's is the icon alone. */
-  private bubbleWidth(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble): number {
-    const withText = placement.kind === 'desk' && bubble.text !== undefined
-    const textWidth = withText ? Math.ceil(ctx.measureText(bubble.text as string).width) : 0
-    return Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + (withText ? 3 + textWidth : 0) + 4)
+  /** A desk's bubble carries text after its icon; a helper's is the icon alone. The text is cut to
+   * the room the bubble's widest size leaves it (the icon and the padding take 20 logical px), at the
+   * small font's size now: so a bubble is never wider than DESK_BUBBLE_MAX_W, and never squashes a word. */
+  private bubbleSize(placement: Placement, bubble: ResolvedBubble): { width: number; text?: string } {
+    const compact = { width: COMPACT_W }
+    if (placement.kind !== 'desk' || bubble.text === undefined) return compact
+    const s = this.sizeNow.cssScale
+    const fitted = this.fit(bubble.text, (DESK_BUBBLE_MAX_W - 20) * s)
+    if (fitted.text === '') return compact
+    return { width: Math.min(DESK_BUBBLE_MAX_W, 4 + 9 + 3 + Math.ceil(fitted.width / s) + 4), text: fitted.text }
   }
 
-  private drawBubble(ctx: CanvasRenderingContext2D, placement: Placement, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
+  private drawBubble(ctx: CanvasRenderingContext2D, bubble: ResolvedBubble, nowMs: number, box: BubbleBox): void {
     const style = BUBBLE_STYLES[bubble.style]
-    const withText = placement.kind === 'desk' && bubble.text !== undefined
-    ctx.font = FONT
     const width = box.rect.w
     const x = box.rect.x
     const y = box.rect.y
@@ -676,12 +677,7 @@ export class OfficeRenderer {
     const def = bubble.icon === 'arrow' ? this.arrowSprite(bubble.direction ?? 'right') : ICONS[bubble.icon]
     // The cache key already includes the ink and accent, so the same icon on another bubble is another canvas.
     ctx.drawImage(this.cache.get(`icon:${bubble.icon}:${bubble.direction ?? ''}`, def, { S: style.ink, K: style.accent }), x + 4, y + 2)
-    if (withText) {
-      ctx.fillStyle = this.colour(style.text)
-      ctx.textBaseline = 'middle'
-      // `width - 20` is the room the text has: the icon and the padding take the rest.
-      ctx.fillText(bubble.text as string, x + 4 + 9 + 3, y + BUBBLE_H / 2 + 0.5, width - 20)
-    }
+    // The text is a word: on the text canvas, over this bubble (draw).
     ctx.restore()
   }
 

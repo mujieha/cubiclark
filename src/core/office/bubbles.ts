@@ -10,9 +10,10 @@ import type { OfficeLayout, Placement } from './layout.js'
 export const BUBBLE_H = 13
 /** An icon-only bubble: 4 + 9 + 4. */
 export const COMPACT_W = 17
-/** The widest a desk's bubble may be: its 12-character text in a 6 px font is about 44 px, so the
- * real ones are at most 64. The renderer never draws one wider, which is what lets Morty's map
- * (mascot-map.ts) keep clear of every bubble without knowing the text. */
+/** The widest a desk's bubble may be: its text is cut to fit the 52 logical px the icon and the padding
+ * leave (at the small font's size, src/core/office/text.ts), so the real ones are at most 72. The
+ * renderer never draws one wider, which is what lets Morty's map (mascot-map.ts) keep clear of every
+ * bubble without knowing the text. */
 export const DESK_BUBBLE_MAX_W = 72
 
 export interface BubbleRequest {
