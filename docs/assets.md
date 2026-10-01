@@ -70,8 +70,12 @@ shirt), `f` pink (Fable shirt). The built-in day and night palettes are in `src/
 **A palette must still tell things apart.** After a pack's colours are merged over a theme's, the
 result must pass these rules or the manifest is refused, at `/palettes/<theme>`:
 
-- ink on paper (`0` and `1`) has a contrast of at least 4.5 (bubble text);
-- paper on red (`1` and `a`) has a contrast of at least 3 (the alert bubble);
+- ink on paper (`0` and `1`) has a contrast of at least 4.5 (bubble text and the whiteboard label);
+- paper on wall face (`1` and `5`) has a contrast of at least 4.5 (room names);
+- paper on wood dark (`1` and `6`) has a contrast of at least 4.5 (project signs, which are drawn on a
+  plate of `6`);
+- ink on light grey (`0` and `2`) has a contrast of at least 4.5 (the text of a bubble of a quiet agent);
+- paper on red (`1` and `a`) has a contrast of at least 3 (the alert bubble, which has no text);
 - red, amber and green (`a`, `b`, `c`) are at least 80 apart in RGB (the lamps and marks);
 - the shirts (`3`, `c`, `d`, `e`, `f`) are at least 60 apart from each other (the models).
 
