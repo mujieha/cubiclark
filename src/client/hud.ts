@@ -3,7 +3,19 @@
 // says is decided by src/core/hud.ts; this only prints it. Every string reaches the page through
 // textContent, never as markup, and swatch colours are set through the CSSOM (CSP: style-src 'self').
 
-import { agentCard, LEGEND, logFilterOptions, logRows, statusBar, timelineView, type LogFilter, type StageState } from '../core/hud.js'
+import {
+  agentCard,
+  LEGEND,
+  logColumns,
+  logColumnsTemplate,
+  logFilterOptions,
+  logRows,
+  logRowTitle,
+  statusBar,
+  timelineView,
+  type LogFilter,
+  type StageState,
+} from '../core/hud.js'
 import type { Task, World } from '../core/types.js'
 import type { HiddenCounts } from '../core/visible.js'
 import type { ModelFamily } from '../core/office/roles.js'
@@ -77,6 +89,8 @@ export class Hud {
   private readonly projectSelect = el('select', { id: 'hud-log-project' })
   private readonly taskFilterSelect = el('select', { id: 'hud-log-task' })
   private readonly logList = el('ol', { className: 'hud-log-list' })
+  /** Ten characters in the log's font, never seen: how wide one character is (the column plan is in characters). */
+  private readonly measure = el('span', { className: 'hud-measure', text: '0000000000' })
   private readonly timelineSection = el('section', { className: 'hud-section', id: 'hud-timeline' })
   private readonly taskSelect = el('select', { id: 'hud-timeline-task' })
   private readonly timelineBody = el('div', { className: 'hud-timeline-body' })
@@ -123,6 +137,10 @@ export class Hud {
     filters.appendChild(this.taskFilterSelect)
     this.logSection.appendChild(filters)
     this.logSection.appendChild(this.logList)
+    this.measure.setAttribute('aria-hidden', 'true')
+    this.logSection.appendChild(this.measure)
+    // The columns follow the log's width (the panel beside the office, or full width below it).
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.applyLogColumns()).observe(this.logList)
 
     const timelineHead = el('div', { className: 'hud-filters' })
     timelineHead.appendChild(el('span', { className: 'hud-label', text: 'task' }))
@@ -169,6 +187,16 @@ export class Hud {
 
   // --- The session log ----------------------------------------------------------------------
 
+  /** The column plan (src/core/hud.ts logColumns) for the log's width now: the event column only when
+   * the log is wide enough, and the result takes the rest. */
+  private applyLogColumns(): void {
+    const ch = this.measure.offsetWidth / 10
+    if (!(ch > 0)) return
+    const plan = logColumns(this.logList.clientWidth / ch)
+    this.logList.dataset.columns = plan.event > 0 ? 'full' : 'compact'
+    this.logList.style.setProperty('--log-columns', logColumnsTemplate(plan))
+  }
+
   private renderLog(world: World | undefined, state: HudState): void {
     const options = world ? logFilterOptions(world) : { projects: [], tasks: [] }
     setOptions(this.projectSelect, [ALL, ...options.projects], (value) => (value === ALL ? 'all projects' : value), state.filter.project ?? ALL)
@@ -187,6 +215,8 @@ export class Hud {
       const item = el('li', { className: 'hud-log-row' })
       item.dataset.agentId = row.agentId
       item.dataset.event = row.event
+      // Every column may be cut on screen; the tooltip has the whole row.
+      item.title = logRowTitle(row, timeOf(row.ts))
       // The agent is a button: the log is usable by keyboard (Tab, then Enter or Space). A click on
       // the button selects once; a click anywhere else on the row selects too, for the mouse.
       const agent = el('button', { className: 'log-agent', text: row.agent })

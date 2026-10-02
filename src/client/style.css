@@ -468,11 +468,25 @@ tbody tr[aria-current='true'] {
   overflow-y: auto;
 }
 
+/* The columns come from the plan in src/core/hud.ts (logColumns), set on the list by the panel. */
 .hud-log-row {
   display: grid;
-  grid-template-columns: 5.5em 8.5em 5.5em 1fr;
+  grid-template-columns: var(--log-columns, 5.5em 8.5em 5.5em 1fr);
   gap: 0 6px;
   cursor: pointer;
+}
+
+/* A narrow log drops the event column: the result gets the room, the row's tooltip has the event. */
+.hud-log-list[data-columns='compact'] .log-event {
+  display: none;
+}
+
+/* Ten characters in the log's font, measured and never seen. */
+.hud-measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  pointer-events: none;
 }
 
 .hud-log-row:hover {

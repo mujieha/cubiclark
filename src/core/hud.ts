@@ -145,6 +145,40 @@ export function logRows(world: World, filter: LogFilter, limit = 200): LogRow[] 
   return rows.length > limit ? rows.slice(-limit) : rows
 }
 
+/** The panel's log keeps its event column only from this many characters wide, as the terminal does
+ * (src/core/tui/render.ts): below it the result, the part worth reading, gets that room. */
+export const LOG_EVENT_MIN_CH = 60
+const LOG_TIME_CH = 8
+const LOG_AGENT_CH = 13
+const LOG_EVENT_CH = 12
+const LOG_MIN_RESULT_CH = 8
+
+/** The log's columns in characters: time, agent, event (0 when dropped) and what is left for the result. */
+export interface LogColumns {
+  time: number
+  agent: number
+  event: number
+  result: number
+}
+
+/** The column plan for a log `widthCh` characters wide; one character between columns. */
+export function logColumns(widthCh: number): LogColumns {
+  const width = Number.isFinite(widthCh) && widthCh > 0 ? Math.floor(widthCh) : 0
+  const event = width >= LOG_EVENT_MIN_CH ? LOG_EVENT_CH : 0
+  const gaps = event > 0 ? 3 : 2
+  return { time: LOG_TIME_CH, agent: LOG_AGENT_CH, event, result: Math.max(LOG_MIN_RESULT_CH, width - LOG_TIME_CH - LOG_AGENT_CH - event - gaps) }
+}
+
+/** The plan as a CSS grid template: fixed columns in `ch`, and the result takes the rest. */
+export function logColumnsTemplate(columns: LogColumns): string {
+  return `${columns.time}ch ${columns.agent}ch ${columns.event > 0 ? `${columns.event}ch ` : ''}minmax(0, 1fr)`
+}
+
+/** The whole row as one line, for its tooltip: every column is cut on screen, nothing is cut here. */
+export function logRowTitle(row: LogRow, time: string): string {
+  return [time, row.agent, row.event, row.result].filter((part) => part !== '').join(' · ')
+}
+
 // --- Task timeline ------------------------------------------------------------------------------
 
 export type StageName = 'planning' | 'building' | 'review' | 'done'

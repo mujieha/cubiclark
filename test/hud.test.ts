@@ -2,7 +2,19 @@
 
 import { describe, expect, test } from 'vitest'
 import { buildTask } from '../src/core/adapters/task-folder.js'
-import { agentCard, defaultTaskId, LEGEND, logFilterOptions, logRows, statusBar, timelineView } from '../src/core/hud.js'
+import {
+  agentCard,
+  defaultTaskId,
+  LEGEND,
+  LOG_EVENT_MIN_CH,
+  logColumns,
+  logColumnsTemplate,
+  logFilterOptions,
+  logRows,
+  logRowTitle,
+  statusBar,
+  timelineView,
+} from '../src/core/hud.js'
 import { reduce } from '../src/core/reducer.js'
 import type { AdapterStatus, AgentEvent, Task, World } from '../src/core/types.js'
 import { emptyWorld } from '../src/core/world.js'
@@ -220,6 +232,38 @@ describe('the session log', () => {
     const w = { ...logged(), tasks: { b: { id: 'b', timeline: [] }, a: { id: 'a', timeline: [] } } }
     expect(logFilterOptions(w)).toEqual({ projects: ['demo', 'shop'], tasks: ['a', 'b'] })
     expect(logFilterOptions(world())).toEqual({ projects: [], tasks: [] })
+  })
+})
+
+describe('the panel log columns', () => {
+  test('the default panel (about 49 characters) has no event column, and the result gets the room', () => {
+    expect(logColumns(49)).toEqual({ time: 8, agent: 13, event: 0, result: 26 })
+    expect(logColumnsTemplate(logColumns(49))).toBe('8ch 13ch minmax(0, 1fr)')
+  })
+
+  test('the event column comes back from 60 characters, as in the terminal', () => {
+    expect(LOG_EVENT_MIN_CH).toBe(60)
+    expect(logColumns(59).event).toBe(0)
+    expect(logColumns(60).event).toBe(12)
+    expect(logColumnsTemplate(logColumns(80))).toBe('8ch 13ch 12ch minmax(0, 1fr)')
+  })
+
+  test('dropping the event gives its room to the result', () => {
+    const narrow = logColumns(59)
+    const kept = { ...narrow, event: 12, result: 59 - 8 - 13 - 12 - 3 }
+    expect(narrow.result).toBeGreaterThan(kept.result)
+    expect(narrow.result).toBe(36)
+    expect(logColumns(80).result).toBe(44)
+  })
+
+  test('a width that is no width still leaves the result readable', () => {
+    for (const width of [0, -5, Number.NaN, Number.POSITIVE_INFINITY, 10]) expect(logColumns(width).result).toBeGreaterThanOrEqual(8)
+  })
+
+  test("a row's tooltip holds its time, agent, event and result, uncut", () => {
+    const row = { ts: '2026-01-16T10:00:01.000Z', agentId: A1, agent: '00000001 builder', event: 'tool_start', result: 'Edit app.ts · waiting for permission to write' }
+    expect(logRowTitle(row, '10:00:01')).toBe('10:00:01 · 00000001 builder · tool_start · Edit app.ts · waiting for permission to write')
+    expect(logRowTitle({ ...row, result: '' }, '')).toBe('00000001 builder · tool_start')
   })
 })
 

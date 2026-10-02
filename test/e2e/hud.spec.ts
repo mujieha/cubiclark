@@ -123,6 +123,30 @@ test('the session log follows the task filter, and a row selects its agent', asy
   }
 })
 
+test('the panel is too narrow for the event column: it is dropped, the result gets the room, and the tooltip has the whole row', async ({ page }) => {
+  const stop = await openDay(page)
+  try {
+    const list = page.locator('#hud-log .hud-log-list')
+    await expect(list).toHaveAttribute('data-columns', 'compact')
+    const first = page.locator('#hud-log .hud-log-row').first()
+    await expect(first.locator('.log-event')).toBeHidden()
+    const event = await first.getAttribute('data-event')
+    const result = await first.locator('.log-result').textContent()
+    expect(event).toBeTruthy()
+    expect(result).toBeTruthy()
+    const title = await first.getAttribute('title')
+    expect(title).toContain(` · ${event ?? ''} · `)
+    expect(title).toContain(result ?? '')
+
+    // Full width (the panel below the office in a narrow window): the event column comes back.
+    await page.setViewportSize({ width: 1000, height: 1024 })
+    await expect(list).toHaveAttribute('data-columns', 'full')
+    await expect(first.locator('.log-event')).toBeVisible()
+  } finally {
+    await stop()
+  }
+})
+
 test('the log is usable by keyboard: its scroll area and each row\'s agent take focus, and Enter selects that agent', async ({ page }) => {
   const stop = await openDay(page)
   try {
