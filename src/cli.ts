@@ -64,9 +64,9 @@ Usage:
   --assets <file>      Custom-assets manifest (default <state dir>/assets/manifest.json; none is
                        read from a --fixture-home without --state-dir). doctor checks it and
                        exits 1 when it is invalid
-  --no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)
+  --no-mascot          Leave Morty, the office corgi, out (serve, replay, tui)
   --idle-desks <n>     How many idle sessions keep a desk: the n most recently active (default 5,
-                       0 to 1000; serve, replay). The rest leave the office and the list, and
+                       0 to 1000; serve, replay, tui). The rest leave the office and the list, and
                        come back when they are active again; the status bar counts them
   --once               tui only: print one frame and exit
   --frames <n>         tui only: print n frames (1 to 1000), a tenth of a second apart, and exit
