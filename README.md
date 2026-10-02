@@ -202,7 +202,8 @@ The office, the list and the panel show only the agents that matter now, and say
 out. One rule (`src/core/visible.ts`) decides, and the page applies it once to each update:
 
 - **Every agent that is working is shown:** thinking, reading, editing, running, searching, browsing,
-  delegating, compacting, starting, waiting for a permission, rate limited or stuck.
+  delegating, compacting, starting, waiting for a permission or rate limited. (An agent that is stuck
+  is shown too, for 30 minutes: see below.)
 - **Of the sessions waiting for you, the five most recently active are shown.** `--idle-desks <n>` (on
   the default command and on `replay`; a whole number from 0 to 1000) changes the five; with 0 no
   idle session has a desk. Background workers count as sessions here. (A subagent finishes when its
@@ -210,11 +211,14 @@ out. One rule (`src/core/visible.ts`) decides, and the page applies it once to e
   working helper stays, and does not use one of the n, so the helper keeps its stool beside it.
 - **An agent that has finished or ended stays for 10 minutes, and one that has failed for 30** (it
   needs a look), counted from when it stopped. After that it is gone.
+- **An agent that is stuck stays for 30 minutes,** counted from when it got stuck (a killed session's
+  subagent would otherwise sit in the office all day). After that it is gone, counted as `stuck not
+  shown` and not as finished, since it did not finish. If it moves again it is back on that update.
 - **The rest leave without a sound**: no walk-out, no tag on the board, no line in the session log. An
   agent that is hidden and becomes active again is back on that very update, and walks in through the
   door like anyone who arrives.
 - **The trace:** the line under the office and the panel's status bar say `195 idle not shown · 6
-  finished not shown` (only the parts that are not zero). When nothing at all is in view the page says
+  finished not shown` (and `1 stuck not shown`; only the parts that are not zero). When nothing at all is in view the page says
   `No agents working right now · 7 idle not shown` and not that there are no agents.
 
 The World itself is not changed: the server, `world.json`, the session log and `cubiclark doctor`
@@ -433,7 +437,7 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   folders listed, milliseconds).
 - **A session waiting for you that is not among the five most recently active is not in the office
   or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
-  is shown for as long as it is stuck, however old, since it may need a look.
+  is shown for 30 minutes and then counted as `stuck not shown`; the 30 minutes are fixed.
 - **In the terminal (`cubiclark tui`):** terminals disagree about the width of emoji and of some
   punctuation (`--ascii` avoids both); agents do not walk, they are at their seats at once; Morty is
   placed by room, not by tile; there is no mouse, no task timeline and no log filter; Ctrl+Z does not

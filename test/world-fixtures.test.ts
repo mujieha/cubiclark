@@ -84,7 +84,7 @@ describe('the big worlds', () => {
     const now = Date.parse(world.clock)
     const shown = visibleAgents(world, now)
     expect(shown.ids.size).toBe(49)
-    expect(shown.hidden).toEqual({ idle: 195, finished: 6 })
+    expect(shown.hidden).toEqual({ idle: 195, finished: 6, stuck: 0 })
     expect(hiddenText(shown.hidden)).toBe('195 idle not shown · 6 finished not shown')
     for (let k = 31; k <= 35; k++) expect(shown.ids.has(worldSessionId(k))).toBe(true)
     expect(shown.ids.has(worldSessionId(36))).toBe(false)

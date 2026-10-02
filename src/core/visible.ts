@@ -12,6 +12,9 @@ export const MAX_IDLE_DESKS = 1000
 export const FINISHED_GRACE_MS = 10 * 60 * 1000
 /** A failed agent needs attention: it stays longer. */
 export const FAILED_GRACE_MS = 30 * 60 * 1000
+/** A stuck agent (quiet far longer than it should be) stays this long in that state, then leaves the
+ * view: a killed session's subagent would otherwise sit in the office all day. */
+export const STUCK_GRACE_MS = 30 * 60 * 1000
 
 /** Same limit as roles.ts's MAX_ANCESTOR_STEPS: past it a helper counts as unanchored anyway. */
 const MAX_ANCESTOR_STEPS = 8
@@ -23,6 +26,7 @@ export interface VisibleOptions {
   idleDesks?: number
   finishedGraceMs?: number
   failedGraceMs?: number
+  stuckGraceMs?: number
 }
 
 export interface HiddenCounts {
@@ -30,6 +34,8 @@ export interface HiddenCounts {
   idle: number
   /** `finished`, `ended` and `failed` agents past their grace time. */
   finished: number
+  /** `stuck` agents that have been stuck past their grace time. */
+  stuck: number
 }
 
 export interface VisibleSet {
@@ -51,8 +57,8 @@ function activityMs(agent: Agent): number {
 }
 
 /** Who is shown at `nowMs`:
- * 1. finished, ended and failed agents for a grace time after they stopped (an unreadable time fails
- *    open: the agent is shown);
+ * 1. finished, ended and failed agents for a grace time after they stopped, and stuck agents for a
+ *    grace time after they got stuck (an unreadable time fails open: the agent is shown);
  * 2. of the agents waiting for you, the `idleDesks` most recently active (ties by id);
  * 3. everyone else, always;
  * 4. an idle parent of a shown agent that is not finished, so a helper stays on its stool by that desk
@@ -61,14 +67,19 @@ export function visibleAgents(world: World, nowMs: number, options: VisibleOptio
   const idleDesks = parseIdleDesks(options.idleDesks) ?? DEFAULT_IDLE_DESKS
   const finishedGraceMs = options.finishedGraceMs ?? FINISHED_GRACE_MS
   const failedGraceMs = options.failedGraceMs ?? FAILED_GRACE_MS
+  const stuckGraceMs = options.stuckGraceMs ?? STUCK_GRACE_MS
 
   const ids = new Set<string>()
   const idle: Agent[] = []
   let hiddenFinished = 0
+  let hiddenStuck = 0
   for (const agent of Object.values(world.agents)) {
     if (TERMINAL.has(agent.state)) {
       const grace = agent.state === 'failed' ? failedGraceMs : finishedGraceMs
       if (nowMs - Date.parse(agent.stateSince) > grace) hiddenFinished += 1
+      else ids.add(agent.id)
+    } else if (agent.state === 'stuck') {
+      if (nowMs - Date.parse(agent.stateSince) > stuckGraceMs) hiddenStuck += 1
       else ids.add(agent.id)
     } else if (agent.state === 'waiting_user') {
       idle.push(agent)
@@ -102,7 +113,7 @@ export function visibleAgents(world: World, nowMs: number, options: VisibleOptio
     }
   }
 
-  return { ids, hidden: { idle: idleHidden.size, finished: hiddenFinished } }
+  return { ids, hidden: { idle: idleHidden.size, finished: hiddenFinished, stuck: hiddenStuck } }
 }
 
 /** The same World with only the visible agents; the same reference when nothing is hidden. Nothing
@@ -115,11 +126,13 @@ export function withVisibleAgents(world: World, visible: VisibleSet): World {
   return { ...world, agents }
 }
 
-/** "195 idle not shown · 6 finished not shown": only the non-zero parts; undefined when nothing is hidden. */
+/** "195 idle not shown · 6 finished not shown · 1 stuck not shown": only the non-zero parts; undefined
+ * when nothing is hidden. */
 export function hiddenText(hidden: HiddenCounts | undefined): string | undefined {
   if (!hidden) return undefined
   const parts: string[] = []
   if (hidden.idle > 0) parts.push(`${hidden.idle} idle not shown`)
   if (hidden.finished > 0) parts.push(`${hidden.finished} finished not shown`)
+  if (hidden.stuck > 0) parts.push(`${hidden.stuck} stuck not shown`)
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
