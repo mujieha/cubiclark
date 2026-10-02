@@ -5,6 +5,14 @@
   "type": "module",
   "description": "A local view of live Claude Code agents and their states.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mujieha/cubiclark.git"
+  },
+  "homepage": "https://github.com/mujieha/cubiclark#readme",
+  "bugs": {
+    "url": "https://github.com/mujieha/cubiclark/issues"
+  },
   "engines": {
     "node": ">=22.12.0"
   },
@@ -12,7 +20,8 @@
     "cubiclark": "dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "SECURITY.md"
   ],
   "scripts": {
     "test": "vitest run",
