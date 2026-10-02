@@ -17,7 +17,7 @@
     "node": ">=22.12.0"
   },
   "bin": {
-    "cubiclark": "dist/cli.js"
+    "cubiclark": "dist/bin.js"
   },
   "files": [
     "dist",
@@ -34,7 +34,7 @@
     "test:e2e:firefox": "npm run build && playwright test --config playwright.firefox.config.ts",
     "test:hooks": "npm run build && vitest run --config vitest.hooks.config.ts",
     "bench:hook": "npm run build && tsx scripts/bench-hook.ts",
-    "start": "node dist/cli.js"
+    "start": "node dist/bin.js"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

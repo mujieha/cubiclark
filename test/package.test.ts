@@ -26,4 +26,8 @@ describe('package.json', () => {
   test('the tarball holds the build and the security policy, nothing else of ours', async () => {
     expect((await packageJson()).files).toEqual(['dist', 'SECURITY.md'])
   })
+
+  test('the installed command is the import-free entry that settles the colour variables first', async () => {
+    expect((await packageJson()).bin).toEqual({ cubiclark: 'dist/bin.js' })
+  })
 })

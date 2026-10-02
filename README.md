@@ -91,7 +91,7 @@ bench:hook` measures what it adds over an empty Node script: about 6 ms there, a
 npm test              # vitest: unit tests, no build needed
 npm run typecheck
 npm run lint
-npm run build         # tsc + vite; writes dist/
+npm run build         # tsc + vite; writes dist/ (dist/bin.js is the `cubiclark` command)
 npm run test:hooks    # builds, then spawns the real collector and CLI against fixture dirs
 npm run test:e2e      # builds, then runs the Playwright end-to-end tests (Chromium)
 npm run test:e2e:firefox   # optional: the behaviour specs in Firefox, screenshots ignored
@@ -375,7 +375,12 @@ and `--size 120x40` sets the size of a printed frame (otherwise the terminal's, 
 code is 0, or 130, 143 and 129 after SIGINT, SIGTERM and SIGHUP.
 
 **Colour and motion.** `NO_COLOR` or `--no-color` gives a frame with no escape code at all (the
-selection and the focus are then marked with `>` and brackets); `FORCE_COLOR` colours a pipe. Box
+selection and the focus are then marked with `>` and brackets); `FORCE_COLOR` colours a pipe. The order:
+`--no-color` always wins, then a non-empty `NO_COLOR`, then `FORCE_COLOR` (anything but `0`), then
+"is it a terminal". With both variables set, `cubiclark` drops `FORCE_COLOR` from its own environment
+before anything else runs (an empty `NO_COLOR` is dropped instead), so Node prints no warning that
+would tear the screen. That first step is in `dist/bin.js`, the installed command; `node dist/cli.js`
+runs the same program without it, and Node's warning can then appear. Box
 drawing and the dog emoji are used only under a UTF-8 locale and without `--ascii`; `--ascii` also
 turns the page's accents and punctuation into plain ones. `--no-animation`, `CUBICLARK_REDUCED_MOTION=1`
 and `TERM=dumb` stop the motion: Morty sleeps in his basket and the typing letters (the model letter of a

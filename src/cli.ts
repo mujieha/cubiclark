@@ -582,7 +582,8 @@ async function runTuiCommand(cmd: TuiCommand): Promise<number> {
   })
 }
 
-async function main(): Promise<void> {
+/** The program: bin.ts calls it after settling the colour variables; `node dist/cli.js` calls it below. */
+export async function main(): Promise<void> {
   let cmd: Command
   try {
     cmd = parseCli(process.argv.slice(2))
