@@ -282,7 +282,9 @@ the log to select it; click it again to clear.
   a prompt or a tool's content. Filter by project or by task.
 - **Task timeline:** for the selected agent's task, else the newest live one (or pick one): planning,
   building, review and done with where the task is, and its entries, with a mark where the model
-  changed ("opus → sonnet"). The **whiteboard** in the planning room shows the same task in small.
+  changed ("opus → sonnet"). The **whiteboard** in the planning room shows the same task in small: its four stages and a dot for
+  each change of model, and beside them the task's id when it fits (a cut id only with at least eight
+  characters of it, else the phase word, else nothing; the full id is in the panel).
 - **Status bar:** sources and adapters live, agents busy out of total, permission waits (always
   shown, zero too), quota, unparsed lines, and during a replay its speed and clock.
 
