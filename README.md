@@ -232,6 +232,11 @@ all: its sidecar file (`agent-<id>.meta.json`) is read only when the transcript 
 read. A home with hundreds of old sessions used to fill the office with subagents that nothing could
 ever update.
 
+A transcript that was outside the window is not forgotten: when it is written to again (a session
+resumed the next morning), the next file event or rescan (every 5 s) finds its new time and reads it
+from then on. The window's start is fixed when Cubiclark starts. Every rescan looks again at the time of
+each old transcript it lists, so its cost grows with that history too (`doctor`'s `scans` line).
+
 ## Morty
 
 Morty is the office corgi, there just for fun. He starts the day asleep in his basket in the lobby,

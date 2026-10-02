@@ -659,6 +659,56 @@ describe('TranscriptSource rescans on a throttle', () => {
     expect(source.getStatus()).toMatchObject({ files: 2, inWindow: 1 })
   })
 
+  test('a transcript older than the window at start is read once it is written to again, at the next rescan', async () => {
+    const old = new Date('2020-01-01T00:00:00.000Z')
+    await session(NEW, '2026-01-15T09:00:00.000Z')
+    await utimes(join(project(), `${NEW}.jsonl`), old, old)
+    const { clock, watch, events, source } = driven({ sinceMs: Date.now() - 60_000 })
+    await source.start()
+    expect(prompts(events, NEW)).toBe(0)
+    expect(source.getStatus()).toMatchObject({ files: 1, inWindow: 0 })
+
+    // The session is resumed: a line is appended (its mtime is now). No event names it; the rescan finds it.
+    await append(NEW, '2026-01-15T10:00:05.000Z')
+    clock.now += 5000
+    watch.fire(null)
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(2)
+    expect(source.getStatus()).toMatchObject({ files: 1, inWindow: 1 })
+  })
+
+  test('an old transcript named by an event once it is written to is read at once, without a rescan', async () => {
+    const old = new Date('2020-01-01T00:00:00.000Z')
+    await session(NEW, '2026-01-15T09:00:00.000Z')
+    await utimes(join(project(), `${NEW}.jsonl`), old, old)
+    const { watch, events, source } = driven({ sinceMs: Date.now() - 60_000 })
+    await source.start()
+    await append(NEW, '2026-01-15T10:00:05.000Z')
+    watch.fire(rel(`${NEW}.jsonl`))
+    await source.whenIdle()
+    source.stop()
+    expect(prompts(events, NEW)).toBe(2)
+    expect(source.getScanStats().scans).toBe(1)
+  })
+
+  test('a transcript that stays old is looked at again but never read, and counted once', async () => {
+    const old = new Date('2020-01-01T00:00:00.000Z')
+    await session(NEW, '2026-01-15T09:00:00.000Z')
+    await utimes(join(project(), `${NEW}.jsonl`), old, old)
+    const { clock, watch, events, source } = driven({ sinceMs: Date.now() - 60_000 })
+    await source.start()
+    for (let i = 0; i < 3; i++) {
+      clock.now += 5000
+      watch.fire(null)
+      await source.whenIdle()
+    }
+    source.stop()
+    expect(source.getScanStats().scans).toBe(4)
+    expect(prompts(events, NEW)).toBe(0)
+    expect(source.getStatus()).toMatchObject({ files: 1, inWindow: 0 })
+  })
+
   test('a named subagent transcript and its meta file register together, the transcript first', async () => {
     await session(SID, '2026-01-15T10:00:00.000Z')
     const { watch, events, source } = driven()
