@@ -7,6 +7,7 @@ import { layout as computeLayout, placementOf } from '../src/core/office/layout.
 import {
   BAG,
   GREET_GAP_MS,
+  MAX_CATCH_UP_MS,
   PLAY_IDLE_MS,
   PLAY_MAX_TILES,
   PLAY_PERIOD_MS,
@@ -258,6 +259,74 @@ describe('a day, step by step and in one jump', () => {
     const state = initialMascot(1, input(s, T0))
     expect(advanceMascot(state, input(s, T0 + 1))).toBe(state)
     expect(advanceMascot(state, input(s, T0 + 2))).toBe(state)
+  })
+})
+
+describe('after a tab was hidden', () => {
+  const MIN = 60_000
+
+  /** The input with its grid counted: every step of the machine reads it, so reads measure the work. */
+  function counted(i: MascotInput): { input: MascotInput; reads: () => number } {
+    let reads = 0
+    const { grid, ...rest } = i
+    const wrapped = { ...rest } as MascotInput
+    Object.defineProperty(wrapped, 'grid', {
+      get() {
+        reads += 1
+        return grid
+      },
+      enumerable: true,
+    })
+    return { input: wrapped, reads: () => reads }
+  }
+
+  test('MAX_CATCH_UP_MS is one minute', () => {
+    expect(MAX_CATCH_UP_MS).toBe(MIN)
+  })
+
+  test('a gap over a minute starts afresh from now; without the gap it is replayed stay by stay', () => {
+    const s = scene(mascotPlayWorld())
+    const start = initialMascot(11, input(s, T0))
+    const far = T0 + 5 * MIN
+    const capped = advanceMascot(start, input(s, far, { lastFrameMs: T0 }))
+    const replayed = advanceMascot(start, input(s, far))
+    expect(capped.startMs).toBe(far)
+    expect(endOf(capped)).toBeGreaterThan(far)
+    expect(replayed.startMs).toBeLessThan(far)
+    expect(mascotPose(capped, far)).toBeDefined()
+  })
+
+  test('a 30-minute jump costs one bounded step, not dozens', () => {
+    const s = scene(mascotPlayWorld())
+    const start = initialMascot(11, input(s, T0))
+    const far = T0 + 30 * MIN
+    const capped = counted(input(s, far, { lastFrameMs: T0 }))
+    const replayed = counted(input(s, far))
+    const after = advanceMascot(start, capped.input)
+    advanceMascot(start, replayed.input)
+    expect(after.startMs).toBe(far)
+    expect(capped.reads()).toBeLessThan(40)
+    expect(replayed.reads()).toBeGreaterThan(capped.reads() * 10)
+  })
+
+  test('a gap of 30 s is not capped: it equals the same jump without the gap', () => {
+    const s = scene(roomsWorld())
+    const start = initialMascot(4, input(s, T0))
+    const at = T0 + 30_000
+    expect(advanceMascot(start, input(s, at, { lastFrameMs: T0 }))).toEqual(advanceMascot(start, input(s, at)))
+  })
+
+  test('a long gap while a stay is still going changes nothing', () => {
+    const s = scene(roomsWorld())
+    const state = initialMascot(1, input(s, T0))
+    expect(advanceMascot(state, input(s, T0 + 1, { lastFrameMs: T0 - 10 * MIN }))).toBe(state)
+  })
+
+  test('reduced motion is not affected: he is asleep in his basket either way', () => {
+    const s = scene(mascotPlayWorld())
+    const start = initialMascot(11, input(s, T0))
+    const far = T0 + 30 * MIN
+    expect(advanceMascot(start, input(s, far, { reducedMotion: true, lastFrameMs: T0 }))).toEqual(advanceMascot(start, input(s, far, { reducedMotion: true })))
   })
 })
 
