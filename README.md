@@ -514,7 +514,10 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   per art pixel.
 - **A replay of adapter data is approximate.** A task's timeline is cut at the replay clock, but a
   file's contents are read as they are now.
-- **Developed and tested on macOS** (the CI runner is a Mac). Linux and Windows are untested.
+- **Developed and tested on macOS.** The Mac runs every check for this repository's own branches. A
+  pull request from a fork never runs there: it, and every run once the repository is public, goes to a
+  GitHub-hosted Linux job that skips the screenshot comparisons (their baselines are macOS). Until
+  such a run has happened, Linux is untested; Windows is untested.
 - **Helper bubbles can still touch a long desk bubble.** A helper's bubble now sits beside its
   stool, clear of the cluster's sign and of the neighbouring helper's head, but in a packed cluster
   there is sometimes no free place, and it then covers part of a desk's bubble (in the two crowded
