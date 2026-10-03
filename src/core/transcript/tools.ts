@@ -41,12 +41,12 @@ export interface ToolActivity {
 /** The most characters a target or a label keeps (R2-7). */
 export const MAX_TARGET = 100
 
+/** The control characters (R3-3): C0, DEL and C1 (`\p{Cc}`, U+0000-001F and U+007F-009F) and the format
+ * characters (`\p{Cf}`: bidi controls, zero-width characters, the byte order mark). */
+const CONTROL_CHAR = /[\p{Cc}\p{Cf}]/u
+
 export function hasControlChar(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (code < 0x20 || code === 0x7f) return true
-  }
-  return false
+  return CONTROL_CHAR.test(text)
 }
 
 /** The one rule for a target or a label that came from outside (the collector's whitelist, a transcript,
@@ -56,6 +56,15 @@ export function safeTarget(value: string | undefined): string | undefined {
   if (value === undefined || value.length === 0 || value.length > MAX_TARGET) return undefined
   if (value.includes('/') || value.includes('\\') || hasControlChar(value)) return undefined
   return value
+}
+
+/** What a tool_use block's name is called from here on (R3-3): the name itself under the same rule as a
+ * target, and a fixed word for one that fails it. The tool call stays in the picture (its id, its state);
+ * only the text that came from outside does not. */
+export const UNKNOWN_TOOL_NAME = 'unknown-tool'
+
+export function safeToolName(name: string): string {
+  return safeTarget(name) ?? UNKNOWN_TOOL_NAME
 }
 
 function basename(path: string): string {

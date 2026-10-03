@@ -67,9 +67,13 @@ Transcript files are, in principle, attacker-controlled input (anything that can
   (basenames, never full paths). A tool's target (a file's basename, a command's first word, a URL's
   host, a subagent type) and an agent's label (a subagent type, a teammate's name, a background
   worker's name) are kept only when they are at most 100 characters with no control character and no
-  `/` or `\`; otherwise they are dropped, not cut. That is the collector's rule, one function
-  (`safeTarget`, `src/core/transcript/tools.ts`) shared by the collector and the transcript parser, so
-  a hostile file name cannot make the page's data grow by more than that.
+  `/` or `\`; otherwise they are dropped, not cut. A control character is any C0 character, DEL, any C1
+  character (U+0080 to U+009F) and any Unicode format character (`\p{Cf}`: bidi controls, zero-width
+  characters, the byte order mark). That is the collector's rule, one function (`safeTarget`,
+  `src/core/transcript/tools.ts`) shared by the collector and the transcript parser, so a hostile file
+  name cannot make the page's data grow by more than that. A tool's name follows the same rule in a
+  transcript (a name that fails it is shown as `unknown-tool`) and is capped at 100 characters, from
+  the characters `A-Z a-z 0-9 _ . : -` only, in the collector.
 - A record that is not valid JSON, is not an object, or has an unrecognised `type` is counted as
   a diagnostic and never reaches the page as content.
 
