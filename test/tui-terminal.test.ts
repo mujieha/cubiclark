@@ -91,6 +91,44 @@ describe('start', () => {
   })
 })
 
+// R2-11: the handlers that give the terminal back are wired before the screen is changed, so a start-up
+// that fails half way (a terminal that went away between the isTTY check and setRawMode) puts it back.
+describe('a start that fails after the alternate screen was entered', () => {
+  class BrokenIn extends FakeIn {
+    override setRawMode(mode: boolean): void {
+      if (mode) throw new Error('ENOTTY')
+      super.setRawMode(mode)
+    }
+  }
+
+  test('leaves again, takes every listener off, and throws', () => {
+    const out = new FakeOut()
+    const input = new BrokenIn()
+    const proc = new EventEmitter()
+    const session = new TerminalSession({ out, input, proc, emitKeypress: vi.fn() })
+    expect(() => session.start({ onKey: vi.fn(), onResize: vi.fn(), onSignal: vi.fn() })).toThrow('ENOTTY')
+    expect(out.written).toEqual([ENTER, LEAVE])
+    expect(input.listenerCount('keypress')).toBe(0)
+    expect(out.listenerCount('resize')).toBe(0)
+    for (const name of ['SIGINT', 'SIGTERM', 'SIGHUP', 'exit']) expect(proc.listenerCount(name), name).toBe(0)
+    expect(input.paused).toBe(1)
+  })
+
+  test('the restore handlers exist before ENTER is written', () => {
+    const out = new FakeOut()
+    const proc = new EventEmitter()
+    const seen: Record<string, number> = {}
+    out.write = (chunk: string): boolean => {
+      if (chunk === ENTER) for (const name of ['SIGINT', 'SIGTERM', 'SIGHUP', 'exit']) seen[name] = proc.listenerCount(name)
+      out.written.push(chunk)
+      return true
+    }
+    const session = new TerminalSession({ out, input: new FakeIn(), proc, emitKeypress: vi.fn() })
+    session.start({ onKey: vi.fn(), onResize: vi.fn(), onSignal: vi.fn() })
+    expect(seen).toEqual({ SIGINT: 1, SIGTERM: 1, SIGHUP: 1, exit: 1 })
+  })
+})
+
 describe('draw', () => {
   test('goes home and writes the whole frame in one piece', () => {
     const { out, session } = setup()

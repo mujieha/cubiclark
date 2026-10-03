@@ -169,4 +169,40 @@ describe('runInteractive', () => {
     proc.emit('unhandledRejection', new Error('x'))
     expect(frames()).toHaveLength(1)
   })
+
+  // R2-11: raw mode could not be set (the terminal went away after the isTTY check).
+  test('a terminal that cannot be put in raw mode is given back, the run ends with 1, and nothing is left listening', async () => {
+    const out = Object.assign(new EventEmitter(), { columns: 80, rows: 24, isTTY: true, written: [] as string[], write(chunk: string) { this.written.push(chunk); return true } })
+    const input = Object.assign(new EventEmitter(), {
+      isTTY: true,
+      setRawMode: (mode: boolean) => {
+        if (mode) throw new Error('ENOTTY')
+      },
+      resume: vi.fn(),
+      pause: vi.fn(),
+    })
+    const proc = new EventEmitter()
+    const errors: string[] = []
+    const session = new TerminalSession({ out, input, proc, emitKeypress: vi.fn() })
+    const done = runInteractive({
+      source: fakeSource(world),
+      controller: controller(),
+      session,
+      sizeOf: () => SIZE,
+      timers: {
+        now: () => Date.now(),
+        setTimeout: (callback, ms) => setTimeout(callback, ms),
+        clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+        setInterval: (callback, ms) => setInterval(callback, ms),
+        clearInterval: (handle) => clearInterval(handle as ReturnType<typeof setInterval>),
+      },
+      now: () => Date.now(),
+      proc,
+      stderr: (text) => errors.push(text),
+    })
+    await expect(done).resolves.toBe(1)
+    expect(out.written).toEqual([ENTER, LEAVE])
+    expect(errors.join('')).toContain('could not start the terminal')
+    for (const name of ['unhandledRejection', 'uncaughtException', 'SIGINT', 'SIGTERM', 'SIGHUP', 'exit']) expect(proc.listenerCount(name), name).toBe(0)
+  })
 })
