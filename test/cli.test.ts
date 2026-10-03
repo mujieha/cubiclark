@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import { HELP_TEXT, parseCli, resolveRoot, resolveStateDir } from '../src/cli.js'
 
@@ -401,5 +402,12 @@ describe('resolveStateDir', () => {
 
   test('an empty CUBICLARK_HOME is treated as unset', () => {
     expect(resolveStateDir(undefined, { CUBICLARK_HOME: '' }, '/home/someone')).toBe('/home/someone/.cubiclark')
+  })
+
+  test('the answer is always absolute: a relative flag or CUBICLARK_HOME is resolved against the working directory (C1)', () => {
+    expect(isAbsolute(resolveStateDir('rel/state', {}, '/home/someone'))).toBe(true)
+    expect(resolveStateDir('rel/state', {}, '/home/someone')).toBe(resolve('rel/state'))
+    expect(isAbsolute(resolveStateDir(undefined, { CUBICLARK_HOME: 'state/cubi' }, '/home/someone'))).toBe(true)
+    expect(resolveStateDir(undefined, { CUBICLARK_HOME: '~/x' }, '/home/someone')).toBe(resolve('~/x'))
   })
 })

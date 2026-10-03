@@ -3,6 +3,7 @@
 // a reason a person can act on. Pure: the inputs are the inspections the I/O layers already made.
 
 import type { HooksInspection, HooksSourceStatus, TranscriptSourceStatus } from '../types.js'
+import { tildePath } from '../view.js'
 
 export type SourceHealth = 'live' | 'missing' | 'failing'
 
@@ -45,9 +46,12 @@ function offFileOf(eventsFile: string): string {
   return `${cut >= 0 ? eventsFile.slice(0, cut) : '.'}/off`
 }
 
-export function classifyHooks(i: HooksInspection, nowMs: number): SourceCheck {
+/** With `home` given, every path in a reason is written with `~` for it (C3): the reason reaches the page
+ * and `world.json`, which name no user directory. */
+export function classifyHooks(i: HooksInspection, nowMs: number, home?: string): SourceCheck {
+  const reduced = (text: string): string => tildePath(text, home)
   if (i.settingsState === 'unparseable') {
-    return { status: 'failing', reason: `settings.json does not parse: ${i.parseError ?? 'unknown error'}` }
+    return { status: 'failing', reason: `settings.json does not parse: ${reduced(i.parseError ?? 'unknown error')}` }
   }
   if (i.events.length === 0) {
     return { status: 'missing', reason: 'not installed: run `cubiclark hooks on`' }
@@ -55,11 +59,11 @@ export function classifyHooks(i: HooksInspection, nowMs: number): SourceCheck {
   if (!i.collectorExists) {
     return {
       status: 'failing',
-      reason: `the collector copy is missing (${i.collectorPath ?? 'unknown path'}); run \`cubiclark hooks on\` again`,
+      reason: `the collector copy is missing (${reduced(i.collectorPath ?? 'unknown path')}); run \`cubiclark hooks on\` again`,
     }
   }
   if (i.paused) {
-    return { status: 'missing', reason: `paused by ${offFileOf(i.eventsFile)}; run \`cubiclark hooks resume\`` }
+    return { status: 'missing', reason: `paused by ${reduced(offFileOf(i.eventsFile))}; run \`cubiclark hooks resume\`` }
   }
   const installed = `${i.events.length} events (tools ${i.tools ? 'on' : 'off'})`
   return {
@@ -72,15 +76,16 @@ export function classifyHooks(i: HooksInspection, nowMs: number): SourceCheck {
 export function hooksSourceStatus(
   i: HooksInspection,
   stats: { events: number; lastEventTs?: string; error?: string },
-  nowMs: number
+  nowMs: number,
+  home?: string
 ): HooksSourceStatus {
-  const check = classifyHooks(i, nowMs)
+  const check = classifyHooks(i, nowMs, home)
   const installed = i.events.length > 0 || i.settingsState === 'unparseable'
   let status: HooksSourceStatus['status'] = !installed ? 'not_installed' : check.status === 'failing' ? 'failing' : 'live'
   let reason = check.reason
   if (installed && stats.error) {
     status = 'failing'
-    reason = `cannot read the events file: ${stats.error}`
+    reason = `cannot read the events file: ${tildePath(stats.error, home)}`
   }
   return {
     status,

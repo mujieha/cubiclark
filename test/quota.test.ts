@@ -1,7 +1,9 @@
 // Quota samples in the status line's real shape (epoch seconds, `limit_*_resets`), the reset rule,
 // and the adapter's glob, tail read and rotation. Values are invented.
 
-import { appendFile, cp, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants } from 'node:fs'
+import { appendFile, cp, mkdtemp, open, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -218,4 +220,23 @@ describe('QuotaSamplesAdapter over the fixture files', () => {
     expect(snap.quotaSamples).toEqual([])
     expect(snap.diagnostics.errors).toEqual(['no samples file found'])
   })
+
+  // C6: a regular file when it is listed, a FIFO when it is opened. The seam makes the swap and then opens as
+  // the adapter asked; a blocking open is refused here, so a build that waits for a writer fails instead of
+  // hanging the worker.
+  test.skipIf(process.platform === 'win32')('a file swapped for a FIFO after the listing is refused, and the open does not wait (C6)', async () => {
+    const file = join(dir, 'samples-2026-01-16.jsonl')
+    let flagsSeen: unknown
+    const a = new QuotaSamplesAdapter({ file }, env, async (path, flags) => {
+      flagsSeen = flags
+      await rm(path)
+      execFileSync('mkfifo', [path])
+      if (typeof flags !== 'number' || (flags & constants.O_NONBLOCK) === 0) throw Object.assign(new Error('would wait for a writer'), { code: 'EWAIT' })
+      return await open(path, flags)
+    })
+    const snap = await a.snapshot()
+    expect(snap.quotaSamples).toEqual([])
+    expect(snap.diagnostics.errors).toEqual(['cannot read samples-2026-01-16.jsonl: not a regular file'])
+    expect(flagsSeen).toBe(constants.O_RDONLY | constants.O_NONBLOCK)
+  }, 5000)
 })

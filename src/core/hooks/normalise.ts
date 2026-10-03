@@ -5,7 +5,22 @@
 
 import { isSafeKey } from '../keys.js'
 import type { AgentEvent, HookSeenEvent } from '../types.js'
-import { HOOK_EVENT_NAMES, TOOL_HOOK_EVENTS, type HookEventName } from './whitelist.js'
+import { safeTarget } from '../transcript/tools.js'
+import {
+  EFFORT_LEVELS,
+  HOOK_EVENT_NAMES,
+  ID_RE,
+  MODEL_RE,
+  NAME_RE,
+  PERMISSION_MODES,
+  SESSION_END_REASONS,
+  SESSION_SOURCES,
+  TOOL_HOOK_EVENTS,
+  matching,
+  oneOf,
+  safeCwd,
+  type HookEventName,
+} from './whitelist.js'
 
 export interface HookNormState {
   knownSubagents: ReadonlySet<string>
@@ -54,16 +69,21 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
   }
 
   if (e === '_malformed' || e === '_unknown' || !isHookEvent(e)) return result(state, [], { unknownShape: true })
-  const sid = str('sid')
+  // Every field below goes through the collector's own matcher again (C5): a line is read back by a
+  // program that cannot know the collector wrote it. A value that fails is dropped, as the collector drops it.
+  const sid = matching(record.sid, ID_RE)
   if (sid === undefined || !isSafeKey(sid)) return result(state, [], { unknownShape: true })
 
   const aid = str('aid')
-  // A subagent that is its own session would be its own parent (R2-3).
-  if (aid !== undefined && (!isSafeKey(aid) || aid === sid)) return result(state, [], { unknownShape: true })
+  // A subagent that is its own session would be its own parent (R2-3). A bad subagent id is not dropped
+  // to leave the event with the parent: its events would be the parent's.
+  if (aid !== undefined && (matching(aid, ID_RE) === undefined || !isSafeKey(aid) || aid === sid)) {
+    return result(state, [], { unknownShape: true })
+  }
   const agentId = aid ?? sid
-  const tool = str('tool')
-  const tuid = str('tuid')
-  const target = str('target')
+  const tool = matching(record.tool, NAME_RE)
+  const tuid = matching(record.tuid, ID_RE)
+  const target = safeTarget(str('target'))
   const trig = record.trig === 'manual' || record.trig === 'auto' ? record.trig : undefined
 
   const seen = (): HookSeenEvent => {
@@ -72,19 +92,20 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
       event.kind = 'subagent'
       event.parentId = sid
     }
-    const cwd = str('cwd')
+    const cwd = safeCwd(record.cwd)
     if (cwd !== undefined) event.cwd = cwd
-    const eff = str('eff')
+    const eff = oneOf(record.eff, EFFORT_LEVELS)
     if (eff !== undefined) event.effort = eff
-    const pm = str('pm')
+    const pm = oneOf(record.pm, PERMISSION_MODES)
     if (pm !== undefined) event.permissionMode = pm
     return event
   }
 
   switch (e) {
     case 'SessionStart': {
-      const model = str('model')
-      return result(state, [seen(), { t: 'session_start', ts, agentId, source: str('src') ?? 'startup', ...(model ? { model } : {}) }])
+      const model = matching(record.model, MODEL_RE)
+      const source = oneOf(record.src, SESSION_SOURCES) ?? 'startup'
+      return result(state, [seen(), { t: 'session_start', ts, agentId, source, ...(model ? { model } : {}) }])
     }
     case 'UserPromptSubmit':
       return result(state, [seen(), { t: 'prompt', ts, agentId }])
@@ -127,7 +148,7 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
       return result(state, [seen(), { t: 'api_error', ts, agentId, kind, retrying: false }])
     }
     case 'SubagentStart': {
-      const at = str('at')
+      const at = matching(record.at, NAME_RE)
       // No id or type: one of Claude Code's own internal agents. Not shown.
       if (aid === undefined || at === undefined) return result(state)
       return result(
@@ -143,11 +164,11 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
     case 'PostCompact':
       return result(state, [seen(), { t: 'compacted', ts, agentId, ...(trig ? { trigger: trig } : {}) }])
     case 'PostModelSwitch': {
-      const model = str('model')
+      const model = matching(record.model, MODEL_RE)
       return model === undefined ? result(state, [seen()]) : result(state, [seen(), { t: 'model_changed', ts, agentId, model }])
     }
     case 'SessionEnd': {
-      const reason = str('reason')
+      const reason = oneOf(record.reason, SESSION_END_REASONS)
       return result(state, [seen(), { t: 'session_end', ts, agentId, ...(reason ? { reason } : {}) }])
     }
   }

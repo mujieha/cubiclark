@@ -7,6 +7,7 @@
 // Only the whitelisted fields below are kept, each capped at 40 characters. Unknown fields are
 // ignored and an unknown `state` becomes 'other': a new value must never break the page.
 
+import { hasControlChar, safeTarget } from '../transcript/tools.js'
 import { isSessionId } from './task-log.js'
 import type { CliSession } from './types.js'
 
@@ -51,11 +52,14 @@ export function parseAgentsJson(stdout: string): ParsedAgents {
     if (item.kind === 'interactive' || item.kind === 'background') session.kind = item.kind
     const state = text(item.state)
     if (state) session.state = STATES.has(state) ? state : 'other'
+    // Text that was written by something else is shown as it is or not at all (C4): `status` and
+    // `waitingFor` are dropped when they hold a control character, and `name`, which becomes an agent's
+    // label, passes the label rule (no control character, no `/` or `\`).
     const status = text(item.status)
-    if (status) session.status = status
+    if (status && !hasControlChar(status)) session.status = status
     const waitingFor = text(item.waitingFor)
-    if (waitingFor) session.waitingFor = waitingFor
-    const name = text(item.name)
+    if (waitingFor && !hasControlChar(waitingFor)) session.waitingFor = waitingFor
+    const name = safeTarget(text(item.name))
     if (name) session.name = name
     if (typeof item.startedAt === 'number' && Number.isFinite(item.startedAt)) {
       const date = new Date(item.startedAt)

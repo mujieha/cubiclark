@@ -3,7 +3,9 @@
 // the directory is listed again on every poll, so a new day's file is picked up. Read-only, and
 // detect() and snapshot() never throw.
 
+import { constants } from 'node:fs'
 import { open, readdir, stat } from 'node:fs/promises'
+import type { FileHandle } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { parseQuotaText, quotaAt } from '../../core/adapters/quota.js'
@@ -41,7 +43,9 @@ export class QuotaSamplesAdapter implements OrchestrationAdapter {
 
   constructor(
     private readonly config: QuotaConfig,
-    private readonly env: AdapterEnv
+    private readonly env: AdapterEnv,
+    /** A seam for tests. */
+    private readonly openFile: (path: string, flags: number) => Promise<FileHandle> = open
   ) {}
 
   /** The files to read, newest first by mtime (ties by name, descending). */
@@ -88,18 +92,25 @@ export class QuotaSamplesAdapter implements OrchestrationAdapter {
     const info = await stat(path)
     const cached = this.cache.get(path)
     if (cached && cached.mtimeMs === mtimeMs && cached.size === info.size) return cached.text
-    const start = Math.max(0, info.size - TAIL_BYTES)
-    const handle = await open(path, 'r')
+    // Opened without waiting for a writer and judged by its own fstat, so a FIFO swapped in after the stat
+    // above is refused instead of blocking a thread (C6).
+    const handle = await this.openFile(path, constants.O_RDONLY | constants.O_NONBLOCK)
     let text: string
+    let size: number
+    let start: number
     try {
-      const buffer = Buffer.alloc(info.size - start)
+      const opened = await handle.stat()
+      if (!opened.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'not a regular file' })
+      size = opened.size
+      start = Math.max(0, size - TAIL_BYTES)
+      const buffer = Buffer.alloc(size - start)
       const { bytesRead } = await handle.read(buffer, 0, buffer.length, start)
       text = buffer.subarray(0, bytesRead).toString('utf8')
     } finally {
       await handle.close()
     }
     if (start > 0) text = text.slice(text.indexOf('\n') + 1)
-    this.cache.set(path, { mtimeMs, size: info.size, text })
+    this.cache.set(path, { mtimeMs, size, text })
     return text
   }
 

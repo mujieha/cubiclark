@@ -49,6 +49,24 @@ describe('parseAgentsJson is total', () => {
     const [session] = parseAgentsJson(JSON.stringify([{ sessionId: 'not-a-uuid', name: 'x'.repeat(100), secret: 'nope', state: 'working', kind: 'weird' }])).sessions
     expect(session).toEqual({ name: 'x'.repeat(40), state: 'working' })
   })
+  // C4: a name becomes an agent's label, so it obeys the label rule (no control character, no `/` or `\`,
+  // bidi and format characters included); status and waitingFor are text on the page too.
+  test('a name that breaks the label rule is dropped, not shown (C4)', () => {
+    const bidi = String.fromCodePoint(0x202e)
+    const names = ['a/b', 'a\\b', `a${bidi}evil`, 'a\u0007b', 'a\u009bb', 'a​b', 'line\nbreak']
+    const sessions = parseAgentsJson(JSON.stringify(names.map((name) => ({ name, state: 'working' })))).sessions
+    expect(sessions).toEqual(names.map(() => ({ state: 'working' })))
+    expect(parseAgentsJson(JSON.stringify([{ name: 'demo-worker' }])).sessions).toEqual([{ name: 'demo-worker' }])
+  })
+  test('a status or waitingFor value with a control character is dropped (C4)', () => {
+    const [session] = parseAgentsJson(
+      JSON.stringify([{ status: 'wait\u001b]52;c;x\u0007ing', waitingFor: `ok${String.fromCodePoint(0x202e)}`, name: 'w' }])
+    ).sessions
+    expect(session).toEqual({ name: 'w' })
+    expect(parseAgentsJson(JSON.stringify([{ status: 'waiting', waitingFor: 'permission prompt' }])).sessions).toEqual([
+      { status: 'waiting', waitingFor: 'permission prompt' },
+    ])
+  })
   test('each documented state is kept and every other value is "other"', () => {
     const states = ['working', 'blocked', 'done', 'failed', 'stopped', 'exploding']
     const parsed = parseAgentsJson(JSON.stringify(states.map((state) => ({ state })))).sessions.map((s) => s.state)

@@ -14,7 +14,8 @@ import {
 import { invalidManifest, sunnyOffice } from '../scripts/assets-fixture-lib.js'
 import { validateManifest } from '../src/core/assets/manifest.js'
 import { assetsStatusOf } from '../src/core/assets/status.js'
-import type { Agent, World } from '../src/core/types.js'
+import { hooksSourceStatus } from '../src/core/hooks/status.js'
+import type { Agent, HooksInspection, World } from '../src/core/types.js'
 import { emptyWorld, ensureAgent, setState, updateAgent } from '../src/core/world.js'
 
 function withAgent(world: World, id: string, patch: Partial<Agent>): World {
@@ -337,6 +338,41 @@ describe('publicWorld', () => {
     expect(pub.sources.transcripts.root).toBe('~/.claude')
     expect(pub.sources.hooks.eventsFile).toBe('~/.cubiclark/events.jsonl')
     expect(emptyScreenText('no-collector', pub)).toContain('~/.claude')
+  })
+
+  // C3: the hooks reason names the off file, the collector copy and a settings.json error in full; the
+  // JSON the page gets holds none of them, whether or not the reason was built from reduced paths.
+  test('the hooks reason holds no home path: paused, collector missing, unreadable settings (C3)', () => {
+    const home = '/home/alice'
+    const base: HooksInspection = {
+      settingsPath: `${home}/.claude/settings.json`,
+      settingsState: 'ok',
+      events: ['SessionStart', 'Stop'],
+      tools: true,
+      collectorPath: `${home}/.cubiclark/bin/hook/cubiclark-collector.js`,
+      collectorExists: true,
+      paused: false,
+      eventsFile: `${home}/.cubiclark/events.jsonl`,
+    }
+    const cases: Record<string, HooksInspection> = {
+      paused: { ...base, paused: true },
+      'collector missing': { ...base, collectorExists: false },
+      'unreadable settings': {
+        ...base,
+        settingsState: 'unparseable',
+        events: [],
+        parseError: `EACCES: permission denied, open '${home}/.claude/settings.json'`,
+      },
+    }
+    for (const [name, inspection] of Object.entries(cases)) {
+      for (const reduced of [undefined, home]) {
+        const hooks = hooksSourceStatus(inspection, { events: 0 }, Date.now(), reduced)
+        const world = emptyWorld('t0', `${home}/.claude`)
+        const pub = publicWorld({ ...world, sources: { ...world.sources, hooks } }, home)
+        expect(JSON.stringify(pub), `${name}, reason built ${reduced ? 'from' : 'without'} reduced paths`).not.toContain(home)
+        expect(pub.sources.hooks.reason, name).toContain('~')
+      }
+    }
   })
 
   test('tildePath does not eat a longer directory name, and does nothing without a usable home', () => {

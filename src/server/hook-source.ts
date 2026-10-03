@@ -5,7 +5,7 @@
 // recreated; none of those is an error.
 
 import { watch as fsWatch } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { initialHookNormState, normaliseHookLine } from '../core/hooks/normalise.js'
 import type { AgentEvent } from '../core/types.js'
 import { LineTailer } from './tail.js'
@@ -40,7 +40,13 @@ export class HookSource {
   private error: string | undefined
 
   constructor(private readonly opts: HookSourceOptions) {
-    this.tailer = new LineTailer(opts.eventsFile)
+    this.tailer = this.newTailer()
+  }
+
+  /** The collector renames events.jsonl to events.1.jsonl at 5 MB: lines appended after the last poll sit
+   * there, past the offset, and are read before the new file is followed (C7). */
+  private newTailer(): LineTailer {
+    return new LineTailer(this.opts.eventsFile, { rotatedPath: join(dirname(this.opts.eventsFile), 'events.1.jsonl') })
   }
 
   getStats(): HookSourceStats {
@@ -87,17 +93,21 @@ export class HookSource {
   }
 
   private async pollOnce(): Promise<void> {
-    const result = await this.tailer.poll()
+    let result = await this.tailer.poll()
 
     if (result.error?.startsWith('cannot stat')) {
-      // Not there (yet, or any more). Start a fresh tailer, so a file recreated longer than the
-      // old offset is read from its first byte rather than from the middle.
-      this.tailer = new LineTailer(this.opts.eventsFile)
+      // Not there (yet, or any more): a poll that falls between the collector's rename and its first
+      // append to the new file. What is left of the old file past the offset is read first, then a fresh
+      // tailer starts, so a file recreated longer than the old offset is read from its first byte rather
+      // than from the middle.
+      result = await this.tailer.drainRotated()
+      this.tailer = this.newTailer()
       this.error = undefined
-      return
+    } else {
+      // A file that was replaced or shrank is the collector's rotation: the tailer has read the rest of
+      // the old one and restarts from the top.
+      this.error = result.error && !result.truncated ? result.error : undefined
     }
-    // A file that shrank is the collector's rotation: the tailer already restarts from the top.
-    this.error = result.error && !result.truncated ? result.error : undefined
 
     const events: AgentEvent[] = []
     let unparsed = 0

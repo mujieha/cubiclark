@@ -42,6 +42,7 @@ export async function startWorld(options: WorldOptions): Promise<RunningWorld> {
   let frozenClockMs: number | undefined
   const nowMs = (): number => (options.fixtureMode ? (frozenClockMs ?? Date.now()) : Date.now())
 
+  const home = options.home ?? homedir()
   const store = new Store({ nowMs, transcriptsRoot: options.root })
 
   // The same age window for both sources; fixture mode reads everything under its root.
@@ -81,12 +82,11 @@ export async function startWorld(options: WorldOptions): Promise<RunningWorld> {
         eventsFile: join(options.stateDir, 'events.jsonl'),
       }
     }
-    return hooksSourceStatus(await inspectHooks(options.root, options.stateDir), stats, nowMs())
+    return hooksSourceStatus(await inspectHooks(options.root, options.stateDir), stats, nowMs(), home)
   }
 
   // The adapters: which ones exist comes from the configuration file (none without one). They are
   // only started below, once the clock is settled, because quota and tasks are read against it.
-  const home = options.home ?? homedir()
   const adapterEnv = { nowMs, home }
   const loaded =
     options.configPath === undefined

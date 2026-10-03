@@ -4,7 +4,7 @@
 import { existsSync } from 'node:fs'
 import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { collectorEntries, parseSettings } from '../src/core/hooks/settings.js'
 import {
@@ -494,6 +494,47 @@ describe('hooks off and an unrelated file in bin/ (R2-2)', () => {
   test('the file has no recursive removal left', async () => {
     const source = await readFile(new URL('../src/server/hooks-install.ts', import.meta.url), 'utf8')
     expect(/\brm\(.*recursive/.test(source), 'a recursive rm( in hooks-install.ts').toBe(false)
+  })
+})
+
+// C1: the handler's path is resolved against the session's project directory, so a relative state
+// directory would run the project's own file as a user-level hook.
+describe('hooks on and a state directory that is not absolute (C1)', () => {
+  test('a relative one is refused with the path to use, and nothing is written', async () => {
+    await writeFixture('empty')
+    const before = await readSettingsBytes()
+    const home = join(root, 'home')
+    const error = await hooksOn({ ...paths, stateDir: 'rel/state', home }, { tools: true, nowMs: NOW }).catch((err: unknown) => err)
+    expect(error).toBeInstanceOf(HooksCommandError)
+    expect((error as Error).message).toBe(
+      `the state directory must be an absolute path; did you mean \`${resolve('rel/state')}\`? nothing was changed`
+    )
+    expect(await readSettingsBytes()).toEqual(before)
+    expect((await readdir(paths.configDir)).sort()).toEqual(['settings.json'])
+  })
+
+  test('a "~" that the shell did not expand is refused, and the message names the home directory', async () => {
+    await writeFixture('empty')
+    const home = join(root, 'home')
+    for (const given of ['~', '~/.cubiclark-work']) {
+      const error = await hooksOn({ ...paths, stateDir: given, home }, { tools: true, nowMs: NOW }).catch((err: unknown) => err)
+      expect(error).toBeInstanceOf(HooksCommandError)
+      expect((error as Error).message).toContain(`did you mean \`${given === '~' ? home : join(home, '.cubiclark-work')}\`?`)
+    }
+    expect(existsSync(resolve('~'))).toBe(false)
+  })
+
+  test('every installed handler has an absolute collector path and an absolute --state-dir', async () => {
+    const other = join(root, 'elsewhere')
+    await hooksOn({ ...paths, stateDir: other }, { tools: true, nowMs: NOW })
+    const handlers = collectorEntries(parseSettings((await readSettingsBytes())?.toString('utf8') ?? ''))
+    expect(handlers.length).toBeGreaterThan(0)
+    for (const entry of handlers) {
+      const args = (entry.handler as { args?: string[] }).args ?? []
+      expect(isAbsolute(args[0] ?? ''), `args[0] ${args[0]}`).toBe(true)
+      expect(args[1]).toBe('--state-dir')
+      expect(isAbsolute(args[2] ?? ''), `--state-dir ${args[2]}`).toBe(true)
+    }
   })
 })
 

@@ -101,12 +101,17 @@ remain the only source of tool activity.
 
 **What the collector stores.** One line per event in `~/.cubiclark/events.jsonl` (rotated at 5 MB,
 one old file kept): the event name, a timestamp, the session id, the subagent id and type, the
-working directory, the tool name and its id, and a *reduced* target (a file's basename, a command's
+working directory (the one full path it keeps; the page shows its basename), the tool name and its id, and a *reduced* target (a file's basename, a command's
 first word, a URL's host, a subagent type), plus a few enum values (why a session ended, a
 compaction's trigger, an API error's kind, the permission mode, the effort level, a session's
 starting model, the model a session switched to). It never stores prompt text, tool input or output, error text, assistant text or
 anything it does not recognise. `test/whitelist.test.ts` feeds it payloads full of fake secrets and
 checks that none survives.
+
+**The state directory must be an absolute path.** Claude Code runs a hook in each session's project
+directory and expands no `~`, so `hooks on` refuses a relative `--state-dir` or `CUBICLARK_HOME`
+(or one that starts with a `~` your shell left alone) and says which absolute path it probably
+meant; the collector ignores a relative one at run time.
 
 **What it never does.** The collector exits 0 with empty stdout on every path, including
 malformed input, so it adds nothing to any session's context. It never answers a permission
@@ -482,7 +487,9 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   fires when you approve, only when the request is made and when the tool ends.
 - **Nested subagents are parented to the session** until the transcript's sidecar file says
   otherwise; hooks report a subagent's session, not which subagent started it.
-- **The rotated `events.1.jsonl` is not read at start-up.** Only the current file is.
+- **The rotated `events.1.jsonl` is not read at start-up.** Only the current file is. While Cubiclark
+  runs, when the collector rotates the file, the lines appended to the old one after the last poll are
+  read before the new file is followed.
 - **A brand-new transcript can take up to about seven seconds to appear** when the file system's
   change events do not name it (it is a rescan of `projects/`, at most once every 5 seconds, plus the
   2-second poll). A line added to a transcript already known arrives within the poll, as before, and
@@ -522,7 +529,9 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   assumption about it lives under `src/core/transcript/` and is checked against a fixture; an
   unrecognised shape is counted, never guessed at.
 - **Without hooks, the permission wait is a guess and `compacting`/`ended` are never shown.**
-- **File paths are never shown in full**, only basenames.
+- **An agent's file paths are shown as basenames only.** The folders the sources read (the transcripts
+  folder, the events file) are named with your home directory as `~`, and a path outside it (a fixture
+  folder, `/tmp`) is shown as it is.
 - **The office's screenshot baselines are macOS and Chromium.** The tests compare canvas pixels with
   no tolerance, and the system font behind the words (room names, signs, the whiteboard label and
   bubble text, drawn in it at 10 to 20 CSS px on their own canvas at the display's resolution)

@@ -115,6 +115,83 @@ describe('HookSource', () => {
     await waitFor(() => prompts(events) === 4)
   })
 
+  // C7: the collector appends to events.jsonl and, at 5 MB, renames it to events.1.jsonl. A line written
+  // between the reader's last poll and the rename sits in events.1.jsonl past the reader's offset; it is
+  // read before the reader moves on to the new file, because a lost PermissionRequest is a wait nobody sees.
+  describe('rotation does not lose the lines written just before it (C7)', () => {
+    const rotated = (): string => join(dir, 'events.1.jsonl')
+
+    test('a line appended just before the rotation arrives, then the new file is followed', async () => {
+      await writeFile(eventsFile, prompt(1) + prompt(2))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      expect(prompts(events)).toBe(2)
+      await appendFile(eventsFile, prompt(3)) // after the last poll, before the rename
+      await rename(eventsFile, rotated())
+      await writeFile(eventsFile, prompt(4))
+      await source['poll']()
+      expect(events.filter((e) => e.t === 'prompt').map((e) => e.ts)).toEqual([T(1), T(2), T(3), T(4)])
+      expect(source.getStats()).toMatchObject({ events: 4, lastEventTs: T(4), error: undefined })
+    })
+
+    test('a permission request written just before the rotation is not lost', async () => {
+      await writeFile(eventsFile, prompt(1))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      await appendFile(eventsFile, line({ hook_event_name: 'PermissionRequest', session_id: 's1', tool_name: 'Bash' }, 2))
+      await rename(eventsFile, rotated())
+      await writeFile(eventsFile, prompt(3))
+      await source['poll']()
+      expect(events.map((e) => e.t)).toContain('permission_wait')
+    })
+
+    test('a new file that is already longer than the old offset is a new file, not a continuation', async () => {
+      await writeFile(eventsFile, prompt(1))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      await appendFile(eventsFile, prompt(2))
+      await rename(eventsFile, rotated())
+      await writeFile(eventsFile, prompt(3) + prompt(4) + prompt(5) + prompt(6))
+      await source['poll']()
+      expect(events.filter((e) => e.t === 'prompt').map((e) => e.ts)).toEqual([T(1), T(2), T(3), T(4), T(5), T(6)])
+    })
+
+    test('a poll that falls between the rename and the new file still gets the line', async () => {
+      await writeFile(eventsFile, prompt(1))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      await appendFile(eventsFile, prompt(2))
+      await rename(eventsFile, rotated())
+      await source['poll']() // events.jsonl is not there yet
+      expect(prompts(events)).toBe(2)
+      await writeFile(eventsFile, prompt(3))
+      await source['poll']()
+      expect(events.filter((e) => e.t === 'prompt').map((e) => e.ts)).toEqual([T(1), T(2), T(3)])
+    })
+
+    test('a file truncated in place is not a rotation: an old events.1.jsonl is not read again', async () => {
+      await writeFile(rotated(), prompt(8) + prompt(9) + prompt(10) + prompt(11))
+      await writeFile(eventsFile, prompt(1) + prompt(2) + prompt(3))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      await writeFile(eventsFile, prompt(4)) // same file, shorter
+      await source['poll']()
+      expect(events.filter((e) => e.t === 'prompt').map((e) => e.ts)).toEqual([T(1), T(2), T(3), T(4)])
+    })
+
+    test('a rotated file that is not the one that was being read is ignored', async () => {
+      await writeFile(eventsFile, prompt(1) + prompt(2))
+      const { source, events } = makeSource({ pollMs: 5000 })
+      await source.start()
+      // events.jsonl is replaced by an unrelated file, and events.1.jsonl is a different, older one
+      await writeFile(rotated(), prompt(7) + prompt(8) + prompt(9))
+      await unlink(eventsFile)
+      await writeFile(eventsFile, prompt(3))
+      await source['poll']()
+      expect(events.filter((e) => e.t === 'prompt').map((e) => e.ts)).toEqual([T(1), T(2), T(3)])
+    })
+  })
+
   test('deleted and recreated with longer content is read from the start', async () => {
     await writeFile(eventsFile, prompt(1))
     const { source, events } = makeSource()

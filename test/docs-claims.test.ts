@@ -20,6 +20,11 @@ const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'R2-12', phrase: "the cookie's value and its name are compared" },
   { finding: 'R2-12', phrase: 'and any other `ESC` plus one character' },
   { finding: 'R3-1', phrase: 'A pull request from a fork never runs there' },
+  // The cold review's "claims the code does not keep" (C3, C4, C5, C8): each said more than the code did.
+  { finding: 'C3', phrase: 'the events file and any error text name your home directory as `~`' },
+  { finding: 'C3', phrase: 'File paths are never shown in full' },
+  { finding: 'C3', phrase: 'File paths are shown as basenames only; there is no `--full-paths` flag yet' },
+  { finding: 'C8', phrase: 'a value from a fixed enum, or a reduced target (a file' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -47,9 +52,18 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R3-1', file: 'README', phrase: 'Require approval for all external contributors' },
   { finding: 'R3-1', file: 'README', phrase: 'the self-hosted runner removed from the repository when it goes public' },
   { finding: 'R3-1', file: 'README', phrase: '`npm run test:e2e` on a Mac, before merging' },
+  { finding: 'C1', file: 'SECURITY', phrase: 'refuses, on `hooks on`, a state directory that is not an absolute path' },
+  { finding: 'C1', file: 'README', phrase: 'The state directory must be an absolute path.' },
+  { finding: 'C3', file: 'SECURITY', phrase: 'the reason is built from reduced paths and `publicWorld` reduces it again' },
+  { finding: 'C3', file: 'README', phrase: 'The folders the sources read (the transcripts folder, the events file) are named with your home directory as `~`' },
+  { finding: 'C4', file: 'SECURITY', phrase: 'A name, which becomes an agent\'s label, is kept only if it passes the label rule above' },
+  { finding: 'C5', file: 'SECURITY', phrase: 'every field of a line that is read is checked again with the collector\'s own matchers' },
+  { finding: 'C7', file: 'SECURITY', phrase: 'the hook source first reads what was appended to the old file after its last poll' },
+  { finding: 'C7', file: 'README', phrase: 'the lines appended to the old one after the last poll are read before the new file is followed' },
+  { finding: 'C8', file: 'SECURITY', phrase: 'The working directory is the one full absolute path the collector keeps' },
 ]
 
-describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12)', () => {
+describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12, C3, C5, C8)', () => {
   test.each(OVERCLAIMS)('$finding: "$phrase" is gone', ({ phrase }) => {
     expect(README.includes(phrase), 'README.md holds the overclaim').toBe(false)
     expect(SECURITY.includes(phrase), 'SECURITY.md holds the overclaim').toBe(false)

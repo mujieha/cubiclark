@@ -87,6 +87,21 @@ describe('classifyHooks', () => {
   test('live with no events yet says so', () => {
     expect(classifyHooks(inspection(), NOW).reason).toBe('14 events (tools on); no events recorded yet')
   })
+
+  // C3: with a home directory given, a reason writes it as `~` in every path it names.
+  test('given the home directory, the paths in a reason are reduced to ~ (C3)', () => {
+    const home = '/home/alice'
+    const at = (overrides: Partial<HooksInspection>): string => classifyHooks(inspection(overrides), NOW, home).reason
+    expect(at({ paused: true, eventsFile: `${home}/.cubiclark/events.jsonl` })).toBe(
+      'paused by ~/.cubiclark/off; run `cubiclark hooks resume`'
+    )
+    expect(at({ collectorExists: false, collectorPath: `${home}/.cubiclark/bin/hook/cubiclark-collector.js` })).toBe(
+      'the collector copy is missing (~/.cubiclark/bin/hook/cubiclark-collector.js); run `cubiclark hooks on` again'
+    )
+    expect(at({ settingsState: 'unparseable', events: [], parseError: `cannot read '${home}/.claude/settings.json'` })).toBe(
+      "settings.json does not parse: cannot read '~/.claude/settings.json'"
+    )
+  })
 })
 
 describe('hooksSourceStatus', () => {
