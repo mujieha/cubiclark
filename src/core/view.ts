@@ -36,7 +36,12 @@ export function publicWorld(world: World, home?: string): World {
         root: tildePath(transcripts.root, home),
         ...(transcripts.error !== undefined ? { error: tildePath(transcripts.error, home) } : {}),
       },
-      hooks: { ...hooks, ...(hooks.eventsFile !== undefined ? { eventsFile: tildePath(hooks.eventsFile, home) } : {}) },
+      hooks: {
+        ...hooks,
+        ...(hooks.eventsFile !== undefined ? { eventsFile: tildePath(hooks.eventsFile, home) } : {}),
+        // The reason names the off file, the collector copy and a settings.json error (C3).
+        ...(hooks.reason !== undefined ? { reason: tildePath(hooks.reason, home) } : {}),
+      },
     },
   }
 }
