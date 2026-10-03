@@ -2,6 +2,7 @@
 // them. (test/hooks/tarball.test.ts runs the whole script against a real `npm pack`.)
 
 import { describe, expect, test } from 'vitest'
+import { localNames } from '../scripts/local-names.js'
 import { REQUIRED_FILES, fileListProblems, scanText } from '../scripts/check-tarball.js'
 
 const CLEAN_LIST = [...REQUIRED_FILES, 'dist/core/reducer.js']
@@ -33,7 +34,6 @@ describe('scanText', () => {
     ['a Windows home path', 'C:\\Users\\someone\\x', '\\Users\\'],
     ['an escaped Windows home path', 'C:\\\\Users\\\\someone', '\\Users\\'],
     ['a linux home path', 'cd /home/someone', '/home/'],
-    ['a user name', 'by Nobody', 'nobody'],
     ['the organisation', 'owner MUJIEHA', 'mujieha'],
     ['the author name', 'Rufornyi', 'rufornyi'],
     ['an upper-case UUID', 'id ABCDEF01-2345-6789-ABCD-EF0123456789', 'uuid'],
@@ -44,6 +44,14 @@ describe('scanText', () => {
     expect(hits).toHaveLength(1)
     expect(hits[0]).toMatchObject({ file: 'README.md', pattern, line: 2 })
     expect(hits[0]?.excerpt.length).toBeLessThanOrEqual(80)
+  })
+
+  const [localName] = localNames()
+  test.skipIf(localName === undefined)('finds this machine\'s account name, derived, not spelled out', () => {
+    const word = localName ?? ''
+    const hits = scanText('README.md', `first line\nby ${word.toUpperCase()}\nlast line`)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toMatchObject({ file: 'README.md', pattern: word, line: 2 })
   })
 
   test('a long line gives an excerpt around the match, not the whole line', () => {

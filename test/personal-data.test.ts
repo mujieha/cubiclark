@@ -8,6 +8,7 @@ import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { LOREM_WORDS } from '../scripts/fixture-lib.js'
+import { localNames } from '../scripts/local-names.js'
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 const FIXTURES_DIR = join(REPO_ROOT, 'test/fixtures')
@@ -101,7 +102,8 @@ describe('personal-data guard over test/fixtures/', () => {
 
   test('no file names this machine, its account, this project family or a .local hostname', async () => {
     const violations: string[] = []
-    const forbidden = ['nobody', 'rufornyi', 'mujieha', 'orca', 'ideaprojects']
+    // the account name and home path segments come from the environment, so this list spells none out
+    const forbidden = ['rufornyi', 'mujieha', ...localNames()]
     for (const file of await listFiles(FIXTURES_DIR)) {
       const text = (await readFile(file, 'utf8')).toLowerCase()
       for (const word of forbidden) {
