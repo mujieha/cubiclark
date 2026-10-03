@@ -4,6 +4,10 @@ A local view of live Claude Code agents and their states, read from transcripts 
 from a small hooks collector. Runs entirely on your machine, on `127.0.0.1`; it never calls a
 model and never sends anything off the machine.
 
+<p align="center">
+  <a href="docs/media/cubiclark-intro.mp4"><img src="docs/media/cubiclark-intro.gif" width="720" alt="Cubiclark over an invented working day: the pixel-art office with its agents and Morty the corgi, the panel, the list, and the same agents as text in the terminal."></a>
+</p>
+
 The page is a pixel-art office: every agent is a character at a desk, and what it is doing shows
 in its pose, its speech bubble and its desk lamp. Beside it a terminal-style panel shows the
 selected agent, the session log and how the work is organised: tasks and their timelines, the
@@ -12,6 +16,33 @@ and two tailing sources that merge into one world, optional adapters that read h
 organised (task folders, quota samples, `claude agents`), and the commands to install, remove and
 check the collector and to replay a stretch of the past. A plain list of the same agents is one
 click away.
+
+## Install
+
+Cubiclark needs Node.js 22.12 or later. Run it once without installing it, or install the
+`cubiclark` command:
+
+```
+npx cubiclark                # run it once
+npm install -g cubiclark     # or install it, then run `cubiclark`
+```
+
+`cubiclark` prints one link, `cubiclark listening http://127.0.0.1:<port>/<code>/`, and opens it in
+your browser (see *Opening the page* below). `cubiclark tui` shows the same agents as text in the
+terminal instead (see *In the terminal*).
+
+**The first run.** With no transcripts yet and no collector installed, the page shows a setup screen
+instead of an empty office: it explains the two ways of seeing agents (below) and gives the command for
+the second, `cubiclark hooks on`. The first way needs nothing installed.
+
+## Platforms
+
+- **macOS:** developed and tested. The screenshot comparisons are macOS-only, so they are a local
+  check (`npm run test:e2e` on a Mac); see the Known limits.
+- **Linux:** tested in CI from the first public run, on a GitHub-hosted Linux job that skips the
+  screenshot comparisons (their baselines are macOS). Until a Linux run has happened, Linux is
+  untested.
+- **Windows:** untested.
 
 ## Two ways to see agents
 
