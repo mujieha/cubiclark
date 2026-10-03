@@ -4,8 +4,8 @@
 // hundred stats. detect() and snapshot() never throw: what cannot be read is named in
 // diagnostics.errors (task and file name only, never an absolute path).
 
-import { watch as fsWatch, type FSWatcher } from 'node:fs'
-import { lstat, open, readFile, readdir, stat } from 'node:fs/promises'
+import { constants, watch as fsWatch, type FSWatcher } from 'node:fs'
+import { lstat, open, readdir, stat, type FileHandle } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { buildTask, taskLinks } from '../../core/adapters/task-folder.js'
@@ -29,18 +29,33 @@ interface ReadLimit {
   bytes: number
   tail: boolean
 }
-const HEAD_LIMIT: ReadLimit = { bytes: 64 * 1024, tail: false }
-const LOG_LIMIT: ReadLimit = { bytes: 1024 * 1024, tail: true }
+export const HEAD_LIMIT: ReadLimit = { bytes: 64 * 1024, tail: false }
+export const LOG_LIMIT: ReadLimit = { bytes: 1024 * 1024, tail: true }
 
-async function readBounded(path: string, size: number, limit: ReadLimit): Promise<string> {
-  if (size <= limit.bytes) return readFile(path, 'utf8')
-  const handle = await open(path, 'r')
+type OpenFile = (path: string, flags: number) => Promise<Pick<FileHandle, 'stat' | 'read' | 'close'>>
+
+/** The file's text, at most `limit.bytes` of it, from ONE descriptor: open, fstat, read. The size is the
+ * descriptor's own, so a file that grew after the caller's lstat is still read only up to the cap, and
+ * what was checked is what is read (R2-9). A symlink, or a FIFO swapped in after the lstat, is not
+ * followed or waited for (O_NOFOLLOW, O_NONBLOCK) and a non-regular file is refused. */
+export async function readBounded(path: string, limit: ReadLimit, openFile: OpenFile = open): Promise<string> {
+  const handle = await openFile(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK)
   try {
-    const buffer = Buffer.alloc(limit.bytes)
-    const { bytesRead } = await handle.read(buffer, 0, limit.bytes, limit.tail ? size - limit.bytes : 0)
-    const text = buffer.toString('utf8', 0, bytesRead)
-    // A tail begins in the middle of a line: that line is dropped, not misread.
-    return limit.tail ? text.slice(text.indexOf('\n') + 1) : text
+    const info = await handle.stat()
+    if (!info.isFile()) throw Object.assign(new Error('not a regular file'), { code: 'not a regular file' })
+    const cut = info.size > limit.bytes
+    const length = Math.min(info.size, limit.bytes)
+    const start = limit.tail && cut ? info.size - length : 0
+    const buffer = Buffer.alloc(length)
+    let filled = 0
+    while (filled < length) {
+      const { bytesRead } = await handle.read(buffer, filled, length - filled, start + filled)
+      if (bytesRead === 0) break
+      filled += bytesRead
+    }
+    const text = buffer.toString('utf8', 0, filled)
+    // A tail that was cut begins in the middle of a line: that line is dropped, not misread.
+    return limit.tail && cut ? text.slice(text.indexOf('\n') + 1) : text
   } finally {
     await handle.close()
   }
@@ -105,7 +120,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
     if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) return cached.text
     try {
       this.readCount += 1
-      const text = await readBounded(path, info.size, limit)
+      const text = await readBounded(path, limit)
       this.cache.set(path, { mtimeMs: info.mtimeMs, size: info.size, text })
       return text
     } catch (err) {

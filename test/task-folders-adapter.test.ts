@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { TASK_SESSIONS } from '../scripts/task-fixture-lib.js'
-import { TaskFoldersAdapter } from '../src/server/adapters/task-folders.js'
+import { HEAD_LIMIT, LOG_LIMIT, TaskFoldersAdapter, readBounded } from '../src/server/adapters/task-folders.js'
 import type { AdapterEnv } from '../src/core/adapters/types.js'
 import type { Task } from '../src/core/types.js'
 
@@ -261,5 +261,77 @@ describe('limits on what a task folder can make the adapter read', () => {
     await symlink(join(root, 'secret-log.md'), join(root, 'beta-build', 'LOG.md'))
     const again = byId((await adapter().snapshot()).tasks)['beta-build'] as Task
     expect(again.timeline.some((entry) => entry.text.includes('demo'))).toBe(false)
+  })
+})
+
+// R2-9: the size came from lstat and the read was a separate readFile, so a file that grew in between was
+// read whole. Now one descriptor: open, fstat, and a read of at most the cap from that descriptor.
+describe('readBounded reads at most the cap from one descriptor (R2-9)', () => {
+  const MIB = 1024 * 1024
+
+  /** A descriptor whose fstat says `size` bytes (more than any earlier lstat did) and whose reads are recorded. */
+  function fakeOpen(size: number, options: { regular?: boolean; maxPerRead?: number } = {}) {
+    const reads: { length: number; position: number | null }[] = []
+    let closed = 0
+    const open: Parameters<typeof readBounded>[2] = async () =>
+      ({
+        stat: async () => ({ isFile: () => options.regular ?? true, size }),
+        read: async (buffer: Buffer, offset: number, length: number, position: number | null) => {
+          const bytesRead = Math.min(length, options.maxPerRead ?? length)
+          reads.push({ length, position })
+          buffer.fill(97, offset, offset + bytesRead) // 'a'
+          return { bytesRead, buffer }
+        },
+        close: async () => {
+          closed++
+        },
+      }) as never
+    return { open, reads, closed: () => closed }
+  }
+
+  test('the start of a file larger than the cap is read as one cap-sized read at 0', async () => {
+    const { open, reads, closed } = fakeOpen(10 * MIB)
+    const text = await readBounded('x', HEAD_LIMIT, open)
+    expect(text.length).toBe(64 * 1024)
+    expect(reads).toEqual([{ length: 64 * 1024, position: 0 }])
+    expect(closed()).toBe(1)
+  })
+
+  test('the end of a larger log is read from size - cap, and its first partial line dropped', async () => {
+    const { open, reads } = fakeOpen(10 * MIB)
+    const text = await readBounded('x', LOG_LIMIT, open)
+    expect(text.length).toBe(MIB)
+    expect(reads).toEqual([{ length: MIB, position: 10 * MIB - MIB }])
+  })
+
+  test('a file smaller than the cap is read whole, from 0, with no line dropped', async () => {
+    const { open, reads } = fakeOpen(100)
+    expect((await readBounded('x', LOG_LIMIT, open)).length).toBe(100)
+    expect(reads).toEqual([{ length: 100, position: 0 }])
+  })
+
+  test('short reads are continued until the cap or the end', async () => {
+    const { open, reads } = fakeOpen(10 * MIB, { maxPerRead: 1000 })
+    const text = await readBounded('x', HEAD_LIMIT, open)
+    expect(text.length).toBe(64 * 1024)
+    expect(reads.length).toBeGreaterThan(60)
+    expect(reads.reduce((sum, r) => sum + Math.min(r.length, 1000), 0)).toBe(64 * 1024)
+  })
+
+  test('a descriptor that is not a regular file is refused, and closed', async () => {
+    const { open, reads, closed } = fakeOpen(0, { regular: false })
+    await expect(readBounded('x', HEAD_LIMIT, open)).rejects.toThrow('not a regular file')
+    expect(reads).toEqual([])
+    expect(closed()).toBe(1)
+  })
+
+  test('a real file is read through a real descriptor', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cubiclark-bounded-'))
+    try {
+      await writeFile(join(dir, 'f.txt'), 'one\ntwo\n')
+      expect(await readBounded(join(dir, 'f.txt'), HEAD_LIMIT)).toBe('one\ntwo\n')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })
