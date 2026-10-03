@@ -22,6 +22,9 @@ export interface TailerOptions {
   chunkBytes?: number
   maxLineBytes?: number
   maxPollBytes?: number
+  /** Where the file goes when something else renames it away (the collector's `events.1.jsonl`). When set, a
+   * replaced or shrunken file is first read to its end there, from the old offset, if it is the same file (C7). */
+  rotatedPath?: string
   /** A seam for tests. */
   open?: (path: string, flags: number) => Promise<FileHandle>
 }
@@ -45,6 +48,11 @@ function errorMessage(err: unknown): string {
   return typeof code === 'string' ? code : 'error'
 }
 
+/** Which file this is, by device and inode, so a rename can be told from a truncation. */
+function identityOf(info: { dev: number; ino: number }): string | undefined {
+  return info.ino === 0 ? undefined : `${info.dev}:${info.ino}`
+}
+
 export class LineTailer {
   private offset = 0
   private buffer = ''
@@ -55,11 +63,15 @@ export class LineTailer {
   private readonly maxLineBytes: number
   private readonly maxPollBytes: number
   private readonly openFile: (path: string, flags: number) => Promise<FileHandle>
+  private readonly rotatedPath: string | undefined
+  /** Device and inode of the file the offset belongs to, when known (not on every file system). */
+  private identity: string | undefined
 
   constructor(
     private readonly path: string,
     options: TailerOptions = {}
   ) {
+    this.rotatedPath = options.rotatedPath
     this.chunkBytes = options.chunkBytes ?? CHUNK_BYTES
     this.maxLineBytes = options.maxLineBytes ?? MAX_LINE_BYTES
     this.maxPollBytes = options.maxPollBytes ?? MAX_POLL_BYTES
@@ -75,25 +87,65 @@ export class LineTailer {
     return this.buffer.length
   }
 
+  /** The file the offset belongs to has been replaced by another one (rotation). Only with `rotatedPath`. */
+  private replaced(now: string | undefined): boolean {
+    return this.rotatedPath !== undefined && this.identity !== undefined && now !== undefined && now !== this.identity
+  }
+
+  /** The file is not the one the offset belongs to: first the rest of the old one, if it is still around as
+   * `rotatedPath`, then the state is reset and the new file is read from its start. */
+  private async restart(result: TailResult, message: string): Promise<void> {
+    await this.drainRotated(result)
+    result.truncated = true
+    result.error = message
+    this.offset = 0
+    this.buffer = ''
+    this.skipping = false
+    this.decoder = new StringDecoder('utf8')
+  }
+
+  /** With `rotatedPath` set: what was appended to the file being read after the last poll, and now sits in
+   * the rotated file past the offset (C7). It is read only when that file is the one the offset belongs to
+   * (same device and inode), so a stale rotated file, or a file truncated in place, is never read as if it
+   * were the end of this one. Never throws; bounded like a poll. The caller discards the tailer or restarts it. */
+  async drainRotated(into: TailResult = { lines: [], truncated: false, tooLong: 0, more: false }): Promise<TailResult> {
+    if (this.rotatedPath === undefined || this.identity === undefined) return into
+    let handle: FileHandle
+    try {
+      handle = await this.openFile(this.rotatedPath, constants.O_RDONLY | constants.O_NONBLOCK)
+    } catch {
+      return into
+    }
+    try {
+      const info = await handle.stat()
+      if (info.isFile() && identityOf(info) === this.identity) await this.readFrom(handle, info.size, into)
+    } catch {
+      // whatever could not be read is not recovered; the new file is still followed
+    } finally {
+      await handle.close().catch(() => undefined)
+    }
+    return into
+  }
+
   async poll(): Promise<TailResult> {
     const result: TailResult = { lines: [], truncated: false, tooLong: 0, more: false }
     let size: number
+    let seen: string | undefined
     try {
       const info = await stat(this.path)
       if (!info.isFile()) return { ...result, error: 'not a regular file' }
       size = info.size
+      seen = identityOf(info)
     } catch (err) {
       return { ...result, error: `cannot stat: ${errorMessage(err)}` }
     }
 
     if (size < this.offset) {
-      result.truncated = true
-      result.error = `file shrank from ${this.offset} to ${size} bytes; restarting from the beginning`
-      this.offset = 0
-      this.buffer = ''
-      this.skipping = false
-      this.decoder = new StringDecoder('utf8')
+      await this.restart(result, `file shrank from ${this.offset} to ${size} bytes; restarting from the beginning`)
+    } else if (this.replaced(seen)) {
+      await this.restart(result, 'file was replaced; restarting from the beginning')
     }
+    this.identity = seen
 
     if (size === this.offset) return result
 
@@ -111,16 +163,13 @@ export class LineTailer {
       const opened = await handle.stat()
       if (!opened.isFile()) return { ...result, error: 'not a regular file' }
       size = opened.size
-      const buf = Buffer.alloc(Math.min(this.chunkBytes, Math.max(0, size - this.offset)))
-      let readThisPoll = 0
-      while (this.offset < size && readThisPoll < this.maxPollBytes) {
-        const length = Math.min(buf.length, size - this.offset, this.maxPollBytes - readThisPoll)
-        const { bytesRead } = await handle.read(buf, 0, length, this.offset)
-        if (bytesRead === 0) break
-        this.offset += bytesRead
-        readThisPoll += bytesRead
-        this.take(this.decoder.write(buf.subarray(0, bytesRead)), result)
+      // Replaced between the stat and the open: the descriptor is the new file, and the offset is the old one's.
+      const now = identityOf(opened)
+      if (this.replaced(now)) {
+        await this.restart(result, 'file was replaced; restarting from the beginning')
+        this.identity = now
       }
+      await this.readFrom(handle, size, result)
     } catch (err) {
       readFailed = true
       result.error = `cannot read: ${errorMessage(err)}`
@@ -129,6 +178,20 @@ export class LineTailer {
     }
     result.more = !readFailed && this.offset < size
     return result
+  }
+
+  /** Reads from the offset to `size` or to the poll's byte budget, whichever comes first. */
+  private async readFrom(handle: FileHandle, size: number, result: TailResult): Promise<void> {
+    const buf = Buffer.alloc(Math.min(this.chunkBytes, Math.max(0, size - this.offset)))
+    let readThisPoll = 0
+    while (this.offset < size && readThisPoll < this.maxPollBytes) {
+      const length = Math.min(buf.length, size - this.offset, this.maxPollBytes - readThisPoll)
+      const { bytesRead } = await handle.read(buf, 0, length, this.offset)
+      if (bytesRead === 0) break
+      this.offset += bytesRead
+      readThisPoll += bytesRead
+      this.take(this.decoder.write(buf.subarray(0, bytesRead)), result)
+    }
   }
 
   /** Splits decoded text into lines, keeping the unfinished last one (within the cap). */
