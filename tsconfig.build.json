@@ -13,6 +13,7 @@
     "skipLibCheck": true,
     "declaration": false,
     "sourceMap": false,
+    "removeComments": true,
     "outDir": "dist",
     "rootDir": "src"
   },
