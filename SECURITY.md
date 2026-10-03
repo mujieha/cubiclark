@@ -9,7 +9,15 @@ enforce is under [Known limits](#known-limits). A first security review (round 1
 phases 1 to 4; every finding was fixed with a test, or is a Known limit here. A second round
 reviewed the round-1 fixes and everything added after them (Morty, the transcript file walker, the
 quiet office, the readable office and the terminal mode); each of its twelve findings was fixed with
-a test, or is a Known limit here (the session cookie reaching other ports on `127.0.0.1`).
+a test, or is a Known limit here (the session cookie reaching other ports on `127.0.0.1`). A third
+round verified every round-2 fix and added four items (the CI design for a public repository, the
+check of the installed `bin/package.json`, the control-character rule's range, Dependabot's runs), each
+fixed with a test. A cold second reviewer, told nothing of the earlier rounds, then reviewed the whole
+tree: its code and documentation findings (an always absolute state directory, no home path in the hooks
+status, the label rule for `claude agents` names, stored hook lines re-checked on read, how the tailer
+and the quota reader open a file, the events file's rotation, the wording here) were fixed with a test
+each, and its one operational finding, the self-hosted CI runner, is removed from the repository before
+it becomes public.
 
 ## Threat model
 

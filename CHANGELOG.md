@@ -47,6 +47,10 @@ The first release: a local view of live Claude Code agents and their states.
   `SECURITY.md`.
 - **Review round 2**: the round-1 fixes and everything added after them; each finding was fixed with
   a test, or is a Known limit in `SECURITY.md`.
+- **Review round 3**: the round-2 fixes, verified; four more items, each fixed with a test.
+- **Cold review**: a second reviewer, told nothing of the earlier rounds, reviewed the whole tree; each
+  finding was fixed with a test, or is a step before the repository is public (the self-hosted CI
+  runner is removed).
 
 ### Known limits
 
