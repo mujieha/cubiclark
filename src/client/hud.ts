@@ -16,6 +16,7 @@ import {
   type LogFilter,
   type StageState,
 } from '../core/hud.js'
+import { ownEntry } from '../core/keys.js'
 import type { Task, World } from '../core/types.js'
 import type { HiddenCounts } from '../core/visible.js'
 import type { ModelFamily } from '../core/office/roles.js'
@@ -239,7 +240,7 @@ export class Hud {
     setOptions(this.taskSelect, [AUTO, ...tasks.map((task) => task.id)], (value) => (value === AUTO ? 'auto' : value), state.taskChosen && state.taskId ? state.taskId : AUTO)
 
     this.timelineBody.textContent = ''
-    const task = state.taskId === undefined ? undefined : world?.tasks[state.taskId]
+    const task = world ? ownEntry(world.tasks, state.taskId) : undefined
     if (!task) {
       this.timelineBody.appendChild(el('p', { className: 'hud-hint', text: tasks.length === 0 ? 'No tasks: none of the adapters reports any' : 'No task selected' }))
       return

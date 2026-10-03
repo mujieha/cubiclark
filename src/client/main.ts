@@ -1,4 +1,5 @@
 import { defaultTaskId, type LogFilter } from '../core/hud.js'
+import { ownEntry } from '../core/keys.js'
 import { agentRows, diagnosticsLine, emptyScreen, emptyScreenText, officeStatusLine, setupScreen, sourcesLine, type EmptyScreenId } from '../core/view.js'
 import { THEMES, nextThemeChoice, resolveThemeId, themeButtonText, type Theme, type ThemeChoice } from '../core/theme/index.js'
 import type { World } from '../core/types.js'
@@ -245,14 +246,14 @@ class App {
     if (this.selectedAgentId !== undefined && inView && !inView.agents[this.selectedAgentId]) this.selectedAgentId = undefined
 
     // The timeline shows the chosen task, else the selected agent's, else the newest one that is live.
-    const chosen = this.chosenTaskId !== undefined && inView?.tasks[this.chosenTaskId] ? this.chosenTaskId : undefined
+    const chosen = this.chosenTaskId !== undefined && inView && ownEntry(inView.tasks, this.chosenTaskId) ? this.chosenTaskId : undefined
     const taskId = chosen ?? (inView ? defaultTaskId(inView, this.selectedAgentId) : undefined)
 
     const screenId = emptyScreen(inView)
     this.renderAssetErrors(inView)
     this.renderEmpty(screenId, inView, hidden)
     // The whiteboard shows the same task as the timeline.
-    this.office.setSelectedTask(taskId === undefined ? undefined : inView?.tasks[taskId])
+    this.office.setSelectedTask(inView ? ownEntry(inView.tasks, taskId) : undefined)
     this.office.setWorld(inView, screenId)
     this.office.setSelected(this.selectedAgentId)
 

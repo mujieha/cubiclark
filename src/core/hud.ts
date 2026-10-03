@@ -3,6 +3,7 @@
 // through textContent.
 
 import { phaseAfterCut } from './adapters/apply.js'
+import { ownEntry } from './keys.js'
 import { accessoryFor, effectiveRole, modelFamily, type Accessory, type ModelFamily } from './office/roles.js'
 import type { Agent, AgentRole, Task, TaskPhase, World } from './types.js'
 import { agentStateLabel, BUSY_STATES, relativeSince, shortId } from './view.js'
@@ -79,7 +80,7 @@ function countersText(agent: Agent): string {
 export function agentCard(world: World, agentId: string | undefined, nowMs: number): AgentCard | undefined {
   const agent = agentId === undefined ? undefined : world.agents[agentId]
   if (!agent) return undefined
-  const task = agent.taskId === undefined ? undefined : world.tasks[agent.taskId]
+  const task = ownEntry(world.tasks, agent.taskId)
   const fields: CardField[] = [
     { label: 'Kind', value: agent.kind },
     { label: 'Role', value: effectiveRole(agent, world) ?? '—' },
@@ -258,7 +259,7 @@ export function timelineView(task: Task): TimelineView {
  * not done and was active most recently. */
 export function defaultTaskId(world: World, selectedAgentId?: string): string | undefined {
   const own = selectedAgentId === undefined ? undefined : world.agents[selectedAgentId]?.taskId
-  if (own !== undefined && world.tasks[own]) return own
+  if (own !== undefined && ownEntry(world.tasks, own)) return own
   let best: Task | undefined
   for (const task of Object.values(world.tasks)) {
     if (task.phase === 'done') continue

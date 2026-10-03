@@ -1,6 +1,7 @@
 // Which room an agent works in, what it wears and where its helpers sit (PLAN.md phase 3 §2.3).
 // Pure functions over Agent and World: the same rules drive layout() and the tests.
 
+import { ownEntry } from '../keys.js'
 import type { Agent, AgentRole, World } from '../types.js'
 
 export type RoomId = 'manager' | 'planning' | 'review' | 'floor' | 'lobby'
@@ -35,7 +36,7 @@ export function effectiveRole(agent: Agent, world: World): AgentRole | undefined
   if (agent.role === 'orchestrator' || agent.role === 'planner' || agent.role === 'reviewer') return agent.role
   const startedBackground = Object.values(world.agents).some((other) => other.kind === 'background' && other.parentId === agent.id)
   if (startedBackground) return 'orchestrator'
-  if (agent.taskId !== undefined && world.tasks[agent.taskId]?.phase === 'planning') return 'planner'
+  if (agent.taskId !== undefined && ownEntry(world.tasks, agent.taskId)?.phase === 'planning') return 'planner'
   if (agent.label !== undefined && /review|verif/i.test(agent.label)) return 'reviewer'
   if (agent.role !== undefined) return agent.role
   return agent.kind === 'session' || agent.kind === 'background' ? 'builder' : undefined
