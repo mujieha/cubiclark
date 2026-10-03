@@ -23,7 +23,7 @@ click away.
   calls, permission requests, compactions, failures and subagents as they happen. Transcripts stay
   in use for what hooks do not carry (the model, compactions, a manual denial, an interrupt).
 
-Verified against Claude Code **2.1.285** and its hooks reference. `cubiclark doctor` says which
+Verified against Claude Code **2.1.288** and its hooks reference. `cubiclark doctor` says which
 version you run and whether it is the one the hook events were checked on.
 
 ## Hooks
@@ -112,6 +112,15 @@ Every test uses fixture directories under a temp dir and never reads or writes t
 directory (`test/fixtures/home` is one), and `--state-dir <dir>` at a stand-in state directory
 (`test/fixtures/state`). Fixture mode disables the age window and freezes the page's clock at the
 newest record found, so a fixture world never looks stale just because the checkout is old.
+
+**Opening the page.** `serve` and `replay` print one line, `cubiclark listening
+http://127.0.0.1:<port>/<code>/`, and open that link in your browser (not with `--no-open`: then it is
+yours to open). The link works **once**: the browser trades the code in it for a session cookie
+(`HttpOnly`, `SameSite=Strict`) and lands on `http://127.0.0.1:<port>/`, with nothing secret in the
+address. Every route needs the cookie. If you open the link a second time from another browser it
+answers 403: stop `cubiclark` and start it again for a new link. The cookie's value is never printed.
+`SECURITY.md` says what this protects and what it does not (another local account that reads the link
+first, and that `Secure` cannot be set on plain http).
 
 ## The office
 
@@ -516,11 +525,16 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   contrast of text drawn on the canvas is set by the palette rules, not measured by axe.
 - **The theme choice is per browser**, and a custom-assets manifest or a configuration file is read
   once, at start: change it and restart.
-- **`StopFailure`'s payload is not shown in the hooks reference** (only its matcher, `error_type`),
-  so the collector reads the field as `error` or `error_type`. It is unverified on a real failing
-  session. `PostModelSwitch`'s `to_model` is read from the reference's prose in the same way.
-- **Cubiclark assumes a single-user machine.** The run token is in the URL, so the browser's command
-  line and history show it to other local accounts (`SECURITY.md`).
+- **The hook events were checked against the hooks reference (Claude Code 2.1.288), not against every
+  real session.** The reference shows `StopFailure`'s payload with the error in `error` (the collector
+  still accepts `error_type` as a fallback) and `PostModelSwitch`'s `to_model`; both are unverified on a
+  real failing session or a real model switch. If a session names a field differently, the collector
+  stores no value for it.
+- **The link works once, in one browser.** The address `cubiclark` prints is a one-time link: your
+  browser trades it for a session cookie and is sent to a page whose URL holds no secret. Another local
+  account that reads the link before your browser uses it can use it first, once (your browser would
+  then be told the link was used); and a second browser needs a restart for a new link
+  (`SECURITY.md`).
 - **A command's first word is kept unless it looks like a credential** (over 40 characters, `=`, `:`
   or `@` in it, `sk-`, `ghp_`, `xox`, `AKIA`, ...): a secret that does not look like one and is typed
   where a command goes would still be stored. `hooks on --no-tools` stores no tool activity.
