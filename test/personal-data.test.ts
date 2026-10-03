@@ -102,7 +102,7 @@ describe('personal-data guard over test/fixtures/', () => {
 
   test('no file names this machine, its account, this project family or a .local hostname', async () => {
     const violations: string[] = []
-    // the account name and home path segments come from the environment, so this list spells none out
+    // the account name comes from the environment, so this list does not spell it out
     const forbidden = ['rufornyi', 'mujieha', ...localNames()]
     for (const file of await listFiles(FIXTURES_DIR)) {
       const text = (await readFile(file, 'utf8')).toLowerCase()

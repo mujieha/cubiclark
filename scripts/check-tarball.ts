@@ -56,7 +56,7 @@ const FORBIDDEN: readonly { name: string; re: RegExp }[] = [
   { name: 'rufornyi', re: /rufornyi/i },
   { name: 'uuid', re: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i },
   { name: 'Claude-Session', re: /Claude-Session/i },
-  // this machine's account name and home path segments, derived so that this file names none of them
+  // this machine's account name, derived so that this file does not name it
   ...localNames().map((word) => ({ name: word, re: new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })),
 ]
 
