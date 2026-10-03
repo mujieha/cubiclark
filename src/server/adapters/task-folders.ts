@@ -9,6 +9,7 @@ import { lstat, open, readFile, readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { AdapterConfig } from '../../core/adapters/config.js'
 import { buildTask, taskLinks } from '../../core/adapters/task-folder.js'
+import { isSafeKey } from '../../core/keys.js'
 import type { AdapterDescription, AdapterEnv, AdapterSnapshot, AgentLink, OrchestrationAdapter } from '../../core/adapters/types.js'
 import type { Task } from '../../core/types.js'
 
@@ -120,6 +121,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
     const seenPaths = new Set<string>()
     const seenIds = new Set<string>()
     let unparsed = 0
+    let skippedUnsafe = 0
     const nowMs = this.env.nowMs()
     // STATUS.md's time is clamped to wall time, which is not the replay clock in a replay.
     const wallMs = (this.env.wallMs ?? this.env.nowMs)()
@@ -139,6 +141,12 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
         const dir = join(root, entry.name)
         const taskMd = await this.readCached(join(dir, 'TASK.md'), `${entry.name}/TASK.md`, seenPaths, errors)
         if (taskMd === undefined) continue // not a task folder
+        // A folder called `constructor` (or `__proto__`, ...) would find an inherited property wherever
+        // the World's tasks are looked up (S1-1 for task ids, R2-5): it is not a task.
+        if (!isSafeKey(entry.name)) {
+          skippedUnsafe += 1
+          continue
+        }
         seenIds.add(entry.name)
 
         const statusPath = join(dir, 'STATUS.md')
@@ -158,6 +166,7 @@ export class TaskFoldersAdapter implements OrchestrationAdapter {
       }
     }
 
+    if (skippedUnsafe > 0) errors.push(`skipped ${skippedUnsafe} task folder${skippedUnsafe === 1 ? '' : 's'} named like an object property`)
     for (const path of this.cache.keys()) if (!seenPaths.has(path)) this.cache.delete(path)
     this.lastTaskCount = tasks.length
     this.lastUnparsedLogLines = unparsed

@@ -2,7 +2,11 @@
 // never crash the reducer or corrupt a count. Such an id is not a real Claude Code id, so the event
 // is ignored, leaves one source error, and everything else carries on.
 
-import { describe, expect, test } from 'vitest'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { TaskFoldersAdapter } from '../src/server/adapters/task-folders.js'
 import { reduce } from '../src/core/reducer.js'
 import { isSafeKey, bump } from '../src/core/keys.js'
 import { classifyPath } from '../src/core/transcript/paths.js'
@@ -112,6 +116,31 @@ describe('hook lines', () => {
     const result = normaliseHookLine(line, initialHookNormState())
     expect(result.events).toEqual([])
     expect(result.unknownShape).toBe(true)
+  })
+})
+
+describe('task ids (R2-5)', () => {
+  const SESSION = '00000000-0000-4000-8000-0000000000aa'
+  let root: string
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'cubiclark-taskkeys-'))
+  })
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('a task folder named like an object property is skipped, counted once, and links nothing', async () => {
+    for (const name of ['constructor', '__proto__', 'toString', 'good']) {
+      await mkdir(join(root, name))
+      await writeFile(join(root, name, 'TASK.md'), `# ${name}\nGoal: g\nProject: /work/demo\n`)
+      await writeFile(join(root, name, 'LOG.md'), `${TS} dispatched session ${SESSION} in /work/demo model=claude-opus-5-5 effort=high perms=default\n`)
+    }
+    const adapter = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: null }, { nowMs: () => Date.parse(TS), home: '/home/user' })
+    const snap = await adapter.snapshot()
+    expect((snap.tasks ?? []).map((task) => task.id)).toEqual(['good'])
+    expect((snap.links ?? []).map((l) => l.taskId)).toEqual(['good'])
+    expect(snap.diagnostics.errors.filter((e) => e.includes('skipped'))).toEqual(['skipped 3 task folders named like an object property'])
   })
 })
 
