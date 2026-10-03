@@ -8,7 +8,7 @@
 // describe different files.
 
 import { open, stat } from 'node:fs/promises'
-import type { Stats } from 'node:fs'
+import { constants, type Stats } from 'node:fs'
 import { dirname } from 'node:path'
 import { parseConfig, type ParsedConfig } from '../core/adapters/config.js'
 
@@ -37,7 +37,10 @@ export async function loadConfig(path: string, o: LoadConfigOptions): Promise<Pa
   let text: string
   let file: Stats
   try {
-    const handle = await open(path, 'r')
+    // Looked at before it is opened: open(2) of a FIFO for reading waits for a writer, so start-up would
+    // hang with no message (R2-10). O_NONBLOCK keeps a file swapped for a FIFO after this from waiting.
+    if (!(await stat(path)).isFile()) return { config: {}, warnings: ['cannot read the config file: not a regular file'] }
+    const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK)
     try {
       file = await handle.stat()
       if (!file.isFile()) return { config: {}, warnings: ['cannot read the config file: not a regular file'] }

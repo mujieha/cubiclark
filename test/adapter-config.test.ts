@@ -1,4 +1,6 @@
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants } from 'node:fs'
+import { chmod, mkdtemp, open, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -181,4 +183,19 @@ describe('loadConfig', () => {
     expect(r.config).toEqual({})
     expect(r.warnings[0]).toContain('cannot read the config file')
   })
+
+  // R2-10: open(2) of a FIFO for reading waits for a writer, so start-up hung for good. The file is now
+  // looked at before it is opened.
+  test.skipIf(process.platform === 'win32')('a FIFO is refused without being opened, so start-up cannot hang', async () => {
+    const fifo = join(dir, 'config.json')
+    execFileSync('mkfifo', [fifo])
+    try {
+      const r = await loadConfig(fifo, { home: '/h', fixtureMode: false })
+      expect(r.config).toEqual({})
+      expect(r.warnings).toEqual(['cannot read the config file: not a regular file'])
+    } finally {
+      // a build that opens it first would be waiting for a writer: let it go, so the worker can end
+      await open(fifo, constants.O_WRONLY | constants.O_NONBLOCK).then((handle) => handle.close(), () => undefined)
+    }
+  }, 5000)
 })

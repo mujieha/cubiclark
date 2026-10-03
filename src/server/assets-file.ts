@@ -2,7 +2,8 @@
 // file that is too large, is not a regular file, is not JSON or breaks a rule is `invalid`: nothing
 // from it is applied, and each problem is reported with a path. Never throws.
 
-import { open } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { open, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { MAX_MANIFEST_BYTES, validateManifest, type ManifestResult } from '../core/assets/manifest.js'
 import { assetsStatusOf, publicAssets, type AssetsStatus, type PublicAssets } from '../core/assets/status.js'
@@ -31,7 +32,10 @@ export async function loadAssets(path: string | undefined): Promise<LoadedAssets
   if (path === undefined) return { status: assetsStatusOf(undefined, undefined) }
   let text: string
   try {
-    const handle = await open(path, 'r')
+    // Looked at before it is opened: open(2) of a FIFO for reading waits for a writer, so start-up would
+    // hang with no message (R2-10). O_NONBLOCK keeps a file swapped for a FIFO after this from waiting.
+    if (!(await stat(path)).isFile()) return invalid(path, 'not a regular file')
+    const handle = await open(path, constants.O_RDONLY | constants.O_NONBLOCK)
     try {
       // One descriptor for the check and the read (the file cannot change between them).
       const info = await handle.stat()
