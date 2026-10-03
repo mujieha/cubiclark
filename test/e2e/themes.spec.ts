@@ -140,7 +140,7 @@ test.describe('the palette reaches the canvas', () => {
 
 test.describe('the whole page in each theme', () => {
   for (const id of ['day', 'night'] as const) {
-    test(`${id}, against a baseline`, async ({ page }) => {
+    test(`${id}, against a baseline`, { tag: '@pixels' }, async ({ page }) => {
       await page.addInitScript((choice) => localStorage.setItem('cubiclark.theme', choice), id)
       // Compared with a pre-Morty baseline: Morty off.
       const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })

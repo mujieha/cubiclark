@@ -110,7 +110,7 @@ async function words(page: Page, id: string): Promise<{ table: string; hud: stri
 }
 
 test.describe('Morty\'s day', () => {
-  test('he naps, walks, drinks and plays ball, each against a baseline', async ({ page }) => {
+  test('he naps, walks, drinks and plays ball, each against a baseline', { tag: '@pixels' }, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     const cli = await openOffice(page)
     try {
@@ -266,7 +266,7 @@ test.describe('the empty offices', () => {
 })
 
 test.describe('reduced motion', () => {
-  test('he is asleep in his basket, there is no ball, and nothing moves', async ({ page }) => {
+  test('he is asleep in his basket, there is no ball, and nothing moves', { tag: '@pixels' }, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const cli = await openWithFakeWorld(page)
     try {

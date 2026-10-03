@@ -21,7 +21,7 @@ async function cropAround(page: Page, agentId: string): Promise<Buffer> {
 test.describe('the 16 states', () => {
   test.setTimeout(120_000)
 
-  test('each state renders against its baseline, and no two states render alike', async ({ browser }) => {
+  test('each state renders against its baseline, and no two states render alike', { tag: '@pixels' }, async ({ browser }) => {
     const seen = new Map<string, string>()
     for (const state of AGENT_STATES) {
       // A fresh context per state: each gets its own paused clock, starting from the same instant.
@@ -50,7 +50,7 @@ test.describe('the 16 states', () => {
   })
 })
 
-test('all 16 states in one office, against a baseline', async ({ page }) => {
+test('all 16 states in one office, against a baseline', { tag: '@pixels' }, async ({ page }) => {
   // Compared with a pre-Morty baseline: Morty off.
   const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
   try {
