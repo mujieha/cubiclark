@@ -194,7 +194,10 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
   only if that leaves it empty;
 - refuses, on `hooks on`, `hooks off` and `hooks off --purge` alike, a state directory that is `/`,
   your home directory or one that contains it, before changing anything (a wrong `CUBICLARK_HOME`
-  cannot point it at your files).
+  cannot point it at your files);
+- refuses, on `hooks on`, a `bin/package.json` that is not exactly what `on` writes (it names the
+  file and asks for another state directory), before changing anything, so a package file of yours is
+  never replaced.
 
 `test/hooks-install.test.ts` and `test/hooks/hooks-cli.test.ts` check each of these against
 fixture settings files in temp directories; no test ever touches the real `~/.claude`.

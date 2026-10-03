@@ -56,7 +56,8 @@ a script of yours in `~/.cubiclark/bin/` stays. Events already collected and the
 (and the directory, if that leaves it empty). `--purge` deletes nothing else in that directory:
 `config.json`, `assets/` and `backups/` stay (a backup may be the only copy of your settings from
 before Cubiclark). `hooks on`, `hooks off` and `hooks off --purge` all refuse `/`, your home
-directory and any directory that contains it, before changing anything.
+directory and any directory that contains it, before changing anything. `hooks on` also refuses a
+`bin/package.json` that is not the one it writes, and names the file: choose another state directory.
 
 **After an upgrade, run `cubiclark hooks on` again**: it adds the entries a newer version needs
 (this phase added `PostModelSwitch`, so the model of a running session follows a model switch) and

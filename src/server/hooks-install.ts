@@ -225,8 +225,31 @@ export interface HooksOnResult {
   backupPath?: string
 }
 
+/** `on` writes `bin/package.json` and `off` removes it as its own, so a file already there that is not
+ * exactly what `on` writes belongs to someone else: refuse, before anything is changed (R3-2). */
+async function requireNoForeignPackageJson(p: HooksPaths): Promise<void> {
+  const packageJson = join(p.stateDir, 'bin', 'package.json')
+  let info
+  try {
+    info = await lstat(packageJson)
+  } catch (err) {
+    // Absent is fine; a `bin` that is not a directory is for requirePrivateDir to name, later.
+    if (isNotFound(err) || (err as NodeJS.ErrnoException).code === 'ENOTDIR') return
+    throw new HooksCommandError(`cannot inspect ${packageJson}: ${describe(err)}; nothing was changed`)
+  }
+  if (info.isFile()) {
+    try {
+      if ((await readFile(packageJson, 'utf8')) === COLLECTOR_PACKAGE_JSON) return
+    } catch (err) {
+      throw new HooksCommandError(`cannot read ${packageJson}: ${describe(err)}; nothing was changed`)
+    }
+  }
+  throw new HooksCommandError(`${packageJson} is not Cubiclark's; choose another state directory; nothing was changed`)
+}
+
 export async function hooksOn(p: HooksPaths, opts: { tools: boolean; nowMs: number }): Promise<HooksOnResult> {
   await requireSafeStateDir(p, 'install into')
+  await requireNoForeignPackageJson(p)
   const settingsPath = join(p.configDir, 'settings.json')
   const target = await resolveTarget(settingsPath)
   const bytes = await readBytes(target)
