@@ -90,8 +90,9 @@ list, so it 404s the same as any other unknown path.
   text, or tool output. A tool's "target" is reduced to a file basename, a command verb, or a URL
   host — never a full path, a search pattern, or a search query
   (`src/core/transcript/tools.ts`).
-- File paths are shown as basenames only; there is no `--full-paths` flag yet (a later phase, see
-  README's Known limits).
+- An agent's file paths are shown as basenames only; there is no `--full-paths` flag yet (a later
+  phase, see README's Known limits). The folders the sources read are named on the page with your
+  home directory as `~` (see "Paths leaving the machine in the page's data").
 - `test/personal-data.test.ts` proves every fixture file is free of real paths, e-mail addresses,
   this machine's name, and prose outside a fixed lorem vocabulary — the same shape of check the
   hygiene tool runs on the whole repository before anything is published.
@@ -102,7 +103,16 @@ list, so it 404s the same as any other unknown path.
   1 MiB and at most 8 MiB per poll (it polls again while there is more), so a first read of a huge
   file is many small ones. A line longer than 4 MiB is dropped up to its newline, counted as an
   unparsed line with the reason `too_long`, and never held in memory
-  (`test/tail.test.ts`, `test/transcript-source.test.ts`).
+  (`test/tail.test.ts`, `test/transcript-source.test.ts`). The tailer and the quota reader open a
+  file with `O_NONBLOCK` and check what they opened by `fstat` on that descriptor, so a file swapped
+  for a FIFO after it was looked at is refused, not waited for (`test/tail.test.ts`,
+  `test/quota.test.ts`).
+- When the collector rotates the events file (`events.jsonl` renamed to `events.1.jsonl` at 5 MB), the
+  hook source first reads what was appended to the old file after its last poll, from the offset
+  it had reached, and then follows the new file. It does so only when `events.1.jsonl` is the same
+  file (the same device and inode) it had been reading, so a stale rotated file, or an events file
+  truncated in place, is never read as if it were the end of this one. The reader is bounded as
+  any poll is (`test/hook-source.test.ts`).
 - The World's log is capped at 500 lines, its diagnostics' source-error list at 50, and the record
   types and versions it counts at 50 names each (the rest under `(other)`); all drop or merge once
   full, so none grows without bound while the process runs.
@@ -127,12 +137,19 @@ The collector (`src/hook/collector.ts`) runs once per Claude Code event and sees
 payload, including prompts, tool inputs and tool outputs. It stores none of that.
 
 - **A whitelist, not a blocklist.** `src/core/hooks/whitelist.ts` builds each stored line field by
-  field. A field is an id or name that matches a strict pattern, a value from a fixed enum, or a
+  field. A field is an id or name that matches a strict pattern, a value from a fixed enum, a
   reduced target (a file's basename, a command's first word, a URL's host, a subagent type,
-  under 100 characters with no path separator or control character). A value that fails its rule
-  is dropped, not stored, and every field it does not name is never read. Unknown event names
-  are recorded as `_unknown` with the name only, and anything that is not a JSON object as
-  `_malformed`.
+  under 100 characters with no path separator or control character), or the session's working
+  directory. A value that fails its rule is dropped, not stored, and every field it does not name
+  is never read. Unknown event names are recorded as `_unknown` with the name only, and anything
+  that is not a JSON object as `_malformed`.
+- **The working directory is the one full absolute path the collector keeps** (`cwd`: absolute, at
+  most 1024 characters, no control character). Everything else it stores about a place is a
+  basename, a verb or a host. It is kept in full because the server matches a session to its task
+  folder and to a `claude agents` entry by it, and a basename cannot tell two projects of the same
+  name apart. It names your user name and your project directories, so `events.jsonl` (mode 0600, in
+  a 0700 directory) is private data: do not share it. The page and `world.json` carry only its
+  basename (`test/whitelist.test.ts`, `test/view.test.ts`).
 - **The secrets test.** `test/whitelist.test.ts` and `test/hooks/collector.test.ts` push payloads
   stuffed with fake credentials (API keys, tokens, passwords, a private-key header, an e-mail
   address, secrets inside commands, URLs, file contents, tool responses, error text,
@@ -160,7 +177,14 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
 - It exits 0 with empty stdout and empty stderr on every path, including malformed input, a
   full disk and an unwritable state directory, so it adds nothing to any session's context
   (stdout on some events becomes context) and never turns a failure into a blocked action. An
-  ESLint rule bans `console` in its code.
+  ESLint rule bans `console` in its code. That is the collector's own code: if the installed copy is
+  deleted by hand while the hooks are still installed, Node itself prints "Cannot find module" and
+  exits 1 on every event (a non-blocking hook-error notice each time). Remove it with `hooks off`, not
+  by deleting `~/.cubiclark`.
+- It writes only to an absolute state directory: a relative `--state-dir` or `CUBICLARK_HOME` is
+  ignored (the collector runs in the session's project directory, and would otherwise write
+  `events.jsonl` into a project tree) and the default `~/.cubiclark` is used
+  (`test/collector-state-dir.test.ts`, `test/hooks/collector.test.ts`).
 - It never prints a decision, and never answers a `PermissionRequest`; it only observes.
 - It keeps out of Claude Code's way: eleven of the fifteen events are installed as `async` hooks,
   so nothing waits for it, and the four synchronous ones have a 5 second timeout.
@@ -199,6 +223,12 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
 - refuses, on `hooks on`, `hooks off` and `hooks off --purge` alike, a state directory that is `/`,
   your home directory or one that contains it, before changing anything (a wrong `CUBICLARK_HOME`
   cannot point it at your files);
+- refuses, on `hooks on`, a state directory that is not an absolute path, or that starts with a `~` the
+  shell did not expand, and names the absolute path it probably meant, before changing anything:
+  Claude Code resolves a handler's path against each session's project directory and expands no `~`,
+  so a relative state directory would run a file of the project you opened as a user-level hook.
+  The handlers it writes hold an absolute collector path and an absolute `--state-dir`
+  (`test/hooks-install.test.ts`);
 - refuses, on `hooks on`, a `bin/package.json` that is not exactly what `on` writes (it names the
   file and asks for another state directory), before changing anything, so a package file of yours is
   never replaced.
@@ -210,7 +240,15 @@ fixture settings files in temp directories; no test ever touches the real `~/.cl
 
 `~/.cubiclark/events.jsonl` is read like a transcript: any line that is not valid, or not a shape
 this build knows, is counted (`unparsed`, `unknown hook shapes`) and never reaches the page as
-content, and the page still renders every string with `textContent`.
+content, and the page still renders every string with `textContent`. The collector's whitelist binds
+the writer, and the reader cannot know the collector wrote the file, so every field of a line that
+is read is checked again with the collector's own matchers (the same functions, exported from
+`whitelist.ts`): a target with a path separator or a control character, a model or a tool name that
+is not a plain name, a working directory that is not an absolute path of at most 1024 characters,
+or a value outside a fixed list is dropped, as the collector would have dropped it, and an id that
+is not a plain id makes the line an unknown shape (`test/hook-normalise-reread.test.ts`). The file
+is only as trustworthy as the directory it is in: `serve`, `tui` and `replay` do not check who
+owns the state directory, as `hooks on` does.
 
 ### A configuration file that makes Cubiclark run a program
 
@@ -231,7 +269,9 @@ names. So:
   once every 15 seconds. A fixture home never reads the real configuration.
 - What it prints is not trusted: `parseAgentsJson` keeps a fixed set of fields, each cut to 40
   characters, a session id only if it is a UUID, and a state only from the five documented values.
-  The session's working directory stays on the server.
+  A name, which becomes an agent's label, is kept only if it passes the label rule above (no control
+  character, no `/` or `\`), and a `status` or `waitingFor` with a control character is dropped
+  (`test/claude-agents.test.ts`). The session's working directory stays on the server.
 - Tests only ever run the stand-in `test/fixtures/bin/claude`.
 
 ### Task folders, quota files and `claude agents` output as untrusted input
@@ -270,10 +310,13 @@ sequence to your terminal (`test/parse-diagnostics.test.ts`).
 ### Paths leaving the machine in the page's data
 
 The page's data (`world.json` and the event stream) is what a screenshot, a saved response or a HAR
-file would hold. An agent's working directory is reduced to its basename, the transcripts folder, the
-events file and any error text name your home directory as `~`, and a source error names
-`<project>/<file>`, never an absolute path (`test/http.test.ts`, `test/view.test.ts`). A path outside
-your home directory (a fixture folder, `/tmp`) is shown as it is. Text a transcript itself holds
+file would hold. An agent's working directory is reduced to its basename. The transcripts folder, the
+events file and the hooks source's reason (the off file, the collector's copy, an error from
+`settings.json`) name your home directory as `~`: the reason is built from reduced paths and
+`publicWorld` reduces it again. A source error names `<project>/<file>`, never an absolute path
+(`test/http.test.ts`, `test/view.test.ts`, `test/hooks-status.test.ts`). A path outside your home
+directory (a fixture folder, `/tmp`) is shown as it is. `doctor` and `hooks status` print to your own
+terminal and name the paths in full. Text a transcript itself holds
 (an API error message) has control characters removed, paths reduced and its length capped.
 
 ### The event stream holding memory for a client that stopped reading
