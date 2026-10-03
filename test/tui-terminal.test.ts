@@ -62,10 +62,17 @@ function setup() {
 
 describe('the sequences', () => {
   test('are exactly the four fixed ones', () => {
-    expect(ENTER).toBe('\x1b[?1049h\x1b[?25l')
-    expect(LEAVE).toBe('\x1b[?25h\x1b[?1049l')
+    expect(ENTER).toBe('\x1b[?1049h\x1b[?25l\x1b[?7l')
+    expect(LEAVE).toBe('\x1b[?7h\x1b[?25h\x1b[?1049l')
     expect(HOME).toBe('\x1b[H')
     expect(CLEAR).toBe('\x1b[2J')
+  })
+
+  test('autowrap is switched off on enter and back on first on leave (R2-4)', () => {
+    // A line a terminal draws wider than we counted is then cut at the edge, never wrapped onto the next
+    // row, which would push every later line down and scroll the top of the frame away.
+    expect(ENTER.endsWith('\x1b[?7l')).toBe(true)
+    expect(LEAVE.startsWith('\x1b[?7h')).toBe(true)
   })
 })
 

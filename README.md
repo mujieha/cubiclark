@@ -462,8 +462,11 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **A session waiting for you that is not among the five most recently active is not in the office
   or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
   is shown for 30 minutes and then counted as `stuck not shown`; the 30 minutes are fixed.
-- **In the terminal (`cubiclark tui`):** terminals disagree about the width of emoji and of some
-  punctuation (`--ascii` avoids both); agents do not walk, they are at their seats at once; Morty is
+- **In the terminal (`cubiclark tui`):** widths are counted from Unicode 18.0.0's East Asian Width
+  table (wide and fullwidth: two cells), plus emoji with emoji presentation; ambiguous-width
+  punctuation and text-presentation emoji count as one, and terminals disagree about them
+  (`--ascii` avoids both). Autowrap is off while the screen is up, so a line a terminal draws wider than
+  counted is cut at the edge and the lines below it stay in place; agents do not walk, they are at their seats at once; Morty is
   placed by room, not by tile; there is no mouse, no task timeline and no log filter; Ctrl+Z does not
   suspend it (the keys are read raw); the interactive screen needs both stdin and stdout to be a
   terminal; and the office is left out below 60 columns or 20 rows, which the second line of the

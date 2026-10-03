@@ -315,13 +315,20 @@ string goes through one filter, `terminalText` (`src/core/tui/cells.ts`), before
 5. with `--ascii`, or without a UTF-8 locale, anything but printable ASCII becomes `?` (the page's
    own punctuation and accents get a plain stand-in first).
 
-The text is then cut to the width of its place, counting wide characters as two cells, so a line is
-never wider than the terminal. A line is built by one function (`line()`, `src/core/tui/line.ts`),
+The text is then cut to the width of its place. A character counts as two cells when Unicode gives it
+East Asian Width W or F (a table generated from `EastAsianWidth.txt`, Unicode 18.0.0, by
+`scripts/make-east-asian-width.ts`) or emoji presentation, and as one otherwise. That is the width a
+terminal that follows Unicode draws, so a line is as wide as the terminal; a terminal with other
+tables can still draw a character wider or narrower than counted. Automatic line wrapping (autowrap) is
+switched off while the screen is up, so such a line is cut at the edge and never pushes the lines
+below it down (which would have scrolled the top of the frame, the status bar included, away). A
+line is built by one function (`line()`, `src/core/tui/line.ts`),
 which is the only place colour is written: the colour codes are a fixed table of numbers (foreground
 colours, bold and inverse), text from the World is never part of an escape sequence, and with colour
 off (`--no-color`, `NO_COLOR`) a frame holds no escape byte at all. The only other control sequences the
-program writes are four constants in `src/tui/terminal.ts` (enter the alternate screen and hide the
-cursor, leave it and show the cursor, cursor home, clear), and `test/tui-sources.test.ts` fails if any other source file in the terminal mode mentions
+program writes are four constants in `src/tui/terminal.ts` (enter the alternate screen, hide the
+cursor and turn autowrap off; turn autowrap on, show the cursor and leave the screen; cursor home;
+clear), and `test/tui-sources.test.ts` fails if any other source file in the terminal mode mentions
 an escape byte. The terminal is put back (cursor shown, main screen, raw mode off) on `q`, on SIGINT,
 SIGTERM and SIGHUP, on an error and on exit (`test/tui-terminal.test.ts`). The mode opens no port and
 no network connection and reads the same files as `serve`; `test/tui-render.test.ts` renders a World
@@ -367,7 +374,10 @@ What the code does not do, so that nothing above is read as more than it is:
 - **`cubiclark tui` cannot know what your terminal does with what it is given.** It writes only printable
   text and the colour codes above, but a terminal's own handling of very long lines, unusual fonts or
   characters whose width it computes differently is outside Cubiclark; `--ascii` limits the output to
-  printable ASCII.
+  printable ASCII. Widths are counted from Unicode 18.0.0's table, and characters whose width is
+  ambiguous, or that are emoji only in text presentation, count as one cell. On a terminal that draws
+  one wider, the end of that line is cut at the edge of the screen (autowrap is off), and the lines
+  below it stay where they are.
 
 ## Reporting a vulnerability
 

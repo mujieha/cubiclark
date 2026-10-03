@@ -14,6 +14,7 @@ const SECURITY = collapse(readFileSync(`${ROOT}SECURITY.md`, 'utf8'))
 const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'R2-2', phrase: '`--purge` never deletes anything else in that directory' },
   { finding: 'R2-2', phrase: 'flag, `bin/`, `install.json`)' },
+  { finding: 'R2-4', phrase: 'so a line is never wider than the terminal' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -21,6 +22,9 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R2-2', file: 'SECURITY', phrase: 'only the files `hooks on` placed' },
   { finding: 'R2-2', file: 'SECURITY', phrase: 'only when it is empty' },
   { finding: 'R2-2', file: 'README', phrase: 'only the files `hooks on` placed' },
+  { finding: 'R2-4', file: 'SECURITY', phrase: 'line wrapping (autowrap) is switched off' },
+  { finding: 'R2-4', file: 'SECURITY', phrase: 'Unicode 18.0.0' },
+  { finding: 'R2-4', file: 'README', phrase: 'text-presentation emoji' },
 ]
 
 describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12)', () => {
