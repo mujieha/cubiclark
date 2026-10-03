@@ -11,8 +11,12 @@ permissions:
 
 jobs:
   test:
-    # The Mac also builds the package: a pull request from a fork never runs here (R2-1).
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # The Mac runs this repository's own branches while the repository is private, and never once it is
+    # public: this condition is then false for every run, a fork's pull request included (R2-1, R3-1).
+    # A fork can edit this file, so the runner itself must also leave the repository at the public switch.
+    # Dependabot's pull requests come from branches of this repository and run a new dependency's install
+    # scripts, so they go to the hosted job too (R3-4).
+    if: github.event.repository.private == true && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.actor != 'dependabot[bot]'
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 20
     steps:
@@ -37,8 +41,9 @@ jobs:
 
   hosted:
     # Pull requests from forks, and every run once the repository is public, run on a GitHub-hosted
-    # Linux runner instead, without the pixel comparisons (their baselines are macOS and Chromium).
-    if: github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)
+    # Linux runner instead, without the pixel comparisons (their baselines are macOS and Chromium; run
+    # `npm run test:e2e` on a Mac before merging).
+    if: github.event.repository.private == false || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) || github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

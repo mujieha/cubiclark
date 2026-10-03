@@ -19,6 +19,7 @@ const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'R2-7', phrase: 'so a long or hostile string cannot grow the page' },
   { finding: 'R2-12', phrase: "the cookie's value and its name are compared" },
   { finding: 'R2-12', phrase: 'and any other `ESC` plus one character' },
+  { finding: 'R3-1', phrase: 'A pull request from a fork never runs there' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -37,6 +38,15 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R2-12', file: 'SECURITY', phrase: "The code and the cookie's value are compared with a timing-safe check" },
   { finding: 'R2-12', file: 'SECURITY', phrase: '`ESC` followed by any character from `@` to `_`' },
   { finding: 'R2-12', file: 'SECURITY', phrase: 'the character after it stays as text' },
+  { finding: 'R3-3', file: 'SECURITY', phrase: 'any C1 character (U+0080 to U+009F) and any Unicode format character (`\\p{Cf}`' },
+  { finding: 'R3-3', file: 'SECURITY', phrase: 'a name that fails it is shown as `unknown-tool`) and is capped at 100 characters' },
+  { finding: 'R3-2', file: 'SECURITY', phrase: 'a `bin/package.json` that is not exactly what `on` writes' },
+  { finding: 'R3-2', file: 'README', phrase: '`hooks on` also refuses a `bin/package.json` that is not the one it writes' },
+  { finding: 'R3-1', file: 'README', phrase: 'the workflow selects that runner for no run at all' },
+  { finding: 'R3-4', file: 'README', phrase: 'an actor that is not Dependabot' },
+  { finding: 'R3-1', file: 'README', phrase: 'Require approval for all external contributors' },
+  { finding: 'R3-1', file: 'README', phrase: 'the self-hosted runner removed from the repository when it goes public' },
+  { finding: 'R3-1', file: 'README', phrase: '`npm run test:e2e` on a Mac, before merging' },
 ]
 
 describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12)', () => {

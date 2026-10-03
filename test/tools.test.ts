@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { initialParseState, parseLine } from '../src/core/transcript/parse.js'
-import { isPermissionExempt, safeTarget, toolActivity } from '../src/core/transcript/tools.js'
+import { hasControlChar, isPermissionExempt, safeTarget, safeToolName, toolActivity } from '../src/core/transcript/tools.js'
 import { reduce } from '../src/core/reducer.js'
 import { publicWorld } from '../src/core/view.js'
 import { emptyWorld } from '../src/core/world.js'
@@ -157,5 +157,79 @@ describe('safeTarget and the targets of toolActivity (R2-7)', () => {
       for (const event of parsed.events) world = reduce(world, event)
     }
     expect(JSON.stringify(publicWorld(world)).length).toBeLessThan(5000) // 401,514 before the cap
+  })
+})
+
+// R3-3: "no control character" meant C0 and DEL only; C1 (U+0080-009F) and the format characters
+// (\p{Cf}: bidi controls, zero-width characters, the byte order mark) passed. A tool's name was not capped.
+describe('control characters and tool names (R3-3)', () => {
+  // Built from code points, so that no invisible character sits in this file: soft hyphen, zero-width
+  // space, left-to-right mark, right-to-left override, left-to-right isolate, pop isolate, byte order mark.
+  const FORMAT = [0xad, 0x200b, 0x200e, 0x202e, 0x2066, 0x2069, 0xfeff].map((code) => String.fromCodePoint(code))
+  const RLO = String.fromCodePoint(0x202e)
+
+  test('hasControlChar rejects every C0 character, DEL and every C1 character', () => {
+    for (let code = 0; code <= 0x9f; code++) {
+      if (code >= 0x20 && code < 0x7f) continue
+      expect(hasControlChar(`a${String.fromCharCode(code)}b`), `U+${code.toString(16).padStart(4, '0')}`).toBe(true)
+    }
+  })
+
+  test('hasControlChar rejects the format characters (bidi controls among them)', () => {
+    for (const char of FORMAT) expect(hasControlChar(`a${char}b`), `U+${char.codePointAt(0)?.toString(16)}`).toBe(true)
+  })
+
+  test('hasControlChar keeps ordinary text, accents and other scripts', () => {
+    for (const text of ['README.md', 'my file', 'café', 'データ', '~', ' x', '¡', 'ÿ']) {
+      expect(hasControlChar(text), text).toBe(false)
+    }
+  })
+
+  test('a target holding C1 or a bidi control is dropped, like one holding C0', () => {
+    expect(toolActivity('Read', { file_path: '/tmp/a\u009b2Jb' }).target).toBeUndefined()
+    expect(toolActivity('Read', { file_path: `/tmp/x${RLO}evil` }).target).toBeUndefined()
+    expect(toolActivity('Read', { file_path: '/tmp/ok.ts' }).target).toBe('ok.ts')
+    expect(safeTarget('a\u0085b')).toBeUndefined()
+    expect(safeTarget('a​b')).toBeUndefined()
+  })
+
+  test('safeToolName keeps a plain name of up to 100 characters and gives the rest a fixed word', () => {
+    expect(safeToolName('Read')).toBe('Read')
+    expect(safeToolName('mcp__plugin_x__do-thing')).toBe('mcp__plugin_x__do-thing')
+    expect(safeToolName('t'.repeat(100))).toBe('t'.repeat(100))
+    for (const bad of ['t'.repeat(101), 't'.repeat(5005), 'a\u009bb', `a${RLO}b`, 'a\u001bb', '']) {
+      expect(safeToolName(bad), JSON.stringify(bad).slice(0, 20)).toBe('unknown-tool')
+    }
+  })
+
+  test('a transcript tool_use with a long or hostile name is read under a fixed name, and its state and id stay', () => {
+    const sid = '11111111-2222-4333-8444-555555555555'
+    const line = (id: string, name: string): string =>
+      JSON.stringify({
+        type: 'assistant',
+        sessionId: sid,
+        timestamp: '2026-10-03T10:00:00.000Z',
+        cwd: '/work/demo',
+        version: '2.1.288',
+        message: { model: 'claude-opus-5-5', role: 'assistant', content: [{ type: 'tool_use', id, name, input: {} }], stop_reason: 'tool_use' },
+      })
+    const names: string[] = []
+    let state = initialParseState()
+    for (const [id, name] of [
+      ['toolu_1', 'x'.repeat(5005)],
+      ['toolu_2', `Read${RLO}evil`],
+      ['toolu_3', 'Read\u009b2J'],
+      ['toolu_4', 'Read'],
+    ] as const) {
+      const parsed = parseLine(line(id, name), { agentId: sid, kind: 'session' }, state)
+      state = parsed.state
+      for (const event of parsed.events) {
+        if (event.t === 'tool_start') {
+          expect(event.toolUseId).toBe(id)
+          names.push(event.name)
+        }
+      }
+    }
+    expect(names).toEqual(['unknown-tool', 'unknown-tool', 'unknown-tool', 'Read'])
   })
 })

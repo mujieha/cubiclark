@@ -235,6 +235,16 @@ describe('validation', () => {
     }
   })
 
+  // R3-3: the collector's tool name is capped at 100 characters, the same as a transcript's.
+  test('a tool name of 100 characters is stored, one of 101 is not, nor one with a bidi control', () => {
+    const event = { hook_event_name: 'PreToolUse', session_id: 's1', tool_use_id: 'toolu_1', tool_input: {} }
+    expect(toStoredLine({ ...event, agent_type: 'a'.repeat(100), tool_name: 'Read' }, TS).at).toBe('a'.repeat(100))
+    expect(toStoredLine({ ...event, tool_name: 't'.repeat(100) }, TS).tool).toBe('t'.repeat(100))
+    expect(toStoredLine({ ...event, tool_name: 't'.repeat(101) }, TS).tool).toBeUndefined()
+    expect(toStoredLine({ ...event, tool_name: `Read${String.fromCodePoint(0x202e)}evil` }, TS).tool).toBeUndefined()
+    expect(toStoredLine({ ...event, agent_type: 'a'.repeat(101) }, TS).at).toBeUndefined()
+  })
+
   test('a non-object tool_input is treated as empty', () => {
     const line = toStoredLine(
       { hook_event_name: 'PreToolUse', session_id: 's1', tool_name: 'Bash', tool_use_id: 't', tool_input: 'oops' },

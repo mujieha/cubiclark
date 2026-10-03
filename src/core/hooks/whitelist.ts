@@ -120,7 +120,8 @@ export interface StoredLine {
 }
 
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/
-const NAME_RE = /^[A-Za-z0-9_.:-]{1,128}$/
+// Names (an agent type, a tool): an allowlist of characters, and the same 100-character cap as safeTarget (R3-3).
+const NAME_RE = /^[A-Za-z0-9_.:-]{1,100}$/
 const MODEL_RE = /^[A-Za-z0-9_.:[\]-]{1,100}$/
 const EVENT_NAME_RE = /^[A-Za-z]{1,40}$/
 const MAX_CWD = 1024

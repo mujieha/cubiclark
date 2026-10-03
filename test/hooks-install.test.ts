@@ -497,6 +497,69 @@ describe('hooks off and an unrelated file in bin/ (R2-2)', () => {
   })
 })
 
+// R3-2: `on` replaced a user's own bin/package.json with {"type":"module"}, and the next `off` removed it
+// as Cubiclark's own. `on` now refuses before it changes anything.
+describe('hooks on and a bin/package.json that is not Cubiclark\'s (R3-2)', () => {
+  const packageJson = (): string => join(paths.stateDir, 'bin', 'package.json')
+  const FOREIGN = '{"name":"the-users-own-package","version":"1.2.3"}\n'
+
+  async function tree(dir: string): Promise<string[]> {
+    const names: string[] = []
+    for (const entry of await readdir(dir, { withFileTypes: true, recursive: true })) {
+      names.push(join(entry.parentPath, entry.name))
+    }
+    return names.sort()
+  }
+
+  async function seedForeign(): Promise<void> {
+    await mkdir(join(paths.stateDir, 'bin'), { recursive: true, mode: 0o700 })
+    await chmod(paths.stateDir, 0o700)
+    await writeFile(packageJson(), FOREIGN)
+  }
+
+  test('refuses, names the file, and changes nothing', async () => {
+    const settings = await writeFixture('empty')
+    await seedForeign()
+    const treeBefore = await tree(paths.stateDir)
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(HooksCommandError)
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(
+      `${packageJson()} is not Cubiclark's; choose another state directory`
+    )
+    expect(await readFile(packageJson(), 'utf8')).toBe(FOREIGN)
+    expect(await tree(paths.stateDir)).toEqual(treeBefore) // no collector file, no install.json, no backup
+    expect(await readSettingsBytes()).toEqual(settings)
+  })
+
+  test('on + off on a bin/ holding a foreign package.json would keep it byte for byte, and on never started', async () => {
+    await writeFixture('empty')
+    await seedForeign()
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/is not Cubiclark's/)
+    await hooksOff(paths, { purge: false })
+    expect(await readFile(packageJson(), 'utf8')).toBe(FOREIGN)
+  })
+
+  test('a symlink or a directory at bin/package.json is refused too', async () => {
+    await writeFixture('empty')
+    await seedForeign()
+    await rm(packageJson())
+    await symlink(join(root, 'elsewhere.json'), packageJson())
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/is not Cubiclark's/)
+    await rm(packageJson())
+    await mkdir(packageJson())
+    await expect(hooksOn(paths, { tools: true, nowMs: NOW })).rejects.toThrow(/is not Cubiclark's/)
+  })
+
+  test('the package.json that a previous `on` wrote is replaced as before, so an upgrade still works', async () => {
+    await writeFixture('empty')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const written = await readFile(packageJson(), 'utf8')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    expect(await readFile(packageJson(), 'utf8')).toBe(written)
+    await hooksOff(paths, { purge: false })
+    expect(existsSync(packageJson())).toBe(false)
+  })
+})
+
 describe('hooks on and the state directory', () => {
   test('a state directory that group or others can write is refused, and nothing is installed', async () => {
     await writeFixture('empty')

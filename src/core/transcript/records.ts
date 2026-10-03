@@ -5,7 +5,7 @@
 import { freeText } from '../printable.js'
 import type { AgentEvent, ErrorKind } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
-import { safeTarget, toolActivity } from './tools.js'
+import { safeTarget, safeToolName, toolActivity } from './tools.js'
 
 export interface ParseCtx {
   agentId: string
@@ -187,7 +187,7 @@ export function fromAssistant(record: Record<string, unknown>, ctx: ParseCtx, ts
           ts,
           agentId: ctx.agentId,
           toolUseId: id,
-          name,
+          name: safeToolName(name),
           target: activity.target,
           ...(activity.state === 'delegating' ? { subagentType: activity.target } : {}),
         })
