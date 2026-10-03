@@ -13,6 +13,33 @@ organised (task folders, quota samples, `claude agents`), and the commands to in
 check the collector and to replay a stretch of the past. A plain list of the same agents is one
 click away.
 
+## Install
+
+Cubiclark needs Node.js 22.12 or later. Run it once without installing it, or install the
+`cubiclark` command:
+
+```
+npx cubiclark                # run it once
+npm install -g cubiclark     # or install it, then run `cubiclark`
+```
+
+`cubiclark` prints one link, `cubiclark listening http://127.0.0.1:<port>/<code>/`, and opens it in
+your browser (see *Opening the page* below). `cubiclark tui` shows the same agents as text in the
+terminal instead (see *In the terminal*).
+
+**The first run.** With no transcripts yet and no collector installed, the page shows a setup screen
+instead of an empty office: it explains the two ways of seeing agents (below) and gives the command for
+the second, `cubiclark hooks on`. The first way needs nothing installed.
+
+## Platforms
+
+- **macOS:** developed and tested. The screenshot comparisons are macOS-only, so they are a local
+  check (`npm run test:e2e` on a Mac); see the Known limits.
+- **Linux:** tested in CI from the first public run, on a GitHub-hosted Linux job that skips the
+  screenshot comparisons (their baselines are macOS). Until a Linux run has happened, Linux is
+  untested.
+- **Windows:** untested.
+
 ## Two ways to see agents
 
 - **Transcripts only (nothing to install).** Cubiclark tails Claude Code's own transcript files
