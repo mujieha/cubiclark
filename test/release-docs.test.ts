@@ -1,7 +1,7 @@
 // The release documents say what a first release must say: a changelog in Keep a Changelog's shape,
 // how to install and where it was tested, and how to report a vulnerability. Read as text.
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 
@@ -39,6 +39,16 @@ describe('README.md', () => {
     for (const phrase of ['npx cubiclark', 'npm install -g cubiclark', 'Node.js 22.12 or later', 'cubiclark hooks on']) {
       expect(README, phrase).toContain(phrase)
     }
+  })
+
+  test('shows the intro animation under the description, linked to the video', () => {
+    expect(README).toContain('<a href="docs/media/cubiclark-intro.mp4"><img src="docs/media/cubiclark-intro.gif" width="720" alt="')
+    expect(README.indexOf('cubiclark-intro.gif')).toBeLessThan(README.indexOf('The page is a pixel-art office'))
+  })
+
+  test('the animation files exist, and stay small enough for a README and a repository', () => {
+    expect(statSync(`${ROOT}docs/media/cubiclark-intro.gif`).size).toBeLessThan(3_000_000)
+    expect(statSync(`${ROOT}docs/media/cubiclark-intro.mp4`).size).toBeLessThan(2_000_000)
   })
 
   test('says where it was tested', () => {

@@ -4,6 +4,10 @@ A local view of live Claude Code agents and their states, read from transcripts 
 from a small hooks collector. Runs entirely on your machine, on `127.0.0.1`; it never calls a
 model and never sends anything off the machine.
 
+<p align="center">
+  <a href="docs/media/cubiclark-intro.mp4"><img src="docs/media/cubiclark-intro.gif" width="720" alt="Cubiclark over an invented working day: the pixel-art office with its agents and Morty the corgi, the panel, the list, and the same agents as text in the terminal."></a>
+</p>
+
 The page is a pixel-art office: every agent is a character at a desk, and what it is doing shows
 in its pose, its speech bubble and its desk lamp. Beside it a terminal-style panel shows the
 selected agent, the session log and how the work is organised: tasks and their timelines, the
