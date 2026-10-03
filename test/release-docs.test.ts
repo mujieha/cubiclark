@@ -72,7 +72,7 @@ describe('SECURITY.md', () => {
       'security/advisories/new',
       'There is no e-mail address for reports',
       'A second round reviewed',
-      'A third\nround verified every round-2 fix',
+      'A third round verified every round-2 fix',
       'A cold second reviewer, told nothing of the earlier rounds',
     ]) {
       expect(SECURITY, phrase).toContain(phrase)
