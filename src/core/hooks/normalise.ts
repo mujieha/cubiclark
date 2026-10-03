@@ -58,7 +58,8 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
   if (sid === undefined || !isSafeKey(sid)) return result(state, [], { unknownShape: true })
 
   const aid = str('aid')
-  if (aid !== undefined && !isSafeKey(aid)) return result(state, [], { unknownShape: true })
+  // A subagent that is its own session would be its own parent (R2-3).
+  if (aid !== undefined && (!isSafeKey(aid) || aid === sid)) return result(state, [], { unknownShape: true })
   const agentId = aid ?? sid
   const tool = str('tool')
   const tuid = str('tuid')

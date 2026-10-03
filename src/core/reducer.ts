@@ -58,10 +58,12 @@ const TERMINAL_STATES: ReadonlySet<string> = new Set(['finished', 'failed', 'end
 
 function applyAgentMeta(world: World, event: AgentMetaEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
+  // A parent that is the agent itself, or one of its descendants, is refused (R2-3).
+  const parentId = event.parentId !== undefined && !descendsFrom(next, event.parentId, event.agentId) ? event.parentId : undefined
   next = updateAgent(next, event.agentId, (agent) => ({
     ...agent,
     kind: event.kind ?? agent.kind,
-    parentId: event.parentId ?? agent.parentId,
+    parentId: parentId ?? agent.parentId,
     cwd: event.cwd ?? agent.cwd,
     project: event.cwd ? projectName(event.cwd) : agent.project,
     label: event.label ?? agent.label,
@@ -69,6 +71,19 @@ function applyAgentMeta(world: World, event: AgentMetaEvent): World {
   }))
   if (event.version) next = noteVersion(next, event.version)
   return next
+}
+
+/** True when `candidate` is `ancestor`, or has it somewhere up its parent chain (R2-3). The walk keeps a
+ * set of the agents it has seen, so a parent loop already in the World ends it instead of hanging it. */
+function descendsFrom(world: World, candidate: string, ancestor: string): boolean {
+  const seen = new Set<string>()
+  let current: string | undefined = candidate
+  while (current !== undefined && !seen.has(current)) {
+    if (current === ancestor) return true
+    seen.add(current)
+    current = Object.hasOwn(world.agents, current) ? world.agents[current]?.parentId : undefined
+  }
+  return false
 }
 
 function applySubagentLink(world: World, event: SubagentLinkEvent): World {
@@ -79,15 +94,27 @@ function applySubagentLink(world: World, event: SubagentLinkEvent): World {
   let next = ensureAgent(world, event.agentId, event.ts)
 
   // A nested subagent (one that started another subagent, not the top-level session) re-
-  // parents to whichever helper currently has this spawn id as an open tool.
+  // parents to whichever helper currently has this spawn id as an open tool. The helper must be
+  // in the same session (under `event.parentId`) and must not be the agent itself or one of its
+  // descendants: a crafted spawn id could otherwise make an agent its own ancestor (R2-3).
   let parentId: string = event.parentId
   if (event.spawnToolUseId) {
     for (const agent of Object.values(next.agents)) {
-      if (isHelperKind(agent.kind) && agent.openTools.some((t) => t.id === event.spawnToolUseId)) {
+      if (
+        isHelperKind(agent.kind) &&
+        agent.openTools.some((t) => t.id === event.spawnToolUseId) &&
+        !descendsFrom(next, agent.id, event.agentId) &&
+        descendsFrom(next, agent.id, event.parentId)
+      ) {
         parentId = agent.id
         break
       }
     }
+  }
+  // A link must not close a loop either: keep the parent the agent has.
+  if (descendsFrom(next, parentId, event.agentId)) {
+    parentId = Object.hasOwn(next.agents, event.agentId) ? (next.agents[event.agentId]?.parentId ?? event.parentId) : event.parentId
+    if (descendsFrom(next, parentId, event.agentId)) return world
   }
 
   next = updateAgent(next, event.agentId, (agent) => ({
@@ -300,13 +327,14 @@ function applyDiagnostics(world: World, event: Extract<AgentEvent, { t: 'diagnos
 function applyHookSeen(world: World, event: HookSeenEvent): World {
   const existed = world.agents[event.agentId] !== undefined
   let next = ensureAgent(world, event.agentId, event.ts)
+  const parentId = event.parentId !== undefined && !descendsFrom(next, event.parentId, event.agentId) ? event.parentId : undefined
   next = updateAgent(next, event.agentId, (agent) => {
     const previous = agent.hooked
     const keepPrevious = previous !== undefined && Date.parse(previous.lastTs) > Date.parse(event.ts)
     return {
       ...agent,
       kind: !existed && event.kind ? event.kind : agent.kind,
-      parentId: agent.parentId ?? event.parentId,
+      parentId: agent.parentId ?? parentId,
       cwd: event.cwd ?? agent.cwd,
       project: event.cwd ? projectName(event.cwd) : agent.project,
       effort: event.effort ?? agent.effort,
