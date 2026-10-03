@@ -55,6 +55,17 @@ describe('the workflow (R2-1)', () => {
   })
 })
 
+describe('Dependabot (R2-8)', () => {
+  test('proposes updates to the actions and to the npm dependencies, weekly, into develop', () => {
+    const config = readFileSync(join(ROOT, '.github/dependabot.yml'), 'utf8')
+    expect(config).toContain('version: 2')
+    expect(config).toContain('package-ecosystem: github-actions')
+    expect(config).toContain('package-ecosystem: npm')
+    expect(config.match(/interval: weekly/g)).toHaveLength(2)
+    expect(config.match(/target-branch: develop/g)).toHaveLength(2)
+  })
+})
+
 describe('the screenshot comparisons (R2-1)', () => {
   const specs = readdirSync(E2E).filter((name) => name.endsWith('.spec.ts'))
 
