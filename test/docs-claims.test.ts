@@ -15,6 +15,7 @@ const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'R2-2', phrase: '`--purge` never deletes anything else in that directory' },
   { finding: 'R2-2', phrase: 'flag, `bin/`, `install.json`)' },
   { finding: 'R2-4', phrase: 'so a line is never wider than the terminal' },
+  { finding: 'R2-6', phrase: 'the cookie never leaves the browser' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -25,6 +26,10 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R2-4', file: 'SECURITY', phrase: 'line wrapping (autowrap) is switched off' },
   { finding: 'R2-4', file: 'SECURITY', phrase: 'Unicode 18.0.0' },
   { finding: 'R2-4', file: 'README', phrase: 'text-presentation emoji' },
+  { finding: 'R2-6', file: 'SECURITY', phrase: 'The session cookie is sent to every server on `127.0.0.1`' },
+  { finding: 'R2-6', file: 'SECURITY', phrase: 'RFC 6265 §8.5' },
+  { finding: 'R2-6', file: 'SECURITY', phrase: '`<random>.localhost`' },
+  { finding: 'R2-6', file: 'README', phrase: 'the session cookie is sent to every server on `127.0.0.1`' },
 ]
 
 describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12)', () => {
@@ -33,7 +38,7 @@ describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R
     expect(SECURITY.includes(phrase), 'SECURITY.md holds the overclaim').toBe(false)
   })
 
-  test.each(STATEMENTS)('$finding: $file.md says "$phrase"', ({ file, phrase }) => {
+  test.each(STATEMENTS)('$finding: $file says "$phrase"', ({ file, phrase }) => {
     expect((file === 'README' ? README : SECURITY).includes(phrase), `${file}.md lacks the sentence`).toBe(true)
   })
 })

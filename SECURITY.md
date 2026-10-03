@@ -345,11 +345,23 @@ What the code does not do, so that nothing above is read as more than it is:
   leave them in a browser's command line (which every user can list) for as long as that process
   lives. That user then holds the session, and your own browser gets `403` ("this link was already
   used"), which you will see. Once your browser has used the link the code is worth nothing (it may
-  stay in the browser's history, spent), and the cookie never leaves the browser, is in no URL and is
-  not printed. So the window is the moment of opening, no longer the life of the run and of the
-  history; it is narrowed, not closed. With `--no-open` the link is on your terminal, and it is yours to use first. One browser
-  per run: another browser needs a restart for a new link. Other processes running as *you* can read
-  your browser's cookies or its memory and can do anything you can: they are out of scope.
+  stay in the browser's history, spent), and the cookie is in no URL and is not printed (it is sent
+  to other ports, see the next limit). So the window is the moment of opening, no longer the life of
+  the run and of the history; it is narrowed, not closed. With `--no-open` the link is on your
+  terminal, and it is yours to use first. One browser per run: another browser needs a restart for a
+  new link. Other processes running as *you* can read your browser's cookies or its memory and can
+  do anything you can: they are out of scope.
+- **The session cookie is sent to every server on `127.0.0.1`, not only to Cubiclark's port.**
+  Browsers scope a cookie by host name, not by port (RFC 6265 §8.5), and every
+  `http://127.0.0.1:<port>` origin is the same site for `SameSite`, so your browser sends
+  `cubiclark-<port>=<value>` with any request it makes to another port on `127.0.0.1`: a development
+  server you open, or a request a page served from `127.0.0.1` makes. If another local account runs
+  the server on such a port, it receives the cookie, and can then read `world.json` and the event
+  stream of this run until Cubiclark stops (it connects to the port directly, with a correct `Host`
+  and no `Origin`). It needs your browser to request a port that account listens on while Cubiclark
+  runs, and it gains what the page shows, nothing more: no file, no setting, no command. Serving the
+  page on a per-run host name (`<random>.localhost`) would keep the cookie to that name; that is on
+  the roadmap.
 - **A command's first word is filtered by shape, not verified.** A secret that does not look like
   one of the shapes the filter knows (over 40 characters, `=`, `:` or `@` in it, a well-known
   credential prefix) and is typed where a command goes would still be stored as the command's

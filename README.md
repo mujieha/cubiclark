@@ -542,8 +542,10 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **The link works once, in one browser.** The address `cubiclark` prints is a one-time link: your
   browser trades it for a session cookie and is sent to a page whose URL holds no secret. Another local
   account that reads the link before your browser uses it can use it first, once (your browser would
-  then be told the link was used); and a second browser needs a restart for a new link
-  (`SECURITY.md`).
+  then be told the link was used); and a second browser needs a restart for a new link. Also, the session
+  cookie is sent to every server on `127.0.0.1` your browser asks, whatever its port (browsers do not
+  scope cookies by port): another local account that runs a server on a port you open while Cubiclark
+  runs would receive it, and could read what the page shows (`SECURITY.md`).
 - **A command's first word is kept unless it looks like a credential** (over 40 characters, `=`, `:`
   or `@` in it, `sk-`, `ghp_`, `xox`, `AKIA`, ...): a secret that does not look like one and is typed
   where a command goes would still be stored. `hooks on --no-tools` stores no tool activity.
