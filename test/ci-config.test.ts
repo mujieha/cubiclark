@@ -39,6 +39,62 @@ describe('the workflow (R2-1, R3-1)', () => {
     expect(selfHostedJob.slice(guardAt, runnerAt)).not.toMatch(/^ {2}\w+:/m)
   })
 
+  test('a pull request from Dependabot never selects the self-hosted job (R3-4)', () => {
+    expect(guardOf(selfHostedJob)).toContain("github.actor != 'dependabot[bot]'")
+    expect(guardOf(hostedJob)).toContain("github.actor == 'dependabot[bot]'")
+  })
+
+  // The two conditions are evaluated as the expressions they are (GitHub's syntax is a subset of
+  // JavaScript's for these operators), over every kind of run, and so are checked by what they decide.
+  describe('which job a run selects', () => {
+    const condition = (job: string): ((github: unknown) => boolean) => {
+      const expression = guardOf(job).replace(/^if: /, '')
+      return new Function('github', `return (${expression})`) as (github: unknown) => boolean
+    }
+    const selfHosted = condition(selfHostedJob)
+    const hosted = condition(hostedJob)
+    const REPO = 'owner/cubiclark'
+
+    interface Run {
+      name: string
+      private: boolean
+      event: string
+      head?: string
+      actor: string
+    }
+    const runs: Run[] = []
+    for (const isPrivate of [true, false]) {
+      for (const actor of ['maintainer', 'dependabot[bot]', 'stranger']) {
+        runs.push({ name: 'push', private: isPrivate, event: 'push', actor })
+        runs.push({ name: 'workflow_dispatch', private: isPrivate, event: 'workflow_dispatch', actor })
+        runs.push({ name: 'pull request from this repository', private: isPrivate, event: 'pull_request', head: REPO, actor })
+        runs.push({ name: 'pull request from a fork', private: isPrivate, event: 'pull_request', head: 'stranger/cubiclark', actor })
+      }
+    }
+    const github = (run: Run): unknown => ({
+      event_name: run.event,
+      repository: REPO,
+      actor: run.actor,
+      event: { repository: { private: run.private }, pull_request: run.head ? { head: { repo: { full_name: run.head } } } : undefined },
+    })
+    const label = (run: Run): string => `${run.private ? 'private' : 'public'}, ${run.name}, by ${run.actor}`
+
+    test.each(runs)('$name, repository private: $private, actor: $actor', (run) => {
+      const onMac = selfHosted(github(run))
+      const onLinux = hosted(github(run))
+      // once the repository is public, no run of any kind selects the self-hosted runner
+      if (!run.private) expect(onMac, label(run)).toBe(false)
+      // a fork's pull request and a Dependabot actor never select it either
+      if (run.head && run.head !== REPO) expect(onMac, label(run)).toBe(false)
+      if (run.actor === 'dependabot[bot]') expect(onMac, label(run)).toBe(false)
+      // every run has a job: the two together leave none out, and no run starts both
+      expect(onMac || onLinux, label(run)).toBe(true)
+      expect(onMac && onLinux, label(run)).toBe(false)
+      // while private, this repository's own branches (a person's) are the Mac's, as before
+      if (run.private && run.actor !== 'dependabot[bot]' && (!run.head || run.head === REPO)) expect(onMac, label(run)).toBe(true)
+    })
+  })
+
   test('the self-hosted runner is named by no other job', () => {
     expect(workflow.match(/self-hosted/g)).toHaveLength(1)
   })

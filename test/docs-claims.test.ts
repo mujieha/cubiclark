@@ -43,6 +43,7 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R3-2', file: 'SECURITY', phrase: 'a `bin/package.json` that is not exactly what `on` writes' },
   { finding: 'R3-2', file: 'README', phrase: '`hooks on` also refuses a `bin/package.json` that is not the one it writes' },
   { finding: 'R3-1', file: 'README', phrase: 'the workflow selects that runner for no run at all' },
+  { finding: 'R3-4', file: 'README', phrase: 'an actor that is not Dependabot' },
   { finding: 'R3-1', file: 'README', phrase: 'Require approval for all external contributors' },
   { finding: 'R3-1', file: 'README', phrase: 'the self-hosted runner removed from the repository when it goes public' },
   { finding: 'R3-1', file: 'README', phrase: '`npm run test:e2e` on a Mac, before merging' },
