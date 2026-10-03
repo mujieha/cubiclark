@@ -10,26 +10,45 @@ import { describe, expect, test } from 'vitest'
 const ROOT = fileURLToPath(new URL('../', import.meta.url))
 const E2E = join(ROOT, 'test/e2e')
 
-describe('the workflow (R2-1)', () => {
+describe('the workflow (R2-1, R3-1)', () => {
   const workflow = readFileSync(join(ROOT, '.github/workflows/test.yml'), 'utf8')
 
-  test('the self-hosted job is skipped for a pull request from a fork', () => {
-    const guard = "if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository"
-    const guardAt = workflow.indexOf(guard)
-    const runnerAt = workflow.indexOf('runs-on: [self-hosted, macOS, ARM64]')
-    expect(guardAt).toBeGreaterThan(-1)
+  /** The `if:` line of a job, and the `runs-on:` line that follows it, taken from the job's own text. */
+  const guardOf = (job: string): string => {
+    const line = job.split('\n').find((text) => text.trim().startsWith('if: '))
+    expect(line, 'the job has an if: line').toBeDefined()
+    return (line as string).trim()
+  }
+  const hostedAt = workflow.indexOf('\n  hosted:')
+  const selfHostedJob = workflow.slice(0, hostedAt)
+  const hostedJob = workflow.slice(hostedAt)
+
+  test('the self-hosted job runs only while the repository is private, for this repository\'s own branches', () => {
+    expect(hostedAt).toBeGreaterThan(-1)
+    // the self-hosted job is the one that holds the self-hosted runner, and it holds only that
+    expect(selfHostedJob).toContain('runs-on: [self-hosted, macOS, ARM64]')
+    const guard = guardOf(selfHostedJob)
+    // once the repository is public the condition is false, whatever a pull request's workflow says
+    expect(guard).toContain('github.event.repository.private == true')
+    // a pull request from a fork never selects it
+    expect(guard).toContain("github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository")
+    // the guard sits above its own runs-on line, with no other job line between them
+    const guardAt = selfHostedJob.indexOf(guard)
+    const runnerAt = selfHostedJob.indexOf('runs-on: [self-hosted, macOS, ARM64]')
     expect(runnerAt).toBeGreaterThan(guardAt)
-    // the guard belongs to the self-hosted job: no other job line sits between them
-    expect(workflow.slice(guardAt, runnerAt)).not.toMatch(/^ {2}\w+:/m)
+    expect(selfHostedJob.slice(guardAt, runnerAt)).not.toMatch(/^ {2}\w+:/m)
+  })
+
+  test('the self-hosted runner is named by no other job', () => {
+    expect(workflow.match(/self-hosted/g)).toHaveLength(1)
   })
 
   test('a hosted Linux job runs for forks and for a public repository, without the pixel comparisons', () => {
-    const at = workflow.indexOf('\n  hosted:')
-    expect(at).toBeGreaterThan(-1)
-    const job = workflow.slice(at)
+    const job = hostedJob
     expect(job).toContain('runs-on: ubuntu-latest')
-    expect(job).toContain('github.event.repository.private == false')
-    expect(job).toContain("github.event.pull_request.head.repo.full_name != github.repository")
+    const guard = guardOf(job)
+    expect(guard).toContain('github.event.repository.private == false')
+    expect(guard).toContain("github.event.pull_request.head.repo.full_name != github.repository")
     for (const command of ['npm ci', 'npm run lint', 'npm run typecheck', 'npm test', 'npm run build', 'npm run test:hooks']) {
       expect(job, command).toContain(`- run: ${command}\n`)
     }
@@ -39,8 +58,7 @@ describe('the workflow (R2-1)', () => {
   })
 
   test('the self-hosted job keeps everything: the cache off, no --with-deps, the pixel specs', () => {
-    const hostedAt = workflow.indexOf('\n  hosted:')
-    const selfHosted = workflow.slice(0, hostedAt)
+    const selfHosted = selfHostedJob
     expect(selfHosted).toContain("cache: ''")
     expect(selfHosted).not.toContain('--with-deps')
     expect(selfHosted).toContain('npm run test:e2e')
