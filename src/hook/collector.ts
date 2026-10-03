@@ -7,20 +7,22 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { isatty } from 'node:tty'
 import { fileURLToPath } from 'node:url'
 import { serialiseStoredLine, toStoredLine } from '../core/hooks/whitelist.js'
 
 export const ROTATE_BYTES = 5 * 1024 * 1024
 
-/** `--state-dir <dir>` wins, then CUBICLARK_HOME, then ~/.cubiclark. */
+/** `--state-dir <dir>` wins, then CUBICLARK_HOME, then ~/.cubiclark. The collector runs in the session's
+ * project directory, so a relative path (or a `~` nothing expanded) is ignored rather than written into a
+ * project tree (C1). */
 export function collectorStateDir(argv: readonly string[], env: NodeJS.ProcessEnv, home: string): string {
   const at = argv.indexOf('--state-dir')
   const flag = at >= 0 ? argv[at + 1] : undefined
-  if (flag) return flag
+  if (flag && isAbsolute(flag)) return flag
   const fromEnv = env.CUBICLARK_HOME
-  return fromEnv && fromEnv.length > 0 ? fromEnv : join(home, '.cubiclark')
+  return fromEnv && isAbsolute(fromEnv) ? fromEnv : join(home, '.cubiclark')
 }
 
 export interface CollectInput {

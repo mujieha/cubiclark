@@ -159,6 +159,23 @@ describe('the collector process', () => {
     expect(await lines(state)).toHaveLength(1)
   })
 
+  test('a relative CUBICLARK_HOME writes nothing into the working directory (C1)', async () => {
+    const project = join(dir, 'project')
+    await mkdir(project)
+    const home = join(dir, 'home')
+    await mkdir(home)
+    const result = spawnSync(process.execPath, [COLLECTOR], {
+      input: JSON.stringify(PRE_TOOL),
+      encoding: 'utf8',
+      cwd: project,
+      env: { ...process.env, HOME: home, CUBICLARK_HOME: 'state/cubi' },
+    })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toBe('')
+    expect(await readdir(project)).toEqual([])
+    expect(await lines(join(home, '.cubiclark'))).toHaveLength(1)
+  })
+
   test('still records when launched through a symlinked path (macOS /var -> /private/var)', async () => {
     // Node reports argv[1] as given but import.meta.url as the resolved real path; a naive
     // "am I the entry point" comparison would differ here and the collector would do nothing.

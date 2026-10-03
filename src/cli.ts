@@ -7,7 +7,7 @@
 
 import { realpathSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { startApp } from './app.js'
@@ -58,7 +58,8 @@ Usage:
   cubiclark hook                  The collector itself; Claude Code runs it, not people
 
   --config-dir <dir>   Claude config directory (default CLAUDE_CONFIG_DIR or ~/.claude)
-  --state-dir <dir>    Cubiclark state directory (default CUBICLARK_HOME or ~/.cubiclark)
+  --state-dir <dir>    Cubiclark state directory (default CUBICLARK_HOME or ~/.cubiclark;
+                       "hooks on" needs an absolute path)
   --config <file>      Adapter configuration (default <state dir>/config.json; none is read
                        from a --fixture-home without --state-dir)
   --assets <file>      Custom-assets manifest (default <state dir>/assets/manifest.json; none is
@@ -378,18 +379,25 @@ export function resolveRoot(fixtureHome: string | undefined, env: NodeJS.Process
   return { root, fixtureMode: false }
 }
 
-/** `--state-dir`, then CUBICLARK_HOME, then ~/.cubiclark. */
-export function resolveStateDir(flag: string | undefined, env: NodeJS.ProcessEnv, home: string): string {
+/** `--state-dir`, then CUBICLARK_HOME, then ~/.cubiclark, as it was given (possibly relative). */
+function givenStateDir(flag: string | undefined, env: NodeJS.ProcessEnv, home: string): string {
   if (flag !== undefined) return flag
   const configured = env.CUBICLARK_HOME
   return configured && configured.length > 0 ? configured : join(home, '.cubiclark')
+}
+
+/** The same choice, always absolute: a relative one is taken against the working directory (C1). */
+export function resolveStateDir(flag: string | undefined, env: NodeJS.ProcessEnv, home: string): string {
+  return resolve(givenStateDir(flag, env, home))
 }
 
 async function runHooks(cmd: HooksCommand): Promise<void> {
   const home = homedir()
   const paths: HooksPaths = {
     configDir: cmd.configDir ?? resolveRoot(undefined, process.env, home).root,
-    stateDir: resolveStateDir(cmd.stateDir, process.env, home),
+    // `on` gets the value as given, so it can refuse a relative one instead of silently resolving it (C1).
+    stateDir:
+      cmd.action === 'on' ? givenStateDir(cmd.stateDir, process.env, home) : resolveStateDir(cmd.stateDir, process.env, home),
     // dist/ is this file's own directory once built.
     distDir: fileURLToPath(new URL('.', import.meta.url)),
     // A state dir equal to this needs no --state-dir in the handlers; any other one is explicit.

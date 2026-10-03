@@ -11,7 +11,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
 import { copyFile, lstat, mkdir, open, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import {
   COLLECTOR_BASENAME,
   SettingsParseError,
@@ -247,7 +247,18 @@ async function requireNoForeignPackageJson(p: HooksPaths): Promise<void> {
   throw new HooksCommandError(`${packageJson} is not Cubiclark's; choose another state directory; nothing was changed`)
 }
 
+/** The handlers' paths are resolved by Claude Code against each session's project directory and take no
+ * `~` expansion, so a relative state directory (or a `~` the shell left alone) would run a file of the
+ * project as a user-level hook: refuse it and name the absolute path that was probably meant (C1). */
+function requireAbsoluteStateDir(p: HooksPaths): void {
+  if (isAbsolute(p.stateDir)) return
+  const first = p.stateDir.split(/[\\/]/)[0]
+  const meant = first === '~' ? join(p.home ?? homedir(), p.stateDir.slice(1)) : resolve(p.stateDir)
+  throw new HooksCommandError(`the state directory must be an absolute path; did you mean \`${meant}\`? nothing was changed`)
+}
+
 export async function hooksOn(p: HooksPaths, opts: { tools: boolean; nowMs: number }): Promise<HooksOnResult> {
+  requireAbsoluteStateDir(p)
   await requireSafeStateDir(p, 'install into')
   await requireNoForeignPackageJson(p)
   const settingsPath = join(p.configDir, 'settings.json')
