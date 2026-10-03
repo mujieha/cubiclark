@@ -63,6 +63,8 @@ class App {
   private shownView: ViewName | undefined
   private selectedAgentId: string | undefined
   private chosenTaskId: string | undefined
+  /** The name of the error of the first draw that threw, if one did. */
+  private drawError: string | undefined
   private filter: LogFilter = {}
   private hudCollapsed = readHudCollapsed()
 
@@ -152,7 +154,19 @@ class App {
     const theme = this.currentTheme()
     applyPageTheme(document.documentElement, theme)
     this.hud.setPalette(lookFor(theme, this.custom).palette)
-    this.office = new OfficeView(officeHost, browserEnv(), { onSelect: (agentId) => this.select(agentId) }, lookFor(theme, this.custom))
+    this.office = new OfficeView(
+      officeHost,
+      browserEnv(),
+      {
+        onSelect: (agentId) => this.select(agentId),
+        // The first throwing draw is named on the diagnostics line; the office goes on drawing (R2-5).
+        onDrawError: (name) => {
+          this.drawError = name
+          this.render()
+        },
+      },
+      lookFor(theme, this.custom)
+    )
     // Morty is in the page unless the server was started with --no-mascot or this browser chose otherwise.
     this.mascotOn = this.options.mascot && readMascotChoice()
     this.applyMascot()
@@ -264,7 +278,7 @@ class App {
     this.sourcesEl.hidden = !world
     this.sourcesEl.textContent = world ? sourcesLine(world) : ''
     this.diagnosticsEl.hidden = !world
-    this.diagnosticsEl.textContent = world ? diagnosticsLine(world) : ''
+    this.diagnosticsEl.textContent = world ? diagnosticsLine(world) + (this.drawError ? ` · draw error: ${this.drawError}` : '') : ''
     this.applyView()
     this.applyHud()
 

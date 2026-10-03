@@ -30,10 +30,13 @@ export class FrameLoop {
   private readonly stamps: number[] = []
   private readonly costs: number[] = []
   private stopWatching: (() => void) | undefined
+  private failed = false
 
+  /** `onError` hears of a throwing draw once (the first); the loop keeps running either way (R2-5). */
   constructor(
     private readonly host: LoopHost,
-    private readonly draw: (timeMs: number) => void
+    private readonly draw: (timeMs: number) => void,
+    private readonly onError?: (error: unknown) => void
   ) {}
 
   /** How many frames have been drawn so far. */
@@ -113,7 +116,21 @@ export class FrameLoop {
 
   private drawFrame(timeMs: number): void {
     const before = this.host.now()
-    this.draw(timeMs)
+    try {
+      this.draw(timeMs)
+    } catch (error) {
+      // A value the draw cannot handle may stop this frame, never the loop: tick() schedules the next one.
+      this.lastDrawMs = timeMs
+      if (!this.failed) {
+        this.failed = true
+        try {
+          this.onError?.(error)
+        } catch {
+          // the report must not stop the loop either
+        }
+      }
+      return
+    }
     this.lastDrawMs = timeMs
     this.drawn++
     this.stamps.push(timeMs)

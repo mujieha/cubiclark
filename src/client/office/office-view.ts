@@ -77,7 +77,7 @@ export class OfficeView {
   constructor(
     private readonly container: HTMLElement,
     private readonly env: OfficeEnv,
-    private readonly handlers: { onSelect?: (agentId: string) => void } = {},
+    private readonly handlers: { onSelect?: (agentId: string) => void; onDrawError?: (name: string) => void } = {},
     look: Look = DEFAULT_LOOK
   ) {
     container.classList.add('office')
@@ -101,7 +101,12 @@ export class OfficeView {
 
     this.reducedQuery = env.matchMedia(REDUCED_MOTION)
     this.reduced = this.reducedQuery.matches
-    this.loop = new FrameLoop(env.host, () => this.drawFrame())
+    // A throwing draw is reported once, by the error's name only (never its message), and the loop runs on (R2-5).
+    this.loop = new FrameLoop(
+      env.host,
+      () => this.drawFrame(),
+      (error) => this.handlers.onDrawError?.(error instanceof Error ? error.name.slice(0, 40) : 'unknown')
+    )
     this.loop.setMode(this.reduced ? 'on-demand' : 'continuous')
     this.publishMode()
 
