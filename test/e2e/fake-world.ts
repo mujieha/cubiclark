@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { expect, type Page } from '@playwright/test'
 import type { World } from '../../src/core/types.js'
-import { runCli, type RunningCli } from './helpers.js'
+import { runCli, stopOnFailure, type RunningCli } from './helpers.js'
 
 const WORLDS_DIR = fileURLToPath(new URL('../fixtures/worlds/', import.meta.url))
 const EVIDENCE_DIR = fileURLToPath(new URL('../../test-results/office/', import.meta.url))
@@ -59,14 +59,7 @@ export interface FakeWorldPage extends RunningCli {
 export async function openWithFakeWorld(page: Page, opts: OpenOptions = {}): Promise<FakeWorldPage> {
   const home = await mkdtemp(join(tmpdir(), 'cubiclark-e2e-fake-'))
   const cli = await runCli(['--fixture-home', home, '--no-open', '--port', '0', ...(opts.mascot === false ? ['--no-mascot'] : []), ...(opts.args ?? [])])
-  await page.addInitScript(FAKE_EVENT_SOURCE)
-  if (opts.clockAt) await page.clock.install({ time: new Date(opts.clockAt) })
-  await page.goto(`${cli.url}${opts.hash ?? ''}`)
-  if (opts.clockAt) {
-    await page.clock.pauseAt(new Date(new Date(opts.clockAt).getTime() + 1000))
-    clockedPages.add(page)
-  }
-  return {
+  const running: FakeWorldPage = {
     ...cli,
     clocked: opts.clockAt !== undefined,
     stop: async () => {
@@ -74,6 +67,17 @@ export async function openWithFakeWorld(page: Page, opts: OpenOptions = {}): Pro
       await rm(home, { recursive: true, force: true })
     },
   }
+  // A failure before the caller's try (a slow goto, a clock that would not install) must not leave the server behind.
+  return stopOnFailure(running, async () => {
+    await page.addInitScript(FAKE_EVENT_SOURCE)
+    if (opts.clockAt) await page.clock.install({ time: new Date(opts.clockAt) })
+    await page.goto(`${cli.url}${opts.hash ?? ''}`)
+    if (opts.clockAt) {
+      await page.clock.pauseAt(new Date(new Date(opts.clockAt).getTime() + 1000))
+      clockedPages.add(page)
+    }
+    return running
+  })
 }
 
 export async function loadWorldText(name: string): Promise<string> {

@@ -240,7 +240,13 @@ describe('parseCli: --no-mascot', () => {
   })
 
   test('the help text names it', () => {
-    expect(HELP_TEXT).toContain('--no-mascot          Leave Morty, the office corgi, out of the page (serve, replay)')
+    expect(HELP_TEXT).toContain('--no-mascot          Leave Morty, the office corgi, out (serve, replay, tui)')
+  })
+
+  test('the help text says tui takes it too, and the tui usage block agrees', () => {
+    const line = HELP_TEXT.split('\n').find((l) => l.startsWith('  --no-mascot'))
+    expect(line).toContain('serve, replay, tui')
+    expect(HELP_TEXT).toContain('--no-mascot and --idle-desks like the default command')
   })
 })
 
@@ -276,6 +282,7 @@ describe('parseCli: --idle-desks', () => {
 
   test('the help text names it', () => {
     expect(HELP_TEXT).toContain('--idle-desks <n>     How many idle sessions keep a desk: the n most recently active (default 5,')
+    expect(HELP_TEXT).toContain('0 to 1000; serve, replay, tui). The rest leave the office and the list, and')
   })
 })
 

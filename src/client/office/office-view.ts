@@ -71,6 +71,8 @@ export class OfficeView {
   private mascot: MascotState | undefined
   /** What he needs to know between updates, from the last one: the World, its layout, grid and actors. */
   private mascotScene: Pick<MascotInput, 'world' | 'layout' | 'grid' | 'actors'> | undefined
+  /** When he was last advanced: a long gap (a hidden tab) is not replayed stay by stay (MAX_CATCH_UP_MS). */
+  private mascotAtMs: number | undefined
 
   constructor(
     private readonly container: HTMLElement,
@@ -262,12 +264,14 @@ export class OfficeView {
         const arrivals = [...this.actors.values()].filter((actor) => actor.phase === 'arriving' && actor.startMs === nowMs).map((actor) => actor.agentId)
         const grid = mascotGrid(world, officeLayout, scene.tilemap)
         this.mascotScene = { world, layout: officeLayout, grid: this.mascotScene?.grid.key === grid.key ? this.mascotScene.grid : grid, actors: this.actors }
-        const input: MascotInput = { ...this.mascotScene, nowMs, reducedMotion: this.reduced, arrivals }
+        const input: MascotInput = { ...this.mascotScene, nowMs, reducedMotion: this.reduced, arrivals, ...(this.mascotAtMs === undefined ? {} : { lastFrameMs: this.mascotAtMs }) }
         this.mascot = this.mascot ? advanceMascot(this.mascot, input) : initialMascot(mascotSeed(world.clock), input)
+        this.mascotAtMs = nowMs
         scene.mascot = this.mascotScene.grid.spots
       } else {
         this.mascot = undefined
         this.mascotScene = undefined
+        this.mascotAtMs = undefined
       }
     }
     // A world still "starting" is not a first snapshot: the agents that appear a moment later are
@@ -287,7 +291,14 @@ export class OfficeView {
     const nowMs = this.env.now()
     let pose: MascotPose | undefined
     if (this.mascot && this.mascotScene) {
-      this.mascot = advanceMascot(this.mascot, { ...this.mascotScene, nowMs, reducedMotion: this.reduced, arrivals: NO_ARRIVALS })
+      this.mascot = advanceMascot(this.mascot, {
+        ...this.mascotScene,
+        nowMs,
+        reducedMotion: this.reduced,
+        arrivals: NO_ARRIVALS,
+        ...(this.mascotAtMs === undefined ? {} : { lastFrameMs: this.mascotAtMs }),
+      })
+      this.mascotAtMs = nowMs
       pose = mascotPose(this.mascot, nowMs)
     }
     const stats = this.renderer.draw(nowMs, this.focusedId ?? this.selectedId, pose)

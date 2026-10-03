@@ -96,6 +96,10 @@ export const PLAY_MAX_TILES = 3
 const MIN_MOVED_STAY_MS = 1000
 /** The most stays one advance settles before it starts afresh from `nowMs` (a page left asleep for hours). */
 const MAX_SETTLED_STAYS = 64
+/** The most simulated time one advance catches up when the caller says how long it was away
+ * (`MascotInput.lastFrameMs`): past it he starts afresh from `nowMs`, in one step. A tab hidden for half
+ * an hour would otherwise settle dozens of stays in the first frame after it comes back. */
+export const MAX_CATCH_UP_MS = 60_000
 
 /** The states of an agent that is at work: the ones he sits beside. */
 export const WORKING_STATES: ReadonlySet<AgentState> = new Set<AgentState>([
@@ -146,6 +150,10 @@ export interface MascotInput {
   reducedMotion: boolean
   /** Agents that started walking in from the door at this update (none on a frame of the loop). */
   arrivals: readonly string[]
+  /** When the caller last advanced him. Only the page passes it: a gap over MAX_CATCH_UP_MS (a hidden
+   * tab) is then not replayed stay by stay. Left out, every stay that is over is settled in turn, so a
+   * jump in time and a run of small steps arrive at the same place. */
+  lastFrameMs?: number
 }
 
 /** mulberry32: a fast 32-bit generator with a one-word state, so it fits in MascotState. */
@@ -491,6 +499,15 @@ function finishStays(state: MascotState, input: MascotInput): MascotState {
   return current
 }
 
+/** `finishStays`, unless the caller was away longer than MAX_CATCH_UP_MS: then one fresh start at `nowMs`
+ * (the same restart MAX_SETTLED_STAYS makes), however many stays were over. */
+function catchUp(state: MascotState, input: MascotInput): MascotState {
+  const { nowMs, lastFrameMs } = input
+  const over = nowMs >= state.startMs + state.walkMs + state.stayMs
+  if (over && lastFrameMs !== undefined && nowMs - lastFrameMs > MAX_CATCH_UP_MS) return chooseNext(state, state.spot, nowMs, input)
+  return finishStays(state, input)
+}
+
 /** Brings Morty up to `input.nowMs` in a World. Returns the same object when nothing changed. */
 export function advanceMascot(state: MascotState, input: MascotInput): MascotState {
   const { nowMs, grid } = input
@@ -498,7 +515,7 @@ export function advanceMascot(state: MascotState, input: MascotInput): MascotSta
   if (state.frozen) return chooseNext(state, grid.spots.basket, nowMs, input)
   // What is over is over first, so that what is judged below (the grid, the company, an arrival) is
   // what he is doing *now*, however long since the last frame.
-  let next = finishStays(state, input)
+  let next = catchUp(state, input)
   if (next.gridKey !== grid.key) next = replan(next, input)
   next = checkCompany(next, input)
   return greetArrival(next, input)

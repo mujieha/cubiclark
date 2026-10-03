@@ -15,7 +15,7 @@ import { positionAt, type Actor } from '../../core/office/motion.js'
 import { accessoryFor, effectiveRole, modelFamily } from '../../core/office/roles.js'
 import { deskObjects, deskPropRects, type TileId, type TileMap } from '../../core/office/tilemap.js'
 import { BUBBLE_STYLES, PROJECT_SIGN_TEXT, ROOM_NAME_TEXT, WHITEBOARD_TEXT, fitText, fontFor, labelBoxes, textMetrics, type LabelBox } from '../../core/office/text.js'
-import { whiteboardModel } from '../../core/office/whiteboard.js'
+import { whiteboardLabel, whiteboardModel } from '../../core/office/whiteboard.js'
 import {
   EMPTY_SCENES,
   STATE_VISUALS,
@@ -341,9 +341,11 @@ export class OfficeRenderer {
     const model = scene.task && !scene.empty ? whiteboardModel(scene.task) : undefined
     if (!planning || !model) return
     // The label's room on the board is x + 2 .. x + 23 (the dots start at x + 23): see drawWhiteboard.
-    const fitted = this.fit(model.label, 21 * s)
-    if (fitted.text === '') return
-    this.board = { text: fitted.text, x: ((planning.rect.x + 4) * TILE + 2) * s, y: (TILE + 5) * s, colour: WHITEBOARD_TEXT.ink }
+    // The whole id, a cut one of at least eight characters, the phase word, or nothing (whiteboardLabel).
+    const { smallPx } = textMetrics(s)
+    const text = whiteboardLabel(model, 21 * s, (t) => this.measureText(t, smallPx, false))
+    if (text === '') return
+    this.board = { text, x: ((planning.rect.x + 4) * TILE + 2) * s, y: (TILE + 5) * s, colour: WHITEBOARD_TEXT.ink }
   }
 
   /** The words on the text canvas, drawn again only when they differ from what is there. */

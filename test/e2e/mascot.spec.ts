@@ -9,6 +9,7 @@ import { worldSessionId as s } from '../../scripts/world-fixture-lib.js'
 import { DAY } from '../../src/core/theme/index.js'
 import { hexToRgb } from '../../src/core/theme/colour.js'
 import { loadWorld, openWithFakeWorld, pushWorld, saveEvidence } from './fake-world.js'
+import { stopOnFailure } from './helpers.js'
 
 test.setTimeout(180_000)
 
@@ -78,9 +79,12 @@ async function boxOf(locator: Locator): Promise<Box> {
 /** A page with the Morty office on it, at the paused clock. */
 async function openOffice(page: Page, mascot = true): Promise<{ stop: () => Promise<void> }> {
   const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot })
-  await pushWorld(page, await loadWorld('mascot-play'), 100)
-  await expect(page.locator('button.office-agent')).toHaveCount(4)
-  return cli
+  // Before the caller's try: a failure here must stop the server itself.
+  return stopOnFailure(cli, async () => {
+    await pushWorld(page, await loadWorld('mascot-play'), 100)
+    await expect(page.locator('button.office-agent')).toHaveCount(4)
+    return cli
+  })
 }
 
 async function withPage<T>(browser: Browser, mascot: boolean, run: (page: Page) => Promise<T>): Promise<T> {

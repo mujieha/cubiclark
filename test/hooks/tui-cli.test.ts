@@ -12,6 +12,7 @@ import { cellWidth } from '../../src/core/tui/cells.js'
 import { ALLOWED_SGR, stripSgr } from '../../src/core/tui/line.js'
 
 const CLI = fileURLToPath(new URL('../../dist/cli.js', import.meta.url))
+const BIN = fileURLToPath(new URL('../../dist/bin.js', import.meta.url))
 const FIXTURES = fileURLToPath(new URL('../fixtures/', import.meta.url))
 
 let root: string
@@ -106,6 +107,42 @@ describe('colour', () => {
   test('NO_COLOR and --no-color give a frame with no escape byte, whatever FORCE_COLOR says', () => {
     expect(tui(['--once'], { FORCE_COLOR: '1', NO_COLOR: '1' }).stdout).not.toContain('\x1b')
     expect(tui(['--once', '--no-color'], { FORCE_COLOR: '1' }).stdout).not.toContain('\x1b')
+  })
+})
+
+describe('the installed command (dist/bin.js) and the colour variables', () => {
+  function bin(args: string[], extra: Record<string, string> = {}) {
+    return spawnSync(process.execPath, [BIN, ...args], { encoding: 'utf8', timeout: 30_000, env: cleanEnv(extra) })
+  }
+
+  test('runs the same program', () => {
+    const result = bin(['--version'])
+    expect(result.status).toBe(0)
+    expect(result.stdout.trim()).toBe('0.1.0')
+  })
+
+  test('NO_COLOR and FORCE_COLOR both set: no Node warning on stderr, and NO_COLOR wins', () => {
+    const result = bin(['tui', '--once', '--fixture-home', home, '--state-dir', state], { NO_COLOR: '1', FORCE_COLOR: '1' })
+    expect(result.status).toBe(0)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).not.toContain('\x1b')
+  })
+
+  test('--no-color wins over FORCE_COLOR, with nothing on stderr', () => {
+    const result = bin(['tui', '--once', '--no-color', '--fixture-home', home, '--state-dir', state], { FORCE_COLOR: '1' })
+    expect(result.stderr).toBe('')
+    expect(result.stdout).not.toContain('\x1b')
+  })
+
+  test('an empty NO_COLOR means nothing: FORCE_COLOR colours the frame, still without a warning', () => {
+    const result = bin(['tui', '--once', '--fixture-home', home, '--state-dir', state], { NO_COLOR: '', FORCE_COLOR: '1' })
+    expect(result.stderr).toBe('')
+    expect(result.stdout.match(ALLOWED_SGR)?.length ?? 0).toBeGreaterThan(10)
+  })
+
+  test('why bin.js exists: dist/cli.js run directly does warn, because Node checks while it loads its built-ins', () => {
+    const result = spawnSync(process.execPath, [CLI, '--version'], { encoding: 'utf8', timeout: 30_000, env: cleanEnv({ NO_COLOR: '1', FORCE_COLOR: '1' }) })
+    expect(result.stderr).toContain("The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set")
   })
 })
 

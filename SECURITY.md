@@ -17,15 +17,27 @@ Anything running on the same machine can, in principle, try to reach a server bo
 
 - The server binds `127.0.0.1` only, never `0.0.0.0` or `::` (a code-level guarantee, not just a
   default — see `src/server/http.ts`).
-- Every route (the page, `world.json`, `events`, `custom-assets.json`, `page-options.json` and the built assets) requires
-  a random, per-run token in the URL path (`http://127.0.0.1:<port>/<token>/`; `page-options.json` says
-  only what the command line said, `--no-mascot` and `--idle-desks`, never anything read from a
-  transcript), generated fresh with
-  `node:crypto`'s `randomBytes(32)` each time the CLI starts and compared with a timing-safe check
-  (including the redirect from `/<token>`; `test/http.test.ts` fails if a plain comparison returns).
+- **The link works once, and the session is a cookie.** The link `cubiclark` prints and opens,
+  `http://127.0.0.1:<port>/<code>/`, carries a one-time bootstrap code, not a secret that lasts. The
+  first GET of it is traded for a session cookie, `cubiclark-<port>=<token>; HttpOnly; SameSite=Strict;
+  Path=/` (a session cookie: no `Max-Age`), and a `303` redirect to `/`, so after that the page's URL
+  holds nothing secret. The cookie has no `Secure` flag: the server speaks plain http on `127.0.0.1`,
+  and a browser would not send a `Secure` cookie there. The code and the token are each
+  `node:crypto`'s `randomBytes(32)`, made afresh each time the CLI starts. The code is spent by the
+  first GET that carries it, before anything is awaited, so two at the same moment cannot both win; a
+  second use is `403` (`HEAD`, a foreign `Host` or `Origin`, and a wrong code do not spend it), except
+  that the browser that already holds the cookie is sent on to the page, which grants it nothing new.
+  stdout prints the one-time link (also with `--no-open`) and never the cookie's value.
+  (`test/http.test.ts`, `test/e2e/cli.spec.ts`, `test/e2e/bootstrap.spec.ts`.)
+- Every route (the page, `world.json`, `events`, `custom-assets.json`, `page-options.json` and the
+  built assets) requires that cookie, and the event stream connects only with it; a request without it
+  is `403`. `page-options.json` says only what the command line said, `--no-mascot` and `--idle-desks`,
+  never anything read from a transcript. The code, the cookie's value and its name are compared with a
+  timing-safe check; `test/http.test.ts` fails if a plain comparison returns, or a redirect on a
+  secret.
 - The `Host` header must match `127.0.0.1:<port>` or `localhost:<port>` exactly; anything else is
-  rejected with 403 before the token is even checked, so a DNS-rebinding attempt cannot reach the
-  token check at all.
+  rejected with 403 before the code or the cookie is even looked at, so a DNS-rebinding attempt cannot
+  reach either check at all.
 - If a request carries an `Origin` header, it must match the server's own origin or the request
   is rejected with 403. No `Access-Control-*` header is ever sent, so no other origin's page can
   read a response even if it could get one.
@@ -267,7 +279,7 @@ or monitor, which tell states apart), exact sizes and characters, and every them
 pack's colours merged in, must still keep bubble text readable and tell red, amber and green and the
 model shirts apart. **A manifest with any error is not applied at all**; its errors are listed on the
 page (as text) and by `cubiclark doctor --assets <file>`, which then exits 1. The server sends the
-page only a valid pack's palettes and sprites, behind the run token, and the page checks each sprite's
+page only a valid pack's palettes and sprites, behind the session cookie, and the page checks each sprite's
 shape again. Its file name (never its path) is all the status shows
 (`test/assets-manifest.test.ts`, `test/assets-file.test.ts`, `test/e2e/assets.spec.ts`).
 
@@ -275,7 +287,7 @@ shape again. Its file name (never its path) is all the status shows
 
 `cubiclark replay` reads the same transcripts, hook events and adapter files as the live page,
 through the same parsers, and writes nothing. It serves the same page on `127.0.0.1` under the same
-token, Host and CSP rules. `--since` is capped at 14 days and `--speed` at 1000.
+one-time link, cookie, Host and CSP rules. `--since` is capped at 14 days and `--speed` at 1000.
 
 ### Escape sequences from a transcript reaching your terminal (`cubiclark tui`)
 
@@ -314,12 +326,17 @@ bidi overrides, at three sizes, and checks that nothing but the allowed colour c
 
 What the code does not do, so that nothing above is read as more than it is:
 
-- **Cubiclark assumes a single-user machine.** The run token is the only thing between another
-  local account and the event stream, and it is in the URL: the browser's command line (on Linux,
-  `xdg-open` may put it in the arguments of a process every user can list) and its history show it to
-  other local accounts for as long as the run or the history lasts. A one-time code traded for a
-  cookie would fix that and is left for a later release. Other processes running as *you* can do
-  anything you can, and are out of scope.
+- **The one-time link can be raced by another local account, once.** The printed link is the only
+  thing that gets a browser its cookie. Another local user who reads it before your browser uses it can
+  use it first: `open`'s arguments show in the process list for a moment, and on Linux `xdg-open` may
+  leave them in a browser's command line (which every user can list) for as long as that process
+  lives. That user then holds the session, and your own browser gets `403` ("this link was already
+  used"), which you will see. Once your browser has used the link the code is worth nothing (it may
+  stay in the browser's history, spent), and the cookie never leaves the browser, is in no URL and is
+  not printed. So the window is the moment of opening, no longer the life of the run and of the
+  history; it is narrowed, not closed. With `--no-open` the link is on your terminal, and it is yours to use first. One browser
+  per run: another browser needs a restart for a new link. Other processes running as *you* can read
+  your browser's cookies or its memory and can do anything you can: they are out of scope.
 - **A command's first word is filtered by shape, not verified.** A secret that does not look like
   one of the shapes the filter knows (over 40 characters, `=`, `:` or `@` in it, a well-known
   credential prefix) and is typed where a command goes would still be stored as the command's
@@ -327,9 +344,11 @@ What the code does not do, so that nothing above is read as more than it is:
 - **`hooks on` keeps `settings.json`'s mode as the umask leaves it** (a `0666` file comes back
   `0644`), and the rename replaces the file, so its owner, group and hard links are those of the new
   file. This is what writing through a temp file and a rename means.
-- **The hooks reference documents `StopFailure`'s matcher as `error_type` and shows no payload**,
-  so the collector reads `error` or `error_type`; and it shows `PostModelSwitch`'s `from_model` and
-  `to_model` only in prose, so `to_model` is read as documented. If a real session names either
+- **The hook events were checked against the hooks reference, not against every real session.** On
+  Claude Code 2.1.288 all fifteen events and every field and value the collector reads match the
+  reference, including `StopFailure`'s `error` (the collector still accepts `error_type`, the name an
+  older reference gave for the matcher) and `PostModelSwitch`'s `to_model`. `doctor` says when the
+  installed version differs from the one that was checked. If a real session names a field
   differently, the collector stores no value for it (never something else), and the transcript still
   says the model.
 - **A relative path with a slash inside (`projects/demo`) in a task folder's text is kept as

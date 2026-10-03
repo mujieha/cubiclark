@@ -9,6 +9,10 @@ import { defineConfig, devices } from '@playwright/test'
 // column 1172 px, so the office scale is still 2, as it was at 1280 px before the panel existed.
 export default defineConfig({
   testDir: 'test/e2e',
+  // tmp/e2e-pids/ is emptied before the run, and the run fails if a server the tests spawned is still
+  // alive after it (test/e2e/helpers.ts writes the pids).
+  globalSetup: './test/e2e/global-setup.ts',
+  globalTeardown: './test/e2e/global-teardown.ts',
   timeout: 30_000,
   fullyParallel: false,
   reporter: 'list',

@@ -9,6 +9,7 @@ import {
   FAILED_GRACE_MS,
   FINISHED_GRACE_MS,
   MAX_IDLE_DESKS,
+  STUCK_GRACE_MS,
   hiddenText,
   parseIdleDesks,
   visibleAgents,
@@ -57,12 +58,49 @@ describe('visibleAgents: who works is always shown', () => {
     const world = worldWith(...agents)
     const visible = visibleAgents(world, T0, { idleDesks: 0 })
     expect(visible.ids.size).toBe(agents.length)
-    expect(visible.hidden).toEqual({ idle: 0, finished: 0 })
+    expect(visible.hidden).toEqual({ idle: 0, finished: 0, stuck: 0 })
+  })
+})
+
+describe('visibleAgents: a stuck agent leaves after thirty minutes', () => {
+  const stuckFor = (ms: number): Agent => agent({ id: 'x', state: 'stuck', stateSince: isoAt(T0 - ms), lastActivity: isoAt(T0 - ms) })
+
+  test('shown at 29 min 59 s, still shown at exactly 30 min, gone at 30 min 1 s, and counted as stuck', () => {
+    expect(STUCK_GRACE_MS).toBe(30 * MIN)
+    expect(visibleAgents(worldWith(stuckFor(30 * MIN - 1000)), T0, { idleDesks: 0 }).ids.has('x')).toBe(true)
+    expect(visibleAgents(worldWith(stuckFor(30 * MIN)), T0, { idleDesks: 0 }).ids.has('x')).toBe(true)
+    const gone = visibleAgents(worldWith(stuckFor(30 * MIN + 1000)), T0, { idleDesks: 0 })
+    expect(gone.ids.has('x')).toBe(false)
+    expect(gone.hidden).toEqual({ idle: 0, finished: 0, stuck: 1 })
   })
 
-  test('a stuck agent is shown however long it has been stuck', () => {
-    const world = worldWith(agent({ id: 'a', state: 'stuck', stateSince: isoAt(T0 - 48 * 60 * MIN), lastActivity: isoAt(T0 - 48 * 60 * MIN) }))
-    expect(idsOf(world, { idleDesks: 0 })).toEqual(['a'])
+  test('a stuck agent a day old is hidden, not shown for as long as it is stuck', () => {
+    expect(visibleAgents(worldWith(stuckFor(48 * 60 * MIN)), T0).hidden.stuck).toBe(1)
+  })
+
+  test('the grace is counted from when it got stuck, not from its last activity', () => {
+    const quietLong = agent({ id: 'x', state: 'stuck', stateSince: isoAt(T0 - 2 * MIN), lastActivity: isoAt(T0 - 600 * MIN) })
+    expect(visibleAgents(worldWith(quietLong), T0).ids.has('x')).toBe(true)
+  })
+
+  test('the grace time can be given', () => {
+    expect(visibleAgents(worldWith(stuckFor(2 * MIN)), T0, { stuckGraceMs: MIN }).ids.has('x')).toBe(false)
+    expect(visibleAgents(worldWith(stuckFor(40 * MIN)), T0, { stuckGraceMs: 60 * MIN }).ids.has('x')).toBe(true)
+  })
+
+  test('a time that cannot be read fails open: the agent is shown, not lost', () => {
+    expect(visibleAgents(worldWith(agent({ id: 'x', state: 'stuck', stateSince: 'garbage' })), T0).ids.has('x')).toBe(true)
+  })
+
+  test('stuck, finished and idle agents are counted apart', () => {
+    const world = worldWith(...idleSessions(7), stuckFor(45 * MIN), agent({ id: 'e1', state: 'ended', stateSince: isoAt(T0 - 20 * MIN) }))
+    expect(visibleAgents(world, T0).hidden).toEqual({ idle: 2, finished: 1, stuck: 1 })
+  })
+
+  test('a stuck helper that left does not keep its idle parent in view', () => {
+    const parent = agent({ id: 'p', state: 'waiting_user', lastActivity: isoAt(T0 - 900 * MIN) })
+    const helper = agent({ id: 'h', kind: 'subagent', parentId: 'p', state: 'stuck', stateSince: isoAt(T0 - 45 * MIN) })
+    expect(idsOf(worldWith(...idleSessions(5), parent, helper))).not.toContain('p')
   })
 })
 
@@ -71,7 +109,7 @@ describe('visibleAgents: the sessions waiting for you', () => {
     const world = worldWith(...idleSessions(8))
     const visible = visibleAgents(world, T0)
     expect([...visible.ids].sort()).toEqual(['i0', 'i1', 'i2', 'i3', 'i4'])
-    expect(visible.hidden).toEqual({ idle: 3, finished: 0 })
+    expect(visible.hidden).toEqual({ idle: 3, finished: 0, stuck: 0 })
     expect(DEFAULT_IDLE_DESKS).toBe(5)
   })
 
@@ -148,7 +186,7 @@ describe('visibleAgents: finished, ended and failed agents leave after a while',
     expect(visibleAgents(worldWith(stoppedAgo(state, 10 * MIN)), T0).ids.has('x')).toBe(true)
     const gone = visibleAgents(worldWith(stoppedAgo(state, 10 * MIN + 1000)), T0)
     expect(gone.ids.has('x')).toBe(false)
-    expect(gone.hidden).toEqual({ idle: 0, finished: 1 })
+    expect(gone.hidden).toEqual({ idle: 0, finished: 1, stuck: 0 })
   })
 
   test('failed: shown for thirty minutes, since it needs attention', () => {
@@ -170,7 +208,7 @@ describe('visibleAgents: finished, ended and failed agents leave after a while',
 
   test('idle agents and finished agents are counted apart', () => {
     const world = worldWith(...idleSessions(7), agent({ id: 'e1', state: 'ended', stateSince: isoAt(T0 - 20 * MIN) }), agent({ id: 'e2', state: 'finished', stateSince: isoAt(T0 - 3 * MIN) }))
-    expect(visibleAgents(world, T0)).toMatchObject({ hidden: { idle: 2, finished: 1 } })
+    expect(visibleAgents(world, T0)).toMatchObject({ hidden: { idle: 2, finished: 1, stuck: 0 } })
     expect(idsOf(world)).toContain('e2')
   })
 })
@@ -251,11 +289,16 @@ describe('withVisibleAgents', () => {
 
 describe('hiddenText', () => {
   test('says only what is hidden', () => {
-    expect(hiddenText({ idle: 0, finished: 0 })).toBeUndefined()
+    expect(hiddenText({ idle: 0, finished: 0, stuck: 0 })).toBeUndefined()
     expect(hiddenText(undefined)).toBeUndefined()
-    expect(hiddenText({ idle: 3, finished: 0 })).toBe('3 idle not shown')
-    expect(hiddenText({ idle: 0, finished: 2 })).toBe('2 finished not shown')
-    expect(hiddenText({ idle: 195, finished: 6 })).toBe('195 idle not shown · 6 finished not shown')
+    expect(hiddenText({ idle: 3, finished: 0, stuck: 0 })).toBe('3 idle not shown')
+    expect(hiddenText({ idle: 0, finished: 2, stuck: 0 })).toBe('2 finished not shown')
+    expect(hiddenText({ idle: 195, finished: 6, stuck: 0 })).toBe('195 idle not shown · 6 finished not shown')
+  })
+
+  test('stuck has its own word, last, and is not folded into finished', () => {
+    expect(hiddenText({ idle: 0, finished: 0, stuck: 2 })).toBe('2 stuck not shown')
+    expect(hiddenText({ idle: 195, finished: 6, stuck: 1 })).toBe('195 idle not shown · 6 finished not shown · 1 stuck not shown')
   })
 })
 

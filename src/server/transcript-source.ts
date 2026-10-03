@@ -126,7 +126,12 @@ interface TailedFile {
 
 export class TranscriptSource {
   private readonly tailers = new Map<string, TailedFile>()
-  private readonly excluded = new Set<string>()
+  /** Not a regular file (a symlink to a folder, a FIFO, a device): never opened, said once. */
+  private readonly skipped = new Set<string>()
+  /** Older than the window when last looked at, with the mtime that kept it out. Looked at again
+   * whenever a listing shows it or an event names it: a session resumed after a day writes to its old
+   * file, and is read from then on. */
+  private readonly tooOld = new Map<string, number>()
   private readonly metaSeen = new Set<string>()
   private readonly watchers: { close(): void }[] = []
   private pollTimer: ReturnType<typeof setInterval> | undefined
@@ -284,8 +289,9 @@ export class TranscriptSource {
     const files: string[] = []
     const take = (absPath: string): void => {
       this.scanFiles += 1
-      // Known files need no second look here; maybeRegister would make the same choice.
-      if (!this.tailers.has(absPath) && !this.excluded.has(absPath) && !this.metaSeen.has(absPath)) files.push(absPath)
+      // Known files need no second look here; maybeRegister would make the same choice. A file that was
+      // too old is taken again: its mtime may have moved into the window since.
+      if (!this.tailers.has(absPath) && !this.skipped.has(absPath) && !this.metaSeen.has(absPath)) files.push(absPath)
     }
     if (hasProjects) {
       const projectsDir = join(this.opts.root, 'projects')
@@ -357,28 +363,33 @@ export class TranscriptSource {
       return
     }
 
-    if (this.tailers.has(absPath) || this.excluded.has(absPath)) return
+    if (this.tailers.has(absPath) || this.skipped.has(absPath)) return
+    const wasOld = this.tooOld.has(absPath)
 
     let mtimeMs: number
     try {
       const info = await stat(absPath)
       if (!info.isFile()) {
         // A symlink to a directory, a FIFO, a device: never opened (S1-5), said once.
-        this.excluded.add(absPath)
+        this.tooOld.delete(absPath)
+        this.skipped.add(absPath)
         this.emitDiagnostic(`${this.label(absPath)}: not a regular file, skipped`)
         return
       }
       mtimeMs = info.mtimeMs
     } catch {
+      this.tooOld.delete(absPath)
       return // raced with a delete; the next scan simply will not see it either
     }
 
-    this.filesFound += 1
+    // Counted once, however often an old file is looked at again.
+    if (!wasOld) this.filesFound += 1
 
     if (this.opts.sinceMs !== null && mtimeMs < this.opts.sinceMs) {
-      this.excluded.add(absPath)
+      this.tooOld.set(absPath, mtimeMs)
       return
     }
+    this.tooOld.delete(absPath)
     this.filesInWindow += 1
 
     const ctx: ParseCtx =
@@ -509,7 +520,7 @@ export class TranscriptSource {
     const known = [...this.tailers.keys()]
 
     if (due) {
-      await this.scan() // discovers new files; a no-op for ones already registered or excluded
+      await this.scan() // discovers new files, and old ones written to again; a no-op for ones already registered
       for (const absPath of known) {
         if (this.stopped) return
         await this.pollOne(absPath)

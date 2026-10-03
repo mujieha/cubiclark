@@ -23,7 +23,7 @@ click away.
   calls, permission requests, compactions, failures and subagents as they happen. Transcripts stay
   in use for what hooks do not carry (the model, compactions, a manual denial, an interrupt).
 
-Verified against Claude Code **2.1.285** and its hooks reference. `cubiclark doctor` says which
+Verified against Claude Code **2.1.288** and its hooks reference. `cubiclark doctor` says which
 version you run and whether it is the one the hook events were checked on.
 
 ## Hooks
@@ -91,7 +91,7 @@ bench:hook` measures what it adds over an empty Node script: about 6 ms there, a
 npm test              # vitest: unit tests, no build needed
 npm run typecheck
 npm run lint
-npm run build         # tsc + vite; writes dist/
+npm run build         # tsc + vite; writes dist/ (dist/bin.js is the `cubiclark` command)
 npm run test:hooks    # builds, then spawns the real collector and CLI against fixture dirs
 npm run test:e2e      # builds, then runs the Playwright end-to-end tests (Chromium)
 npm run test:e2e:firefox   # optional: the behaviour specs in Firefox, screenshots ignored
@@ -112,6 +112,15 @@ Every test uses fixture directories under a temp dir and never reads or writes t
 directory (`test/fixtures/home` is one), and `--state-dir <dir>` at a stand-in state directory
 (`test/fixtures/state`). Fixture mode disables the age window and freezes the page's clock at the
 newest record found, so a fixture world never looks stale just because the checkout is old.
+
+**Opening the page.** `serve` and `replay` print one line, `cubiclark listening
+http://127.0.0.1:<port>/<code>/`, and open that link in your browser (not with `--no-open`: then it is
+yours to open). The link works **once**: the browser trades the code in it for a session cookie
+(`HttpOnly`, `SameSite=Strict`) and lands on `http://127.0.0.1:<port>/`, with nothing secret in the
+address. Every route needs the cookie. If you open the link a second time from another browser it
+answers 403: stop `cubiclark` and start it again for a new link. The cookie's value is never printed.
+`SECURITY.md` says what this protects and what it does not (another local account that reads the link
+first, and that `Secure` cannot be set on plain http).
 
 ## The office
 
@@ -202,7 +211,8 @@ The office, the list and the panel show only the agents that matter now, and say
 out. One rule (`src/core/visible.ts`) decides, and the page applies it once to each update:
 
 - **Every agent that is working is shown:** thinking, reading, editing, running, searching, browsing,
-  delegating, compacting, starting, waiting for a permission, rate limited or stuck.
+  delegating, compacting, starting, waiting for a permission or rate limited. (An agent that is stuck
+  is shown too, for 30 minutes: see below.)
 - **Of the sessions waiting for you, the five most recently active are shown.** `--idle-desks <n>` (on
   the default command and on `replay`; a whole number from 0 to 1000) changes the five; with 0 no
   idle session has a desk. Background workers count as sessions here. (A subagent finishes when its
@@ -210,11 +220,14 @@ out. One rule (`src/core/visible.ts`) decides, and the page applies it once to e
   working helper stays, and does not use one of the n, so the helper keeps its stool beside it.
 - **An agent that has finished or ended stays for 10 minutes, and one that has failed for 30** (it
   needs a look), counted from when it stopped. After that it is gone.
+- **An agent that is stuck stays for 30 minutes,** counted from when it got stuck (a killed session's
+  subagent would otherwise sit in the office all day). After that it is gone, counted as `stuck not
+  shown` and not as finished, since it did not finish. If it moves again it is back on that update.
 - **The rest leave without a sound**: no walk-out, no tag on the board, no line in the session log. An
   agent that is hidden and becomes active again is back on that very update, and walks in through the
   door like anyone who arrives.
 - **The trace:** the line under the office and the panel's status bar say `195 idle not shown · 6
-  finished not shown` (only the parts that are not zero). When nothing at all is in view the page says
+  finished not shown` (and `1 stuck not shown`; only the parts that are not zero). When nothing at all is in view the page says
   `No agents working right now · 7 idle not shown` and not that there are no agents.
 
 The World itself is not changed: the server, `world.json`, the session log and `cubiclark doctor`
@@ -227,6 +240,11 @@ A subagent whose transcript is outside the window (`--since-hours`, 12 by defaul
 all: its sidecar file (`agent-<id>.meta.json`) is read only when the transcript beside it is being
 read. A home with hundreds of old sessions used to fill the office with subagents that nothing could
 ever update.
+
+A transcript that was outside the window is not forgotten: when it is written to again (a session
+resumed the next morning), the next file event or rescan (every 5 s) finds its new time and reads it
+from then on. The window's start is fixed when Cubiclark starts. Every rescan looks again at the time of
+each old transcript it lists, so its cost grows with that history too (`doctor`'s `scans` line).
 
 ## Morty
 
@@ -278,7 +296,9 @@ the log to select it; click it again to clear.
   a prompt or a tool's content. Filter by project or by task.
 - **Task timeline:** for the selected agent's task, else the newest live one (or pick one): planning,
   building, review and done with where the task is, and its entries, with a mark where the model
-  changed ("opus → sonnet"). The **whiteboard** in the planning room shows the same task in small.
+  changed ("opus → sonnet"). The **whiteboard** in the planning room shows the same task in small: its four stages and a dot for
+  each change of model, and beside them the task's id when it fits (a cut id only with at least eight
+  characters of it, else the phase word, else nothing; the full id is in the panel).
 - **Status bar:** sources and adapters live, agents busy out of total, permission waits (always
   shown, zero too), quota, unparsed lines, and during a replay its speed and clock.
 
@@ -364,7 +384,12 @@ and `--size 120x40` sets the size of a printed frame (otherwise the terminal's, 
 code is 0, or 130, 143 and 129 after SIGINT, SIGTERM and SIGHUP.
 
 **Colour and motion.** `NO_COLOR` or `--no-color` gives a frame with no escape code at all (the
-selection and the focus are then marked with `>` and brackets); `FORCE_COLOR` colours a pipe. Box
+selection and the focus are then marked with `>` and brackets); `FORCE_COLOR` colours a pipe. The order:
+`--no-color` always wins, then a non-empty `NO_COLOR`, then `FORCE_COLOR` (anything but `0`), then
+"is it a terminal". With both variables set, `cubiclark` drops `FORCE_COLOR` from its own environment
+before anything else runs (an empty `NO_COLOR` is dropped instead), so Node prints no warning that
+would tear the screen. That first step is in `dist/bin.js`, the installed command; `node dist/cli.js`
+runs the same program without it, and Node's warning can then appear. Box
 drawing and the dog emoji are used only under a UTF-8 locale and without `--ascii`; `--ascii` also
 turns the page's accents and punctuation into plain ones. `--no-animation`, `CUBICLARK_REDUCED_MOTION=1`
 and `TERM=dumb` stop the motion: Morty sleeps in his basket and the typing letters (the model letter of a
@@ -433,7 +458,7 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   folders listed, milliseconds).
 - **A session waiting for you that is not among the five most recently active is not in the office
   or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
-  is shown for as long as it is stuck, however old, since it may need a look.
+  is shown for 30 minutes and then counted as `stuck not shown`; the 30 minutes are fixed.
 - **In the terminal (`cubiclark tui`):** terminals disagree about the width of emoji and of some
   punctuation (`--ascii` avoids both); agents do not walk, they are at their seats at once; Morty is
   placed by room, not by tile; there is no mouse, no task timeline and no log filter; Ctrl+Z does not
@@ -500,11 +525,16 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   contrast of text drawn on the canvas is set by the palette rules, not measured by axe.
 - **The theme choice is per browser**, and a custom-assets manifest or a configuration file is read
   once, at start: change it and restart.
-- **`StopFailure`'s payload is not shown in the hooks reference** (only its matcher, `error_type`),
-  so the collector reads the field as `error` or `error_type`. It is unverified on a real failing
-  session. `PostModelSwitch`'s `to_model` is read from the reference's prose in the same way.
-- **Cubiclark assumes a single-user machine.** The run token is in the URL, so the browser's command
-  line and history show it to other local accounts (`SECURITY.md`).
+- **The hook events were checked against the hooks reference (Claude Code 2.1.288), not against every
+  real session.** The reference shows `StopFailure`'s payload with the error in `error` (the collector
+  still accepts `error_type` as a fallback) and `PostModelSwitch`'s `to_model`; both are unverified on a
+  real failing session or a real model switch. If a session names a field differently, the collector
+  stores no value for it.
+- **The link works once, in one browser.** The address `cubiclark` prints is a one-time link: your
+  browser trades it for a session cookie and is sent to a page whose URL holds no secret. Another local
+  account that reads the link before your browser uses it can use it first, once (your browser would
+  then be told the link was used); and a second browser needs a restart for a new link
+  (`SECURITY.md`).
 - **A command's first word is kept unless it looks like a credential** (over 40 characters, `=`, `:`
   or `@` in it, `sk-`, `ghp_`, `xox`, `AKIA`, ...): a secret that does not look like one and is typed
   where a command goes would still be stored. `hooks on --no-tools` stores no tool activity.

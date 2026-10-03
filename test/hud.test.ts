@@ -2,7 +2,19 @@
 
 import { describe, expect, test } from 'vitest'
 import { buildTask } from '../src/core/adapters/task-folder.js'
-import { agentCard, defaultTaskId, LEGEND, logFilterOptions, logRows, statusBar, timelineView } from '../src/core/hud.js'
+import {
+  agentCard,
+  defaultTaskId,
+  LEGEND,
+  LOG_EVENT_MIN_CH,
+  logColumns,
+  logColumnsTemplate,
+  logFilterOptions,
+  logRows,
+  logRowTitle,
+  statusBar,
+  timelineView,
+} from '../src/core/hud.js'
 import { reduce } from '../src/core/reducer.js'
 import type { AdapterStatus, AgentEvent, Task, World } from '../src/core/types.js'
 import { emptyWorld } from '../src/core/world.js'
@@ -83,15 +95,17 @@ describe('statusBar', () => {
 
   test('agents that are not shown are counted in a segment right after the agents, and only when there are some', () => {
     const w = world([meta(A1), { t: 'prompt', ts: T0, agentId: A1 }])
-    const ids = (hidden?: { idle: number; finished: number }): string[] => statusBar(w, hidden).map((s) => s.id)
+    const ids = (hidden?: { idle: number; finished: number; stuck: number }): string[] => statusBar(w, hidden).map((s) => s.id)
     expect(ids()).toEqual(['sources', 'agents', 'permission', 'quota', 'diagnostics'])
-    expect(ids({ idle: 0, finished: 0 })).toEqual(['sources', 'agents', 'permission', 'quota', 'diagnostics'])
-    expect(ids({ idle: 3, finished: 0 })).toEqual(['sources', 'agents', 'hidden', 'permission', 'quota', 'diagnostics'])
-    expect(statusBar(w, { idle: 3, finished: 0 })[2]).toEqual({ id: 'hidden', text: '3 idle not shown' })
-    expect(statusBar(w, { idle: 0, finished: 2 })[2]?.text).toBe('2 finished not shown')
-    expect(statusBar(w, { idle: 195, finished: 6 })[2]?.text).toBe('195 idle not shown · 6 finished not shown')
+    expect(ids({ idle: 0, finished: 0, stuck: 0 })).toEqual(['sources', 'agents', 'permission', 'quota', 'diagnostics'])
+    expect(ids({ idle: 3, finished: 0, stuck: 0 })).toEqual(['sources', 'agents', 'hidden', 'permission', 'quota', 'diagnostics'])
+    expect(ids({ idle: 0, finished: 0, stuck: 1 })).toEqual(['sources', 'agents', 'hidden', 'permission', 'quota', 'diagnostics'])
+    expect(statusBar(w, { idle: 3, finished: 0, stuck: 0 })[2]).toEqual({ id: 'hidden', text: '3 idle not shown' })
+    expect(statusBar(w, { idle: 0, finished: 2, stuck: 0 })[2]?.text).toBe('2 finished not shown')
+    expect(statusBar(w, { idle: 195, finished: 6, stuck: 0 })[2]?.text).toBe('195 idle not shown · 6 finished not shown')
+    expect(statusBar(w, { idle: 0, finished: 0, stuck: 1 })[2]?.text).toBe('1 stuck not shown')
     // the agents segment counts what it is given: the agents in view
-    expect(statusBar(w, { idle: 3, finished: 0 })[1]?.text).toBe('busy 1/1')
+    expect(statusBar(w, { idle: 3, finished: 0, stuck: 0 })[1]?.text).toBe('busy 1/1')
   })
 
   test('replay adds a segment with the speed, the clock and, at the end, done', () => {
@@ -218,6 +232,38 @@ describe('the session log', () => {
     const w = { ...logged(), tasks: { b: { id: 'b', timeline: [] }, a: { id: 'a', timeline: [] } } }
     expect(logFilterOptions(w)).toEqual({ projects: ['demo', 'shop'], tasks: ['a', 'b'] })
     expect(logFilterOptions(world())).toEqual({ projects: [], tasks: [] })
+  })
+})
+
+describe('the panel log columns', () => {
+  test('the default panel (about 49 characters) has no event column, and the result gets the room', () => {
+    expect(logColumns(49)).toEqual({ time: 8, agent: 13, event: 0, result: 26 })
+    expect(logColumnsTemplate(logColumns(49))).toBe('8ch 13ch minmax(0, 1fr)')
+  })
+
+  test('the event column comes back from 60 characters, as in the terminal', () => {
+    expect(LOG_EVENT_MIN_CH).toBe(60)
+    expect(logColumns(59).event).toBe(0)
+    expect(logColumns(60).event).toBe(12)
+    expect(logColumnsTemplate(logColumns(80))).toBe('8ch 13ch 12ch minmax(0, 1fr)')
+  })
+
+  test('dropping the event gives its room to the result', () => {
+    const narrow = logColumns(59)
+    const kept = { ...narrow, event: 12, result: 59 - 8 - 13 - 12 - 3 }
+    expect(narrow.result).toBeGreaterThan(kept.result)
+    expect(narrow.result).toBe(36)
+    expect(logColumns(80).result).toBe(44)
+  })
+
+  test('a width that is no width still leaves the result readable', () => {
+    for (const width of [0, -5, Number.NaN, Number.POSITIVE_INFINITY, 10]) expect(logColumns(width).result).toBeGreaterThanOrEqual(8)
+  })
+
+  test("a row's tooltip holds its time, agent, event and result, uncut", () => {
+    const row = { ts: '2026-01-16T10:00:01.000Z', agentId: A1, agent: '00000001 builder', event: 'tool_start', result: 'Edit app.ts · waiting for permission to write' }
+    expect(logRowTitle(row, '10:00:01')).toBe('10:00:01 · 00000001 builder · tool_start · Edit app.ts · waiting for permission to write')
+    expect(logRowTitle({ ...row, result: '' }, '')).toBe('00000001 builder · tool_start')
   })
 })
 

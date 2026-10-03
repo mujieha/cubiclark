@@ -36,7 +36,7 @@ describe('cubiclark doctor', () => {
   test('the fixture home, hooks not installed: exit 0, transcripts live, hooks missing', () => {
     const result = cli('doctor', '--fixture-home', home, '--state-dir', state)
     expect(result.status).toBe(0)
-    expect(result.stdout).toContain('2.1.285 — hook events verified')
+    expect(result.stdout).toContain('2.1.288 — hook events verified')
     expect(result.stdout).toMatch(/transcripts {3}live {6}5 transcript files, 5 read/)
     expect(result.stdout).toMatch(
       /scans {9}1 scan in this check, at most 12 a minute while serving · \d+ files walked in \d+ folders, \d+ ms · 0 other entries at the root not walked/

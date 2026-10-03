@@ -27,7 +27,11 @@ export async function startDay(args: string[] = [], command: string[] = []): Pro
   await cp(join(FIXTURES, 'day'), join(root, 'day'), { recursive: true })
   await cp(join(FIXTURES, 'bin'), join(root, 'bin'), { recursive: true })
   await chmod(join(root, 'day', 'state', 'config.json'), 0o600)
-  const cli = await runCli([...command, '--fixture-home', join(root, 'day', 'home'), '--state-dir', join(root, 'day', 'state'), '--no-open', '--port', '0', ...args])
+  // runCli kills its own child when the start fails; the copy goes with it.
+  const cli = await runCli([...command, '--fixture-home', join(root, 'day', 'home'), '--state-dir', join(root, 'day', 'state'), '--no-open', '--port', '0', ...args]).catch(async (err: unknown) => {
+    await rm(root, { recursive: true, force: true })
+    throw err
+  })
   return {
     ...cli,
     dir: join(root, 'day'),

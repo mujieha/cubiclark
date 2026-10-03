@@ -9,7 +9,9 @@
 
 import { toolActivity } from '../transcript/tools.js'
 
-export const HOOK_EVENTS_VERIFIED_ON = '2.1.285'
+/** The Claude Code version whose hooks reference was last checked against these 15 events and the fields
+ * read below (checked 2026-10-03 on 2.1.288; `doctor` says so, and says when the installed one differs). */
+export const HOOK_EVENTS_VERIFIED_ON = '2.1.288'
 
 export const HOOK_EVENT_NAMES = [
   'SessionStart',
@@ -226,8 +228,9 @@ export function toStoredLine(payload: unknown, tsIso: string): StoredLine {
     if (trig) line.trig = trig
   }
 
-  // The hooks reference documents the StopFailure *matcher* as `error_type` and never shows the
-  // payload, so either spelling is read; only a value from the fixed enum is kept.
+  // The hooks reference now shows the StopFailure payload: the error is `error` (checked on 2.1.288, with
+  // `error_details` and `last_assistant_message` beside it, neither stored). `error_type`, the spelling an
+  // older reference gave for the matcher, is still read as a fallback; only a value from the fixed enum is kept.
   const stopError = typeof payload.error === 'string' ? payload.error : payload.error_type
   if (event === 'StopFailure' && typeof stopError === 'string') {
     line.err = oneOf(stopError, STOP_FAILURE_ERRORS) ?? 'unknown'
