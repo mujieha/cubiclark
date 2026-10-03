@@ -5,6 +5,7 @@
 // through terminalText() first. line() (line.ts) is the only caller that builds a frame line.
 
 import { printable } from '../printable.js'
+import { WIDE_RANGES } from './east-asian-width.js'
 
 export interface CellOptions {
   /** The terminal can show more than printable ASCII. Without it every other character becomes `?`. */
@@ -60,35 +61,29 @@ export function terminalText(text: string, opts: CellOptions): string {
   return out
 }
 
-// East Asian wide and fullwidth blocks, and the emoji planes: two cells each. Ambiguous-width
-// characters count as one (README, Known limits).
-const WIDE_RANGES: readonly (readonly [number, number])[] = [
-  [0x1100, 0x115f],
-  [0x2e80, 0x303e],
-  [0x3041, 0x33ff],
-  [0x3400, 0x4dbf],
-  [0x4e00, 0x9fff],
-  [0xa000, 0xa4cf],
-  [0xa960, 0xa97f],
-  [0xac00, 0xd7a3],
-  [0xf900, 0xfaff],
-  [0xfe10, 0xfe19],
-  [0xfe30, 0xfe6f],
-  [0xff00, 0xff60],
-  [0xffe0, 0xffe6],
-  [0x1f300, 0x1f64f],
-  [0x1f900, 0x1f9ff],
-  [0x20000, 0x2fffd],
-  [0x30000, 0x3fffd],
-]
+// Two cells for every code point Unicode gives East_Asian_Width W or F (the generated table, one Unicode
+// version) and for every one with emoji presentation. Ambiguous-width and text-presentation characters
+// count as one (README, Known limits).
 const EMOJI_PRESENTATION = /^\p{Emoji_Presentation}$/u
+
+function isWide(cp: number): boolean {
+  let low = 0
+  let high = WIDE_RANGES.length - 1
+  while (low <= high) {
+    const middle = (low + high) >> 1
+    const [from, to] = WIDE_RANGES[middle] as readonly [number, number]
+    if (cp < from) high = middle - 1
+    else if (cp > to) low = middle + 1
+    else return true
+  }
+  return false
+}
 
 function codePointWidth(char: string): number {
   const cp = char.codePointAt(0) as number
   if (cp < 0x1100) return 1
   if (EMOJI_PRESENTATION.test(char)) return 2
-  for (const [from, to] of WIDE_RANGES) if (cp >= from && cp <= to) return 2
-  return 1
+  return isWide(cp) ? 2 : 1
 }
 
 /** Cells taken by text that already went through terminalText. */
