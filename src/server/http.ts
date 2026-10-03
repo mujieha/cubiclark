@@ -1,8 +1,12 @@
-// node:http on 127.0.0.1, no framework. Every route sits under /<token>/, so the token travels
-// in the path and Vite's relative asset URLs carry it automatically (design §4/§9). Order of
-// checks, all from PLAN.md §1.8: Host, then the token prefix, then the method, then the route.
+// node:http on 127.0.0.1, no framework. The link cubiclark prints and opens carries a one-time
+// bootstrap code (/<code>/): the first GET trades it for a session cookie (HttpOnly; SameSite=Strict;
+// Path=/; no Secure, since this is plain http on 127.0.0.1) and a redirect to `/`, so the secret is in
+// no URL, history entry or process list after that. Every route, the page, its assets, `events`,
+// `world.json`, `page-options.json` and `custom-assets.json`, then requires the cookie. Order of checks:
+// Host, Origin, the method, the bootstrap code, the cookie, then the route. Every comparison of a secret
+// is timing-safe (S1-13).
 
-import { timingSafeEqual } from 'node:crypto'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
 import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 import { readFile, readdir } from 'node:fs/promises'
@@ -14,7 +18,10 @@ import { DEFAULT_IDLE_DESKS } from '../core/visible.js'
 import type { Store } from './store.js'
 
 export interface HttpServerOptions {
+  /** The session secret: the value of the cookie the bootstrap code is traded for. Never in a URL. */
   token: string
+  /** The one-time code in the printed link. Default: random. A test seam. */
+  bootstrapCode?: string
   port: number
   clientDir: string
   store: Store
@@ -37,6 +44,7 @@ export interface PageOptions {
 }
 
 export interface RunningHttpServer {
+  /** The link to open: `/<bootstrap code>/`. It works once. */
   url: string
   port: number
   close: () => Promise<void>
@@ -58,6 +66,22 @@ function timingSafeStringEqual(a: string, b: string): boolean {
   const bufB = Buffer.from(b)
   if (bufA.length !== bufB.length) return false
   return timingSafeEqual(bufA, bufB)
+}
+
+/** Cookies are scoped by host, not by port: two cubiclark runs at once must not overwrite each other's. */
+export function sessionCookieName(port: number): string {
+  return `cubiclark-${port}`
+}
+
+/** Every value the Cookie header holds under `name` (it may hold the name twice). */
+export function cookieValues(header: string | undefined, name: string): string[] {
+  if (header === undefined) return []
+  const values: string[] = []
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=')
+    if (eq > 0 && part.slice(0, eq).trim() === name) values.push(part.slice(eq + 1).trim())
+  }
+  return values
 }
 
 function contentTypeFor(filename: string): string {
@@ -128,12 +152,19 @@ export function sendSse(
 export async function createHttpServer(opts: HttpServerOptions): Promise<RunningHttpServer> {
   const assetFiles = await listAssetFiles(opts.clientDir)
   const indexHtml = await readFile(join(opts.clientDir, 'index.html'))
-  const tokenPrefix = `/${opts.token}`
+  const bootstrapCode = opts.bootstrapCode ?? randomBytes(32).toString('base64url')
+  const bootstrapPath = `/${bootstrapCode}/`
+  /** The code is spent by the first GET that carries it, before anything is awaited. */
+  let spent = false
   const worldText = new WorldText(opts.home)
 
   // opts.port is 0 for an ephemeral port; every Host/Origin/URL check below must use the port
   // the OS actually bound, which is only known once listen() resolves.
   let boundPort = opts.port
+
+  /** The request carries the session cookie of this run. */
+  const hasSession = (req: IncomingMessage): boolean =>
+    cookieValues(req.headers.cookie, sessionCookieName(boundPort)).some((value) => timingSafeStringEqual(value, opts.token))
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
     setCommonHeaders(res)
@@ -165,25 +196,41 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
       return
     }
 
-    if (timingSafeStringEqual(pathname, tokenPrefix)) {
-      res.statusCode = 301
-      res.setHeader('Location', `${tokenPrefix}/`)
-      res.end()
-      return
-    }
-    if (!timingSafeStringEqual(pathname.slice(0, tokenPrefix.length + 1), `${tokenPrefix}/`)) {
-      res.statusCode = 403
-      res.end('forbidden: missing or wrong run token')
-      return
-    }
-
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.statusCode = 405
       res.end('method not allowed')
       return
     }
 
-    const subPath = pathname.slice(tokenPrefix.length + 1)
+    if (timingSafeStringEqual(pathname, bootstrapPath)) {
+      if (req.method === 'GET' && !spent) {
+        spent = true
+        res.statusCode = 303
+        res.setHeader('Set-Cookie', `${sessionCookieName(boundPort)}=${opts.token}; HttpOnly; SameSite=Strict; Path=/`)
+        res.setHeader('Location', '/')
+        res.end()
+        return
+      }
+      // Spent, or only asked about (HEAD does not spend it). The browser that holds the cookie is sent on to
+      // the page, so the printed link still works there; anyone else is told it has been used.
+      if (hasSession(req)) {
+        res.statusCode = 303
+        res.setHeader('Location', '/')
+        res.end()
+        return
+      }
+      res.statusCode = 403
+      res.end(spent ? 'forbidden: this link was already used; open the page in the browser that used it, or restart cubiclark' : 'forbidden')
+      return
+    }
+
+    if (!hasSession(req)) {
+      res.statusCode = 403
+      res.end('forbidden: no session; open the link cubiclark printed (it works once)')
+      return
+    }
+
+    const subPath = pathname.slice(1)
     const isHead = req.method === 'HEAD'
 
     if (subPath === '' || subPath === 'index.html') {
@@ -266,7 +313,7 @@ export async function createHttpServer(opts: HttpServerOptions): Promise<Running
   boundPort = port
 
   return {
-    url: `http://127.0.0.1:${port}${tokenPrefix}/`,
+    url: `http://127.0.0.1:${port}${bootstrapPath}`,
     port,
     close: () =>
       new Promise<void>((resolve) => {

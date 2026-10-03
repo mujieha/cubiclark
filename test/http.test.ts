@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import type { ServerResponse } from 'node:http'
-import { WorldText, createHttpServer, sendSse } from '../src/server/http.js'
+import { WorldText, cookieValues, createHttpServer, sendSse, sessionCookieName } from '../src/server/http.js'
 import { Store } from '../src/server/store.js'
 import type { RunningHttpServer } from '../src/server/http.js'
 
@@ -17,7 +17,7 @@ interface Response {
 function request(
   port: number,
   path: string,
-  opts: { host?: string; origin?: string; method?: string } = {}
+  opts: { host?: string; origin?: string; method?: string; cookie?: string } = {}
 ): Promise<Response> {
   return new Promise((resolve, reject) => {
     const req = http.request(
@@ -29,6 +29,7 @@ function request(
         headers: {
           Host: opts.host ?? `127.0.0.1:${port}`,
           ...(opts.origin ? { Origin: opts.origin } : {}),
+          ...(opts.cookie ? { Cookie: opts.cookie } : {}),
         },
       },
       (res) => {
@@ -47,7 +48,23 @@ function request(
 let clientDir: string
 let server: RunningHttpServer
 let store: Store
+/** The Cookie header value of a browser that has used the one-time link of `server`. */
+let cookie: string
 const token = 'test-run-token-0123456789'
+const code = 'one-time-code-abcdefghij'
+
+/** Uses the one-time link and returns the cookie a browser would send back. */
+async function login(target: RunningHttpServer): Promise<string> {
+  const res = await request(target.port, `/${code}/`)
+  expect(res.status).toBe(303)
+  const set = res.headers['set-cookie']?.[0] ?? ''
+  return set.split(';')[0] as string
+}
+
+/** A server whose one-time code has not been used. */
+function fresh(extra: Partial<Parameters<typeof createHttpServer>[0]> = {}): Promise<RunningHttpServer> {
+  return createHttpServer({ token, bootstrapCode: code, port: 0, clientDir, store, ...extra })
+}
 
 beforeEach(async () => {
   clientDir = await mkdtemp(join(tmpdir(), 'cubiclark-http-'))
@@ -56,7 +73,8 @@ beforeEach(async () => {
   await writeFile(join(clientDir, 'assets', 'app.js'), 'console.log(1)', 'utf8')
 
   store = new Store({ nowMs: () => Date.now(), transcriptsRoot: '/root' })
-  server = await createHttpServer({ token, port: 0, clientDir, store })
+  server = await fresh()
+  cookie = await login(server)
 })
 
 afterEach(async () => {
@@ -65,84 +83,228 @@ afterEach(async () => {
   await rm(clientDir, { recursive: true, force: true })
 })
 
+describe('the one-time link (S1-11)', () => {
+  test('the first use sets an HttpOnly, SameSite=Strict, Path=/ cookie named for the port, and redirects to a code-free /', async () => {
+    const other = await fresh()
+    try {
+      const res = await request(other.port, `/${code}/`)
+      expect(res.status).toBe(303)
+      expect(res.headers.location).toBe('/')
+      expect(res.headers['set-cookie']).toEqual([`${sessionCookieName(other.port)}=${token}; HttpOnly; SameSite=Strict; Path=/`])
+      // plain http on 127.0.0.1: a Secure cookie would never be sent back
+      expect(res.headers['set-cookie']?.[0]).not.toMatch(/Secure/i)
+      expect(res.headers['cache-control']).toBe('no-store')
+      expect(res.headers.location).not.toContain(code)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('the printed url carries the code and never the token', async () => {
+    expect(server.url).toBe(`http://127.0.0.1:${server.port}/${code}/`)
+    expect(server.url).not.toContain(token)
+  })
+
+  test('a random code is made when none is given, and it is not the token', async () => {
+    const other = await createHttpServer({ token, port: 0, clientDir, store })
+    try {
+      const path = new URL(other.url).pathname
+      expect(path).toMatch(/^\/[A-Za-z0-9_-]{43}\/$/)
+      expect(path).not.toContain(token)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('a second use without the cookie is 403, and the same browser with the cookie is sent on to the page', async () => {
+    const again = await request(server.port, `/${code}/`)
+    expect(again.status).toBe(403)
+    expect(again.headers['set-cookie']).toBeUndefined()
+    expect(again.body).toContain('already used')
+
+    const mine = await request(server.port, `/${code}/`, { cookie })
+    expect(mine.status).toBe(303)
+    expect(mine.headers.location).toBe('/')
+    expect(mine.headers['set-cookie']).toBeUndefined()
+  })
+
+  test('two uses at the same moment: exactly one gets the cookie', async () => {
+    const other = await fresh()
+    try {
+      const all = await Promise.all(Array.from({ length: 8 }, () => request(other.port, `/${code}/`)))
+      expect(all.filter((r) => r.status === 303 && r.headers['set-cookie'] !== undefined)).toHaveLength(1)
+      expect(all.filter((r) => r.status === 403)).toHaveLength(7)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('a wrong code, a near miss and the code without its slash are 403 and do not spend the real one', async () => {
+    const other = await fresh()
+    try {
+      for (const path of ['/not-the-code/', `/${code.slice(0, -1)}/`, `/${code}x/`, `/${code}`, `/${code}//`]) {
+        expect((await request(other.port, path)).status, path).toBe(403)
+      }
+      expect((await request(other.port, `/${code}/`)).status).toBe(303)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('HEAD does not spend the code', async () => {
+    const other = await fresh()
+    try {
+      expect((await request(other.port, `/${code}/`, { method: 'HEAD' })).status).toBe(403)
+      expect((await request(other.port, `/${code}/`)).status).toBe(303)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('a foreign Host or Origin is refused before the code is looked at, and does not spend it', async () => {
+    const other = await fresh()
+    try {
+      expect((await request(other.port, `/${code}/`, { host: 'evil.example' })).status).toBe(403)
+      expect((await request(other.port, `/${code}/`, { origin: 'http://evil.example' })).status).toBe(403)
+      expect((await request(other.port, `/${code}/`)).status).toBe(303)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test('POST to the one-time link is 405 and does not spend it', async () => {
+    const other = await fresh()
+    try {
+      expect((await request(other.port, `/${code}/`, { method: 'POST' })).status).toBe(405)
+      expect((await request(other.port, `/${code}/`)).status).toBe(303)
+    } finally {
+      await other.close()
+    }
+  })
+})
+
+describe('every route requires the cookie', () => {
+  const ROUTES = ['/', '/index.html', '/assets/app.js', '/events', '/world.json', '/page-options.json', '/custom-assets.json']
+
+  test.each(ROUTES)('%s: 403 without a cookie, before and after the link was used', async (path) => {
+    const other = await fresh()
+    try {
+      expect((await request(other.port, path)).status).toBe(403)
+      await login(other)
+      expect((await request(other.port, path)).status).toBe(403)
+      expect((await request(other.port, path, { method: 'HEAD' })).status).toBe(403)
+    } finally {
+      await other.close()
+    }
+  })
+
+  test.each(ROUTES.filter((path) => path !== '/events'))('%s: 200 with the cookie', async (path) => {
+    expect((await request(server.port, path, { cookie })).status).toBe(200)
+  })
+
+  test('a wrong cookie value, another run\'s cookie name and a cookie of the right name for the wrong port are 403', async () => {
+    const name = sessionCookieName(server.port)
+    for (const header of [`${name}=wrong`, `${name}=${token}x`, `${name}=${token.slice(0, -1)}`, `${name}=`, `cubiclark-1=${token}`, `${sessionCookieName(server.port + 1)}=${token}`, `other=${token}`, token]) {
+      expect((await request(server.port, '/world.json', { cookie: header })).status, header).toBe(403)
+    }
+  })
+
+  test('the cookie is found among others, and when the name is there twice either may match', async () => {
+    const name = sessionCookieName(server.port)
+    expect((await request(server.port, '/world.json', { cookie: `a=1; ${name}=wrong; b=2; ${name}=${token}` })).status).toBe(200)
+    expect((await request(server.port, '/world.json', { cookie: `a=1; ${cookie}; b=2` })).status).toBe(200)
+  })
+
+  test('the token in the path is worth nothing any more', async () => {
+    expect((await request(server.port, `/${token}/world.json`, { cookie })).status).toBe(404)
+    expect((await request(server.port, `/${token}/`)).status).toBe(403)
+    expect((await request(server.port, `/${token}`)).status).toBe(403)
+  })
+
+  test('the cookie does not outlive the run: another server rejects it', async () => {
+    const other = await fresh({ token: 'another-run-token-0123456789' })
+    try {
+      expect((await request(other.port, '/world.json', { cookie })).status).toBe(403)
+    } finally {
+      await other.close()
+    }
+  })
+})
+
 describe('createHttpServer', () => {
-  test('200 with the correct token', async () => {
-    const res = await request(server.port, `/${token}/`)
+  test('200 with the cookie', async () => {
+    const res = await request(server.port, '/', { cookie })
     expect(res.status).toBe(200)
     expect(res.body).toContain('<title>t</title>')
   })
 
-  test('403 without a token', async () => {
-    const res = await request(server.port, '/')
-    expect(res.status).toBe(403)
-  })
-
-  test('403 with a wrong token', async () => {
-    const res = await request(server.port, '/not-the-token/')
-    expect(res.status).toBe(403)
-  })
-
-  test('403 with a foreign Host header', async () => {
-    const res = await request(server.port, `/${token}/`, { host: 'evil.example' })
+  test('403 with a foreign Host header, even with the cookie', async () => {
+    const res = await request(server.port, '/', { host: 'evil.example', cookie })
     expect(res.status).toBe(403)
   })
 
   test('200 with Host localhost:<port>', async () => {
-    const res = await request(server.port, `/${token}/`, { host: `localhost:${server.port}` })
+    const res = await request(server.port, '/', { host: `localhost:${server.port}`, cookie })
     expect(res.status).toBe(200)
   })
 
-  test('403 with a foreign Origin header', async () => {
-    const res = await request(server.port, `/${token}/world.json`, { origin: 'http://evil.example' })
+  test('403 with a foreign Origin header, even with the cookie', async () => {
+    const res = await request(server.port, '/world.json', { origin: 'http://evil.example', cookie })
     expect(res.status).toBe(403)
   })
 
   test('a matching Origin is accepted', async () => {
-    const res = await request(server.port, `/${token}/world.json`, { origin: `http://127.0.0.1:${server.port}` })
+    const res = await request(server.port, '/world.json', { origin: `http://127.0.0.1:${server.port}`, cookie })
     expect(res.status).toBe(200)
   })
 
   test('405 on POST', async () => {
-    const res = await request(server.port, `/${token}/world.json`, { method: 'POST' })
+    const res = await request(server.port, '/world.json', { method: 'POST', cookie })
     expect(res.status).toBe(405)
   })
 
   test('404 on an asset outside the allowlist, including a traversal attempt', async () => {
-    const missing = await request(server.port, `/${token}/assets/does-not-exist.js`)
+    const missing = await request(server.port, '/assets/does-not-exist.js', { cookie })
     expect(missing.status).toBe(404)
 
-    const traversal = await request(server.port, `/${token}/assets/..%2F..%2Fpackage.json`)
+    const traversal = await request(server.port, '/assets/..%2F..%2Fpackage.json', { cookie })
     expect(traversal.status).not.toBe(200)
   })
 
   test('200 for an asset in the allowlist', async () => {
-    const res = await request(server.port, `/${token}/assets/app.js`)
+    const res = await request(server.port, '/assets/app.js', { cookie })
     expect(res.status).toBe(200)
     expect(res.body).toBe('console.log(1)')
   })
 
   test('every response carries the security headers, and never a CORS header', async () => {
-    const res = await request(server.port, `/${token}/world.json`)
+    const res = await request(server.port, '/world.json', { cookie })
     expect(res.headers['content-security-policy']).toContain("default-src 'none'")
     expect(res.headers['x-content-type-options']).toBe('nosniff')
     expect(res.headers['x-frame-options']).toBe('DENY')
     expect(res.headers['cache-control']).toBe('no-store')
     expect(res.headers['access-control-allow-origin']).toBeUndefined()
+    // and the refusals too
+    const refused = await request(server.port, '/world.json')
+    expect(refused.status).toBe(403)
+    expect(refused.headers['content-security-policy']).toContain("default-src 'none'")
   })
 
   test('world.json reflects the store', async () => {
     store.applyEvents([{ t: 'agent_meta', ts: 't0', agentId: 'a1', kind: 'session', cwd: '/home/user/projects/demo' }])
-    const res = await request(server.port, `/${token}/world.json`)
+    const res = await request(server.port, '/world.json', { cookie })
     const world = JSON.parse(res.body) as { agents: Record<string, { cwd: string }> }
     expect(world.agents.a1?.cwd).toBe('demo') // publicWorld reduces cwd to its basename
   })
 
-  test('SSE sends the first snapshot immediately, then an update after a change', async () => {
+  test('SSE connects only with the cookie, sends the first snapshot immediately, then an update after a change', async () => {
+    expect((await request(server.port, '/events')).status).toBe(403)
+
     const req = http.request({
       hostname: '127.0.0.1',
       port: server.port,
-      path: `/${token}/events`,
-      headers: { Host: `127.0.0.1:${server.port}` },
+      path: '/events',
+      headers: { Host: `127.0.0.1:${server.port}`, Cookie: cookie },
     })
     req.end()
 
@@ -171,8 +333,8 @@ describe('createHttpServer', () => {
     const req = http.request({
       hostname: '127.0.0.1',
       port: server.port,
-      path: `/${token}/events`,
-      headers: { Host: `127.0.0.1:${server.port}` },
+      path: '/events',
+      headers: { Host: `127.0.0.1:${server.port}`, Cookie: cookie },
     })
     req.end()
     await new Promise<void>((resolve) => req.on('response', () => resolve()))
@@ -182,21 +344,21 @@ describe('createHttpServer', () => {
     expect(Date.now() - start).toBeLessThan(2000)
 
     // afterEach also closes `server`; give it a fresh, still-open one to close.
-    server = await createHttpServer({ token, port: 0, clientDir, store })
+    server = await fresh()
   })
 
-  test('custom-assets.json is empty without a pack and holds a valid pack\'s data with one, behind the token', async () => {
-    const none = await request(server.port, `/${token}/custom-assets.json`)
+  test('custom-assets.json is empty without a pack and holds a valid pack\'s data with one, behind the cookie', async () => {
+    const none = await request(server.port, '/custom-assets.json', { cookie })
     expect(none.status).toBe(200)
     expect(JSON.parse(none.body)).toEqual({ palettes: {}, sprites: {} })
     expect(none.headers['content-type']).toContain('application/json')
     expect((await request(server.port, '/custom-assets.json')).status).toBe(403)
-    expect((await request(server.port, `/${token}/custom-assets.json`, { method: 'POST' })).status).toBe(405)
+    expect((await request(server.port, '/custom-assets.json', { method: 'POST', cookie })).status).toBe(405)
 
     const customAssets = { palettes: { day: { '7': '#d9a86c' } }, sprites: { 'accessory:cap': { rows: ['..'] } } }
-    const other = await createHttpServer({ token, port: 0, clientDir, store, customAssets })
+    const other = await fresh({ customAssets })
     try {
-      const res = await request(other.port, `/${token}/custom-assets.json`)
+      const res = await request(other.port, '/custom-assets.json', { cookie: await login(other) })
       expect(JSON.parse(res.body)).toEqual(customAssets)
       expect(res.headers['content-security-policy']).toContain("default-src 'none'")
     } finally {
@@ -204,35 +366,34 @@ describe('createHttpServer', () => {
     }
   })
 
-  test('page-options.json says Morty is on and five idle desks by default, and what --no-mascot and --idle-desks say, as JSON, behind the token', async () => {
-    const on = await request(server.port, `/${token}/page-options.json`)
+  test('page-options.json says Morty is on and five idle desks by default, and what --no-mascot and --idle-desks say, as JSON, behind the cookie', async () => {
+    const on = await request(server.port, '/page-options.json', { cookie })
     expect(on.status).toBe(200)
     expect(on.headers['content-type']).toContain('application/json')
     expect(JSON.parse(on.body)).toEqual({ mascot: true, idleDesks: 5 })
 
-    const head = await request(server.port, `/${token}/page-options.json`, { method: 'HEAD' })
+    const head = await request(server.port, '/page-options.json', { method: 'HEAD', cookie })
     expect(head.status).toBe(200)
     expect(head.body).toBe('')
     expect((await request(server.port, '/page-options.json')).status).toBe(403)
-    expect((await request(server.port, `/${token}/page-options.json`, { method: 'POST' })).status).toBe(405)
+    expect((await request(server.port, '/page-options.json', { method: 'POST', cookie })).status).toBe(405)
 
-    const off = await createHttpServer({ token, port: 0, clientDir, store, pageOptions: { mascot: false, idleDesks: 0 } })
+    const off = await fresh({ pageOptions: { mascot: false, idleDesks: 0 } })
     try {
-      expect(JSON.parse((await request(off.port, `/${token}/page-options.json`)).body)).toEqual({ mascot: false, idleDesks: 0 })
+      expect(JSON.parse((await request(off.port, '/page-options.json', { cookie: await login(off) })).body)).toEqual({ mascot: false, idleDesks: 0 })
     } finally {
       await off.close()
     }
   })
 
-  // S1-13: the redirect branch compared the token with `===`.
-  test('the token redirect works, a near miss is 403, and no plain comparison is left', async () => {
-    const redirect = await request(server.port, `/${token}`)
-    expect(redirect.status).toBe(301)
-    expect(redirect.headers.location).toBe(`/${token}/`)
-    expect((await request(server.port, `/${token.slice(0, -1)}`)).status).toBe(403)
-    expect((await request(server.port, `/${token}x`)).status).toBe(403)
+  // S1-13: no secret is compared with a plain string comparison, and there is no redirect on the token any more.
+  test('no secret is compared with ===, and the old token redirect is gone', async () => {
     const source = await readFile(new URL('../src/server/http.ts', import.meta.url), 'utf8')
-    expect(source).not.toMatch(/===\s*tokenPrefix|tokenPrefix\s*===/)
+    expect(source).not.toMatch(/===\s*(?:bootstrapPath|bootstrapCode|opts\.token)|(?:bootstrapPath|bootstrapCode|opts\.token)\s*===/)
+    expect(source).not.toMatch(/!==\s*(?:bootstrapPath|bootstrapCode|opts\.token)|(?:bootstrapPath|bootstrapCode|opts\.token)\s*!==/)
+    expect(source).not.toMatch(/\b301\b/)
+    expect(source).toMatch(/timingSafeStringEqual\(pathname, bootstrapPath\)/)
+    expect(source).toMatch(/timingSafeStringEqual\(value, opts\.token\)/)
   })
 
   // S1-15: no home directory leaves in the World.
@@ -244,9 +405,9 @@ describe('createHttpServer', () => {
       hooks: { status: 'live', events: 1, eventsFile: `${home}/.cubiclark/events.jsonl` },
     })
     local.applyEvents([{ t: 'diagnostics', ts: 't0', unparsed: 0, unknownTypes: {}, versions: [], sourceError: `cannot read ${home}/.claude/projects/-x/y.jsonl` }])
-    const homed = await createHttpServer({ token, port: 0, clientDir, store: local, home })
+    const homed = await fresh({ store: local, home })
     try {
-      const res = await request(homed.port, `/${token}/world.json`)
+      const res = await request(homed.port, '/world.json', { cookie: await login(homed) })
       expect(res.body).not.toContain(home)
       expect(res.body).not.toContain('/Users/')
       const world = JSON.parse(res.body) as { sources: { transcripts: { root: string }; hooks: { eventsFile: string } } }
@@ -315,5 +476,17 @@ describe('createHttpServer', () => {
     // server.listen() with '127.0.0.1' as the host, which this greps for directly.
     const source = await readFile(new URL('../src/server/http.ts', import.meta.url), 'utf8')
     expect(source).toMatch(/\.listen\([^)]*'127\.0\.0\.1'/)
+  })
+})
+
+describe('cookieValues', () => {
+  test('finds every value under the name, trimmed, and nothing else', () => {
+    expect(cookieValues('a=1; b=2', 'b')).toEqual(['2'])
+    expect(cookieValues('b=1;b=2 ;  c=3', 'b')).toEqual(['1', '2'])
+    expect(cookieValues('ab=1; b=2', 'b')).toEqual(['2'])
+    expect(cookieValues('b=x=y', 'b')).toEqual(['x=y'])
+    expect(cookieValues('=b; b', 'b')).toEqual([])
+    expect(cookieValues('', 'b')).toEqual([])
+    expect(cookieValues(undefined, 'b')).toEqual([])
   })
 })
