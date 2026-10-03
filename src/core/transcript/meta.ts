@@ -4,6 +4,7 @@
 // into a subagent_link AgentEvent and a failed one into a diagnostic.
 
 import { TRANSCRIPT_GUESSES } from './guesses.js'
+import { safeTarget } from './tools.js'
 
 export interface SubagentMeta {
   agentType?: string
@@ -33,14 +34,17 @@ export function parseSubagentMeta(text: string): ParseMetaResult {
   const num = (key: string): number | undefined => (typeof obj[key] === 'number' ? (obj[key] as number) : undefined)
 
   const keys = TRANSCRIPT_GUESSES.subagentMetaKeys
+  // A label follows the collector's rule for a target (R2-7). `name` only decides teammate or subagent
+  // and is never shown, so a name that fails the rule still marks a teammate.
+  const rawName = str(keys.name)
   return {
     ok: true,
     meta: {
-      agentType: str(keys.agentType),
+      agentType: safeTarget(str(keys.agentType)),
       description: str(keys.description),
       toolUseId: str(keys.toolUseId),
       model: str(keys.model),
-      name: str(keys.name),
+      name: rawName === undefined || rawName === '' ? rawName : (safeTarget(rawName) ?? 'teammate'),
       spawnDepth: num(keys.spawnDepth),
     },
   }

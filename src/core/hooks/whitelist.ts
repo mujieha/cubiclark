@@ -7,7 +7,7 @@
 // This file is copied next to the collector by `hooks on`, so its only import is the pure
 // tool-target reducer (test/collector-imports.test.ts enforces that).
 
-import { toolActivity } from '../transcript/tools.js'
+import { hasControlChar, toolActivity } from '../transcript/tools.js'
 
 /** The Claude Code version whose hooks reference was last checked against these 15 events and the fields
  * read below (checked 2026-10-03 on 2.1.288; `doctor` says so, and says when the installed one differs). */
@@ -124,18 +124,9 @@ const NAME_RE = /^[A-Za-z0-9_.:-]{1,128}$/
 const MODEL_RE = /^[A-Za-z0-9_.:[\]-]{1,100}$/
 const EVENT_NAME_RE = /^[A-Za-z]{1,40}$/
 const MAX_CWD = 1024
-const MAX_TARGET = 100
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function hasControlChar(text: string): boolean {
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
-    if (code < 0x20 || code === 0x7f) return true
-  }
-  return false
 }
 
 function matching(value: unknown, pattern: RegExp): string | undefined {
@@ -159,12 +150,6 @@ function safeCwd(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_CWD) return undefined
   const absolute = value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)
   return absolute && !hasControlChar(value) ? value : undefined
-}
-
-function safeTarget(value: string | undefined): string | undefined {
-  if (value === undefined || value.length === 0 || value.length > MAX_TARGET) return undefined
-  if (value.includes('/') || value.includes('\\') || hasControlChar(value)) return undefined
-  return value
 }
 
 /** Never throws. `payload` is whatever JSON.parse returned, or undefined when stdin did not parse. */
@@ -197,7 +182,7 @@ export function toStoredLine(payload: unknown, tsIso: string): StoredLine {
     if (tool) {
       line.tool = tool
       const input = isRecord(payload.tool_input) ? payload.tool_input : {}
-      const target = safeTarget(toolActivity(tool, input).target)
+      const target = toolActivity(tool, input).target // already through safeTarget (src/core/transcript/tools.ts)
       const tuid = matching(payload.tool_use_id, ID_RE)
       if (tuid) line.tuid = tuid
       if (target) line.target = target

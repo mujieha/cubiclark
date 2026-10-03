@@ -38,6 +38,26 @@ export interface ToolActivity {
   target?: string
 }
 
+/** The most characters a target or a label keeps (R2-7). */
+export const MAX_TARGET = 100
+
+export function hasControlChar(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+/** The one rule for a target or a label that came from outside (the collector's whitelist, a transcript,
+ * a sidecar): at most 100 characters, no control character, no path separator; anything else is dropped,
+ * not cut. One function, so what the collector keeps and what a transcript shows cannot drift apart. */
+export function safeTarget(value: string | undefined): string | undefined {
+  if (value === undefined || value.length === 0 || value.length > MAX_TARGET) return undefined
+  if (value.includes('/') || value.includes('\\') || hasControlChar(value)) return undefined
+  return value
+}
+
 function basename(path: string): string {
   const trimmed = path.replace(/\/+$/, '')
   const idx = trimmed.lastIndexOf('/')
@@ -96,7 +116,13 @@ export function toolStateForName(name: string): ToolState {
   return 'running'
 }
 
+/** The state a tool call implies and its reduced target, which is dropped unless it passes safeTarget (R2-7). */
 export function toolActivity(name: string, input: Record<string, unknown>): ToolActivity {
+  const raw = rawToolActivity(name, input)
+  return raw.target === undefined ? raw : { state: raw.state, target: safeTarget(raw.target) }
+}
+
+function rawToolActivity(name: string, input: Record<string, unknown>): ToolActivity {
   const state = toolStateForName(name)
   switch (state) {
     case 'reading': {

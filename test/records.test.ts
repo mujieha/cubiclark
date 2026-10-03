@@ -239,4 +239,12 @@ describe('fromAgentName', () => {
       events: [{ t: 'agent_meta', ts, agentId: 'a1', label: 'demo-worker' }],
     })
   })
+
+  // R2-7
+  test('a label that is too long, or holds a control character, makes no event', () => {
+    for (const bad of ['w'.repeat(101), 'evil\u001b]0;x\u0007', 'a\nb']) {
+      expect(fromAgentName({ agentName: bad }, ctx, ts), JSON.stringify(bad.slice(0, 12))).toEqual({ events: [] })
+    }
+    expect(fromAgentName({ agentName: 'w'.repeat(100) }, ctx, ts).events).toHaveLength(1)
+  })
 })

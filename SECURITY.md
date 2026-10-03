@@ -64,7 +64,12 @@ Transcript files are, in principle, attacker-controlled input (anything that can
   if `innerHTML`, `outerHTML` or `insertAdjacentHTML` stop being errors, in the client and in
   `src/core` alike, or if `textContent` is flagged by mistake.
 - Bubble text is cut to 12 characters and tooltips show only fields the World already holds
-  (basenames, never full paths), so a long or hostile string cannot grow the page.
+  (basenames, never full paths). A tool's target (a file's basename, a command's first word, a URL's
+  host, a subagent type) and an agent's label (a subagent type, a teammate's name, a background
+  worker's name) are kept only when they are at most 100 characters with no control character and no
+  `/` or `\`; otherwise they are dropped, not cut. That is the collector's rule, one function
+  (`safeTarget`, `src/core/transcript/tools.ts`) shared by the collector and the transcript parser, so
+  a hostile file name cannot make the page's data grow by more than that.
 - A record that is not valid JSON, is not an object, or has an unrecognised `type` is counted as
   a diagnostic and never reaches the page as content.
 
