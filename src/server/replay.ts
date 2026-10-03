@@ -189,15 +189,26 @@ export async function startReplay(o: ReplayOptions): Promise<RunningReplay> {
 
   const token = randomBytes(32).toString('base64url')
   const clientDir = fileURLToPath(new URL('../client/', import.meta.url))
-  const http = await createHttpServer({
-    token,
-    port: o.port,
-    clientDir,
-    store,
-    home: o.home,
-    customAssets: assets.overrides,
-    pageOptions: { mascot: o.mascot ?? true, idleDesks: o.idleDesks ?? DEFAULT_IDLE_DESKS },
-  })
+  let http: Awaited<ReturnType<typeof createHttpServer>>
+  try {
+    http = await createHttpServer({
+      token,
+      port: o.port,
+      clientDir,
+      store,
+      home: o.home,
+      customAssets: assets.overrides,
+      pageOptions: { mascot: o.mascot ?? true, idleDesks: o.idleDesks ?? DEFAULT_IDLE_DESKS },
+    })
+  } catch (err) {
+    // The port is taken (or the like): the timers and the adapters must not keep the process alive behind
+    // the error, as startApp does for `serve` (R2-11).
+    if (timer) clearInterval(timer)
+    if (statusTimer) clearInterval(statusTimer)
+    adapterHost.stop()
+    store.stop()
+    throw err
+  }
   if (o.open) openBrowser(http.url)
 
   return {

@@ -49,11 +49,14 @@ it was.
 
 **What `hooks off` does.** If `settings.json` is exactly what `hooks on` wrote, the original file
 comes back byte for byte. If something else has edited it since, only Cubiclark's entries are
-removed and every other edit is kept. The installed copy goes with it. Events already collected
-and the backups stay in `~/.cubiclark` unless you pass `--purge`, which also deletes the events
-files and the soft-off flag (and the directory, if that leaves it empty). `--purge` never deletes
-anything else in that directory: `config.json`, `assets/` and `backups/` stay (a backup may be the
-only copy of your settings from before Cubiclark), and it refuses `/` and your home directory.
+removed and every other edit is kept. The installed copy goes with it: from `bin/` it removes
+only the files `hooks on` placed there (and a directory only when that leaves it empty), so
+a script of yours in `~/.cubiclark/bin/` stays. Events already collected and the backups stay in
+`~/.cubiclark` unless you pass `--purge`, which also deletes the events files and the soft-off flag
+(and the directory, if that leaves it empty). `--purge` deletes nothing else in that directory:
+`config.json`, `assets/` and `backups/` stay (a backup may be the only copy of your settings from
+before Cubiclark). `hooks on`, `hooks off` and `hooks off --purge` all refuse `/`, your home
+directory and any directory that contains it, before changing anything.
 
 **After an upgrade, run `cubiclark hooks on` again**: it adds the entries a newer version needs
 (this phase added `PostModelSwitch`, so the model of a running session follows a model switch) and
@@ -459,8 +462,11 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **A session waiting for you that is not among the five most recently active is not in the office
   or the list**; only the status bar counts it (`--idle-desks <n>` changes the five). A `stuck` agent
   is shown for 30 minutes and then counted as `stuck not shown`; the 30 minutes are fixed.
-- **In the terminal (`cubiclark tui`):** terminals disagree about the width of emoji and of some
-  punctuation (`--ascii` avoids both); agents do not walk, they are at their seats at once; Morty is
+- **In the terminal (`cubiclark tui`):** widths are counted from Unicode 18.0.0's East Asian Width
+  table (wide and fullwidth: two cells), plus emoji with emoji presentation; ambiguous-width
+  punctuation and text-presentation emoji count as one, and terminals disagree about them
+  (`--ascii` avoids both). Autowrap is off while the screen is up, so a line a terminal draws wider than
+  counted is cut at the edge and the lines below it stay in place; agents do not walk, they are at their seats at once; Morty is
   placed by room, not by tile; there is no mouse, no task timeline and no log filter; Ctrl+Z does not
   suspend it (the keys are read raw); the interactive screen needs both stdin and stdout to be a
   terminal; and the office is left out below 60 columns or 20 rows, which the second line of the
@@ -514,7 +520,10 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
   per art pixel.
 - **A replay of adapter data is approximate.** A task's timeline is cut at the replay clock, but a
   file's contents are read as they are now.
-- **Developed and tested on macOS** (the CI runner is a Mac). Linux and Windows are untested.
+- **Developed and tested on macOS.** The Mac runs every check for this repository's own branches. A
+  pull request from a fork never runs there: it, and every run once the repository is public, goes to a
+  GitHub-hosted Linux job that skips the screenshot comparisons (their baselines are macOS). Until
+  such a run has happened, Linux is untested; Windows is untested.
 - **Helper bubbles can still touch a long desk bubble.** A helper's bubble now sits beside its
   stool, clear of the cluster's sign and of the neighbouring helper's head, but in a packed cluster
   there is sometimes no free place, and it then covers part of a desk's bubble (in the two crowded
@@ -533,8 +542,10 @@ lines. Bookkeeping records that Claude Code writes without a timestamp (`mode`, 
 - **The link works once, in one browser.** The address `cubiclark` prints is a one-time link: your
   browser trades it for a session cookie and is sent to a page whose URL holds no secret. Another local
   account that reads the link before your browser uses it can use it first, once (your browser would
-  then be told the link was used); and a second browser needs a restart for a new link
-  (`SECURITY.md`).
+  then be told the link was used); and a second browser needs a restart for a new link. Also, the session
+  cookie is sent to every server on `127.0.0.1` your browser asks, whatever its port (browsers do not
+  scope cookies by port): another local account that runs a server on a port you open while Cubiclark
+  runs would receive it, and could read what the page shows (`SECURITY.md`).
 - **A command's first word is kept unless it looks like a credential** (over 40 characters, `=`, `:`
   or `@` in it, `sk-`, `ghp_`, `xox`, `AKIA`, ...): a secret that does not look like one and is typed
   where a command goes would still be stored. `hooks on --no-tools` stores no tool activity.

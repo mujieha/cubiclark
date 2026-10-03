@@ -34,7 +34,7 @@ async function pixelsOf(page: Page, hex: string): Promise<number> {
 }
 
 test.describe('a valid pack', () => {
-  test('is drawn in the office: its colours and sprites are there, the built-in ones are not, against a baseline', async ({ page }) => {
+  test('is drawn in the office: its colours and sprites are there, the built-in ones are not, against a baseline', { tag: '@pixels' }, async ({ page }) => {
     // Compared with a pre-Morty baseline: Morty off.
     const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, args: ['--assets', EXAMPLE], mascot: false })
     try {

@@ -23,7 +23,7 @@ async function cropAround(page: Page, agentId: string): Promise<Buffer> {
 }
 
 test.describe('reduced motion', () => {
-  test('renders without animation: no frames after it settles, and the picture never changes', async ({ page }) => {
+  test('renders without animation: no frames after it settles, and the picture never changes', { tag: '@pixels' }, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     // Compared with a pre-Morty baseline: Morty off.
     const cli = await openWithFakeWorld(page, { mascot: false })

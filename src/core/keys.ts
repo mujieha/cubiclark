@@ -9,6 +9,12 @@ export function isSafeKey(key: string): boolean {
   return key.length > 0 && !(key in Object.prototype)
 }
 
+/** record[key] when it is the record's own entry; never an inherited member such as `constructor` or
+ * `toString` (a task id comes from a folder name, R2-5). */
+export function ownEntry<T>(record: Readonly<Record<string, T>>, key: string | undefined): T | undefined {
+  return key !== undefined && Object.hasOwn(record, key) ? record[key] : undefined
+}
+
 /** The key a count is kept under: the name itself, or '(invalid)' when the name is not safe. */
 export function countKey(key: string): string {
   return isSafeKey(key) ? key : '(invalid)'

@@ -5,7 +5,7 @@
 import { freeText } from '../printable.js'
 import type { AgentEvent, ErrorKind } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
-import { toolActivity } from './tools.js'
+import { safeTarget, toolActivity } from './tools.js'
 
 export interface ParseCtx {
   agentId: string
@@ -244,6 +244,7 @@ export function fromPermissionMode(record: Record<string, unknown>, ctx: ParseCt
 
 /** A11: a background worker's display label. */
 export function fromAgentName(record: Record<string, unknown>, ctx: ParseCtx, ts: string): HandlerResult {
-  const name = typeof record.agentName === 'string' ? record.agentName : undefined
+  // The same rule as a tool's target (R2-7): a label that is long or holds a control character is dropped.
+  const name = safeTarget(typeof record.agentName === 'string' ? record.agentName : undefined)
   return { events: name ? [{ t: 'agent_meta', ts, agentId: ctx.agentId, label: name }] : [] }
 }

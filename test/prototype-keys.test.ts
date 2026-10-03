@@ -2,14 +2,21 @@
 // never crash the reducer or corrupt a count. Such an id is not a real Claude Code id, so the event
 // is ignored, leaves one source error, and everything else carries on.
 
-import { describe, expect, test } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { TaskFoldersAdapter } from '../src/server/adapters/task-folders.js'
+import { applyAdapters } from '../src/core/adapters/apply.js'
+import { agentCard, defaultTaskId } from '../src/core/hud.js'
 import { reduce } from '../src/core/reducer.js'
-import { isSafeKey, bump } from '../src/core/keys.js'
+import { isSafeKey, bump, ownEntry } from '../src/core/keys.js'
 import { classifyPath } from '../src/core/transcript/paths.js'
 import { normaliseHookLine, initialHookNormState } from '../src/core/hooks/normalise.js'
 import { parseLog } from '../src/core/adapters/task-log.js'
 import { mergeUnparsedBy } from '../src/core/world.js'
-import type { AgentEvent, World } from '../src/core/types.js'
+import type { Agent, AgentEvent, Task, World } from '../src/core/types.js'
 import { emptyWorld } from '../src/core/world.js'
 
 const TS = '2026-01-15T10:00:00.000Z'
@@ -112,6 +119,78 @@ describe('hook lines', () => {
     const result = normaliseHookLine(line, initialHookNormState())
     expect(result.events).toEqual([])
     expect(result.unknownShape).toBe(true)
+  })
+})
+
+describe('task ids (R2-5)', () => {
+  const SESSION = '00000000-0000-4000-8000-0000000000aa'
+  let root: string
+
+  beforeEach(async () => {
+    root = await mkdtemp(join(tmpdir(), 'cubiclark-taskkeys-'))
+  })
+  afterEach(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  test('a task folder named like an object property is skipped, counted once, and links nothing', async () => {
+    for (const name of ['constructor', '__proto__', 'toString', 'good']) {
+      await mkdir(join(root, name))
+      await writeFile(join(root, name, 'TASK.md'), `# ${name}\nGoal: g\nProject: /work/demo\n`)
+      await writeFile(join(root, name, 'LOG.md'), `${TS} dispatched session ${SESSION} in /work/demo model=claude-opus-5-5 effort=high perms=default\n`)
+    }
+    const adapter = new TaskFoldersAdapter({ roots: [root], orchestratorCwds: [], windowHours: null }, { nowMs: () => Date.parse(TS), home: '/home/user' })
+    const snap = await adapter.snapshot()
+    expect((snap.tasks ?? []).map((task) => task.id)).toEqual(['good'])
+    expect((snap.links ?? []).map((l) => l.taskId)).toEqual(['good'])
+    expect(snap.diagnostics.errors.filter((e) => e.includes('skipped'))).toEqual(['skipped 3 task folders named like an object property'])
+  })
+
+  const SNAPSHOT_AT = Date.parse(TS)
+  const emptySnapshot = { tasks: [], links: [], diagnostics: { unparsed: 0, errors: [] } }
+
+  function worldWithTaskId(taskId: string): World {
+    const world = run([{ t: 'prompt', ts: TS, agentId: 'a1' }])
+    return { ...world, agents: { ...world.agents, a1: { ...(world.agents.a1 as Agent), taskId } } }
+  }
+
+  test('a task that has left the snapshot is forgotten by its agent', () => {
+    for (const id of ['constructor', '__proto__', 'good']) {
+      const next = applyAdapters(worldWithTaskId(id), emptySnapshot, SNAPSHOT_AT, { replay: false })
+      expect(next.agents.a1?.taskId, id).toBeUndefined()
+    }
+  })
+
+  test('a snapshot that carries no tasks at all (quota only) leaves the task id alone', () => {
+    const world = worldWithTaskId('good')
+    const withTask: World = { ...world, tasks: { good: { id: 'good', timeline: [] } as unknown as Task } }
+    const next = applyAdapters(withTask, { diagnostics: { unparsed: 0, errors: [] } }, SNAPSHOT_AT, { replay: false })
+    expect(next.agents.a1?.taskId).toBe('good')
+  })
+
+  test.each(['constructor', '__proto__', 'toString'])('a selected agent whose task id is %s has no default task, and its card does not throw', (id) => {
+    const world = worldWithTaskId(id) // tasks: {}
+    expect(defaultTaskId(world, 'a1')).toBeUndefined()
+    expect(() => agentCard(world, 'a1', SNAPSHOT_AT)).not.toThrow()
+    expect(ownEntry(world.tasks, id)).toBeUndefined()
+  })
+
+  test('ownEntry finds an own entry, even one called constructor, and nothing inherited', () => {
+    const tasks = JSON.parse('{"constructor":{"id":"constructor"},"good":{"id":"good"}}') as Record<string, { id: string }>
+    expect(ownEntry(tasks, 'constructor')).toEqual({ id: 'constructor' })
+    expect(ownEntry(tasks, 'good')).toEqual({ id: 'good' })
+    expect(ownEntry(tasks, 'toString')).toBeUndefined()
+    expect(ownEntry({}, '__proto__')).toBeUndefined()
+    expect(ownEntry(tasks, undefined)).toBeUndefined()
+  })
+
+  test('no source file looks a task up with a bare tasks[...]', () => {
+    const files = (readdirSync(new URL('../src', import.meta.url), { recursive: true }) as string[]).filter((name) => name.endsWith('.ts'))
+    expect(files.length).toBeGreaterThan(50)
+    for (const name of files) {
+      const text = readFileSync(new URL(`../src/${name}`, import.meta.url), 'utf8')
+      expect(/\btasks\??\.?\[/.test(text), `src/${name} indexes tasks directly`).toBe(false)
+    }
   })
 })
 

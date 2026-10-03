@@ -34,6 +34,9 @@ export const COLLECTOR_FILES: readonly (readonly [from: string, to: string])[] =
   ['core/transcript/tools.js', 'core/transcript/tools.js'],
 ]
 
+/** What `hooks on` writes to `bin/package.json`: `off` removes that file only when it still holds exactly this. */
+export const COLLECTOR_PACKAGE_JSON = '{"type":"module"}\n'
+
 export interface HooksPaths {
   configDir: string
   stateDir: string
@@ -200,7 +203,7 @@ async function copyCollector(p: HooksPaths): Promise<void> {
       )
     }
   }
-  await placeFile(undefined, join(p.stateDir, 'bin', 'package.json'), '{"type":"module"}\n')
+  await placeFile(undefined, join(p.stateDir, 'bin', 'package.json'), COLLECTOR_PACKAGE_JSON)
 }
 
 function backupHoldsCollector(bytes: Buffer): boolean {
@@ -223,6 +226,7 @@ export interface HooksOnResult {
 }
 
 export async function hooksOn(p: HooksPaths, opts: { tools: boolean; nowMs: number }): Promise<HooksOnResult> {
+  await requireSafeStateDir(p, 'install into')
   const settingsPath = join(p.configDir, 'settings.json')
   const target = await resolveTarget(settingsPath)
   const bytes = await readBytes(target)
@@ -279,7 +283,8 @@ export interface HooksOffResult {
 }
 
 export async function hooksOff(p: HooksPaths, opts: { purge: boolean }): Promise<HooksOffResult> {
-  if (opts.purge) await requirePurgeable(p)
+  // On every `off`, not only `--purge`: a wrong CUBICLARK_HOME must never point this at real data (R2-2).
+  await requireSafeStateDir(p, opts.purge ? 'purge' : 'remove hooks from')
   const settingsPath = join(p.configDir, 'settings.json')
   const target = await resolveTarget(settingsPath)
   const bytes = await readBytes(target)
@@ -314,10 +319,55 @@ export async function hooksOff(p: HooksPaths, opts: { purge: boolean }): Promise
     }
   }
 
-  await rm(join(p.stateDir, 'bin'), { recursive: true, force: true })
+  await removeCollector(p.stateDir)
   await rm(join(p.stateDir, 'install.json'), { force: true })
   if (opts.purge) await purgeStateDir(p.stateDir)
   return { removed, restored, settingsPath }
+}
+
+async function isRealDirectory(path: string): Promise<boolean> {
+  try {
+    return (await lstat(path)).isDirectory() // lstat: a symlink to a directory is not one
+  } catch {
+    return false
+  }
+}
+
+/** Takes out of `<state dir>/bin` what `hooks on` placed there and nothing else: the collector's files,
+ * `package.json` when it is still exactly what `on` wrote, and then each directory `on` made, only when
+ * it is empty. Never recursive, and a `bin` or a subdirectory that is a symlink is not entered (R2-2). */
+async function removeCollector(stateDir: string): Promise<void> {
+  const bin = join(stateDir, 'bin')
+  if (!(await isRealDirectory(bin))) return
+
+  // `to` is written with `/`: every directory above a file, as a list of segments, shallowest first.
+  const segments = (to: string): string[][] => {
+    const parts = to.split('/')
+    return parts.slice(0, -1).map((_, i) => parts.slice(0, i + 1))
+  }
+  const directories = new Map<string, string[]>()
+  for (const [, to] of COLLECTOR_FILES) for (const dir of segments(to)) directories.set(dir.join('/'), dir)
+
+  for (const [, to] of COLLECTOR_FILES) {
+    let inside = true
+    for (const dir of segments(to)) if (inside && !(await isRealDirectory(join(bin, ...dir)))) inside = false
+    if (inside) await unlink(join(bin, ...to.split('/'))).catch(() => undefined)
+  }
+
+  const packageJson = join(bin, 'package.json')
+  try {
+    const info = await lstat(packageJson)
+    if (info.isFile() && (await readFile(packageJson, 'utf8')) === COLLECTOR_PACKAGE_JSON) await unlink(packageJson)
+  } catch {
+    // absent, or not ours to read
+  }
+
+  // Deepest first; a directory that still holds anything is left as it is.
+  const deepestFirst = [...directories.values()].sort((a, b) => b.length - a.length)
+  for (const dir of deepestFirst) {
+    if (await isRealDirectory(join(bin, ...dir))) await rmdir(join(bin, ...dir)).catch(() => undefined)
+  }
+  await rmdir(bin).catch(() => undefined)
 }
 
 /** What `--purge` removes besides `bin/` and `install.json`: the names Cubiclark itself writes.
@@ -338,14 +388,15 @@ async function realpathOrResolve(path: string): Promise<string> {
   }
 }
 
-/** `--purge` refuses, before anything is changed, a directory that is `/`, the home directory or
- * one that contains it: a wrong CUBICLARK_HOME must not point it at real data (S1-4). */
-async function requirePurgeable(p: HooksPaths): Promise<void> {
+/** `on`, `off` and `off --purge` refuse, before anything is changed, a state directory that is `/`, the
+ * home directory or one that contains it: a wrong CUBICLARK_HOME must not point them at real data
+ * (S1-4, R2-2). `verb` is what the refusal says was being done. */
+async function requireSafeStateDir(p: HooksPaths, verb: string): Promise<void> {
   const state = await realpathOrResolve(p.stateDir)
   const home = await realpathOrResolve(p.home ?? homedir())
   const prefix = state.endsWith(sep) ? state : state + sep
   if (state === sep || state === home || home.startsWith(prefix)) {
-    throw new HooksCommandError(`refusing to purge ${p.stateDir}: it is your home directory or contains it; nothing was changed`)
+    throw new HooksCommandError(`refusing to ${verb} ${p.stateDir}: it is your home directory or contains it; nothing was changed`)
   }
 }
 

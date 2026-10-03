@@ -46,4 +46,23 @@ describe('parseSubagentMeta', () => {
     expect(parseSubagentMeta('null')).toEqual({ ok: false, error: 'not a JSON object' })
     expect(parseSubagentMeta('"just a string"')).toEqual({ ok: false, error: 'not a JSON object' })
   })
+
+  // R2-7: a label from a sidecar follows the collector's rule too.
+  test('an agentType that is too long, or holds a control character or a separator, gives no label', () => {
+    for (const bad of ['x'.repeat(200), 'a\u001b[2Jb', 'a/b']) {
+      const result = parseSubagentMeta(JSON.stringify({ agentType: bad }))
+      expect(result.ok && result.meta.agentType === undefined, JSON.stringify(bad.slice(0, 12))).toBe(true)
+    }
+    const fine = parseSubagentMeta(JSON.stringify({ agentType: 'Explore' }))
+    expect(fine.ok && fine.meta.agentType).toBe('Explore')
+  })
+
+  test('a name that is too long still makes a teammate, and is never kept as text', () => {
+    const result = parseSubagentMeta(JSON.stringify({ name: 'n'.repeat(200) }))
+    expect(result.ok && result.meta.name === 'teammate').toBe(true)
+    const absent = parseSubagentMeta(JSON.stringify({ agentType: 'Explore' }))
+    expect(absent.ok && absent.meta.name).toBeUndefined()
+    const fine = parseSubagentMeta(JSON.stringify({ name: 'researcher' }))
+    expect(fine.ok && fine.meta.name).toBe('researcher')
+  })
 })

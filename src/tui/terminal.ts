@@ -1,14 +1,16 @@
-// The terminal session of `cubiclark tui`: the alternate screen, a hidden cursor, raw keys, resizes,
-// and the terminal put back on every way out (a key, a signal, an exception, a normal exit). The four
-// constants below are the only control sequences this program ever writes besides colour (line.ts),
+// The terminal session of `cubiclark tui`: the alternate screen, a hidden cursor, no autowrap, raw keys,
+// resizes, and the terminal put back on every way out (a key, a signal, an exception, a normal exit). The
+// four constants below are the only control sequences this program ever writes besides colour (line.ts),
 // and none of them contains text from the World. The streams are injected, so a test needs no terminal.
 
 import { keyOf, type TuiKey } from '../core/tui/ui.js'
 
-/** The alternate screen, then the cursor hidden. */
-export const ENTER = '\x1b[?1049h\x1b[?25l'
-/** The cursor back, then the main screen. */
-export const LEAVE = '\x1b[?25h\x1b[?1049l'
+/** The alternate screen, the cursor hidden, then autowrap off: a line a terminal draws wider than it was
+ * counted is cut at the edge and never wraps onto the next row, which would scroll the top away (R2-4). */
+export const ENTER = '\x1b[?1049h\x1b[?25l\x1b[?7l'
+/** Autowrap back on first (the mode belongs to the terminal, not to the screen), the cursor back, then
+ * the main screen. */
+export const LEAVE = '\x1b[?7h\x1b[?25h\x1b[?1049l'
 /** The cursor to the top left: where every frame starts. */
 export const HOME = '\x1b[H'
 /** The whole screen cleared: once after a resize, so nothing of the old size is left. */
@@ -63,26 +65,9 @@ export class TerminalSession {
     if (this.active) return
     const { out, input, proc } = this.deps
     this.active = true
-    out.write(ENTER)
 
-    this.deps.emitKeypress(input)
-    input.setRawMode?.(true)
-    input.resume()
-
-    const onKeypress = (str: string | undefined, key: { name?: string; ctrl?: boolean; shift?: boolean } | undefined): void => {
-      const mapped = keyOf(str, key)
-      if (mapped !== undefined) handlers.onKey(mapped)
-    }
-    input.on('keypress', onKeypress)
-    this.cleanup.push(() => input.off('keypress', onKeypress))
-
-    const onResize = (): void => {
-      this.clearNext = true
-      handlers.onResize()
-    }
-    out.on('resize', onResize)
-    this.cleanup.push(() => out.off('resize', onResize))
-
+    // The way back is wired first: however the process ends, the terminal is given back, and a start-up
+    // that fails after the screen was changed (R2-11) can undo it.
     for (const signal of SIGNALS) {
       const onSignal = (): void => {
         this.stop()
@@ -91,10 +76,33 @@ export class TerminalSession {
       proc.on(signal, onSignal)
       this.cleanup.push(() => proc.off(signal, onSignal))
     }
-    // However the process ends, the terminal is given back.
     const onExit = (): void => this.stop()
     proc.on('exit', onExit)
     this.cleanup.push(() => proc.off('exit', onExit))
+
+    out.write(ENTER)
+    try {
+      this.deps.emitKeypress(input)
+      input.setRawMode?.(true)
+      input.resume()
+
+      const onKeypress = (str: string | undefined, key: { name?: string; ctrl?: boolean; shift?: boolean } | undefined): void => {
+        const mapped = keyOf(str, key)
+        if (mapped !== undefined) handlers.onKey(mapped)
+      }
+      input.on('keypress', onKeypress)
+      this.cleanup.push(() => input.off('keypress', onKeypress))
+
+      const onResize = (): void => {
+        this.clearNext = true
+        handlers.onResize()
+      }
+      out.on('resize', onResize)
+      this.cleanup.push(() => out.off('resize', onResize))
+    } catch (error) {
+      this.stop()
+      throw error
+    }
   }
 
   /** One frame, from the top left: all of it in one write. */
@@ -116,7 +124,11 @@ export class TerminalSession {
     this.active = false
     const { out, input } = this.deps
     out.write(LEAVE)
-    input.setRawMode?.(false)
+    try {
+      input.setRawMode?.(false)
+    } catch {
+      // a terminal that went away: the rest of the way back still has to happen
+    }
     input.pause()
     for (const undo of this.cleanup.splice(0)) undo()
   }

@@ -3,6 +3,7 @@
 // re-apply it on every tick. Every time comes from an argument: `nowMs`, the snapshot's own fetch
 // time and the agents' own timestamps.
 
+import { ownEntry } from '../keys.js'
 import type { Agent, AgentRole, Task, TaskTimelineEntry, World } from '../types.js'
 import { quotaAt } from './quota.js'
 import type { AdapterSnapshot, AgentLink, CliSession } from './types.js'
@@ -78,7 +79,7 @@ export function tasksAt(tasks: readonly Task[], nowMs: number): Task[] {
 function linkByAgent(links: readonly AgentLink[], tasks: Record<string, Task>): Map<string, AgentLink> {
   const best = new Map<string, AgentLink>()
   const activity = (link: AgentLink): number => {
-    const ts = tasks[link.taskId]?.lastActivity
+    const ts = ownEntry(tasks, link.taskId)?.lastActivity
     return ts ? Date.parse(ts) : Number.NEGATIVE_INFINITY
   }
   for (const link of links) {
@@ -126,7 +127,7 @@ export function applyAdapters(world: World, snap: AdapterSnapshot | undefined, n
     let agent = original
 
     const link = links.get(id)
-    if (link && next.tasks[link.taskId]) {
+    if (link && ownEntry(next.tasks, link.taskId)) {
       agent = {
         ...agent,
         taskId: link.taskId,
@@ -134,6 +135,11 @@ export function applyAdapters(world: World, snap: AdapterSnapshot | undefined, n
         model: agent.model ?? link.model,
         role: link.role && REPLACEABLE_ROLES.has(agent.role) ? link.role : agent.role,
       }
+    } else if (agent.taskId !== undefined && (snap.tasks !== undefined || !ownEntry(next.tasks, agent.taskId))) {
+      // The task adapter spoke and no link names the task any more (the folder was removed, or aged out
+      // of the window), or the task is not there: the agent forgets it instead of pointing at nothing (R2-5).
+      agent = { ...agent }
+      delete agent.taskId
     }
 
     if (

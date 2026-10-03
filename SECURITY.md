@@ -32,9 +32,9 @@ Anything running on the same machine can, in principle, try to reach a server bo
 - Every route (the page, `world.json`, `events`, `custom-assets.json`, `page-options.json` and the
   built assets) requires that cookie, and the event stream connects only with it; a request without it
   is `403`. `page-options.json` says only what the command line said, `--no-mascot` and `--idle-desks`,
-  never anything read from a transcript. The code, the cookie's value and its name are compared with a
-  timing-safe check; `test/http.test.ts` fails if a plain comparison returns, or a redirect on a
-  secret.
+  never anything read from a transcript. The code and the cookie's value are compared with a
+  timing-safe check (the cookie's name only carries the port and is no secret);
+  `test/http.test.ts` fails if a plain comparison returns, or a redirect on a secret.
 - The `Host` header must match `127.0.0.1:<port>` or `localhost:<port>` exactly; anything else is
   rejected with 403 before the code or the cookie is even looked at, so a DNS-rebinding attempt cannot
   reach either check at all.
@@ -64,7 +64,12 @@ Transcript files are, in principle, attacker-controlled input (anything that can
   if `innerHTML`, `outerHTML` or `insertAdjacentHTML` stop being errors, in the client and in
   `src/core` alike, or if `textContent` is flagged by mistake.
 - Bubble text is cut to 12 characters and tooltips show only fields the World already holds
-  (basenames, never full paths), so a long or hostile string cannot grow the page.
+  (basenames, never full paths). A tool's target (a file's basename, a command's first word, a URL's
+  host, a subagent type) and an agent's label (a subagent type, a teammate's name, a background
+  worker's name) are kept only when they are at most 100 characters with no control character and no
+  `/` or `\`; otherwise they are dropped, not cut. That is the collector's rule, one function
+  (`safeTarget`, `src/core/transcript/tools.ts`) shared by the collector and the transcript parser, so
+  a hostile file name cannot make the page's data grow by more than that.
 - A record that is not valid JSON, is not an object, or has an unrecognised `type` is counted as
   a diagnostic and never reaches the page as content.
 
@@ -180,10 +185,16 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
   lost) is never restored;
 - adds its entries once however many times it runs, and `hooks on` again after an upgrade adds the
   entries a newer version needs;
-- with `hooks off --purge` removes only the names Cubiclark writes (the events files, the soft-off
-  flag, `bin/`, `install.json`), keeps `config.json`, `assets/` and `backups/`, removes the
-  directory only if that leaves it empty, and refuses `/`, your home directory or a directory that
-  contains it before changing anything.
+- with `hooks off` (with or without `--purge`) removes from `bin/` only the files `hooks on` placed
+  there (the three collector files, and `bin/package.json` when it is still exactly what `on`
+  wrote), and then each directory `on` made only when it is empty: nothing is removed recursively, a
+  script or file of yours in `bin/` stays, and a `bin/` that is a symlink is not entered;
+- with `hooks off --purge` also removes the names Cubiclark writes outside `bin/` (the events files,
+  the soft-off flag), keeps `config.json`, `assets/` and `backups/`, and removes the state directory
+  only if that leaves it empty;
+- refuses, on `hooks on`, `hooks off` and `hooks off --purge` alike, a state directory that is `/`,
+  your home directory or one that contains it, before changing anything (a wrong `CUBICLARK_HOME`
+  cannot point it at your files).
 
 `test/hooks-install.test.ts` and `test/hooks/hooks-cli.test.ts` check each of these against
 fixture settings files in temp directories; no test ever touches the real `~/.claude`.
@@ -298,10 +309,12 @@ string goes through one filter, `terminalText` (`src/core/tui/cells.ts`), before
 
 1. whole escape sequences are removed, not just their first byte: CSI (`ESC [` and the one-byte form),
    OSC, DCS, SOS, PM and APC strings (to their terminator, or to the end of the text when they have none),
-   and any other `ESC` plus one character;
+   and `ESC` followed by any character from `@` to `_` (`0x40`-`0x5F`);
 2. tabs and line breaks (and `U+0085`, `U+2028`, `U+2029`) become one space, so text cannot start a new
    line of the frame;
-3. every other C0 and C1 control character and DEL is removed;
+3. every other C0 and C1 control character and DEL is removed (so the `ESC` of any other sequence,
+   such as `ESC c`, goes, and the character after it stays as text: nothing reaches the terminal as a
+   control);
 4. the text is normalised, and invisible characters are removed: zero-width characters and joiners,
    bidirectional overrides, embeddings and isolates, the soft hyphen, the byte order mark, tag
    characters (category `Cf`), and combining marks and variation selectors; a lone surrogate becomes
@@ -309,13 +322,20 @@ string goes through one filter, `terminalText` (`src/core/tui/cells.ts`), before
 5. with `--ascii`, or without a UTF-8 locale, anything but printable ASCII becomes `?` (the page's
    own punctuation and accents get a plain stand-in first).
 
-The text is then cut to the width of its place, counting wide characters as two cells, so a line is
-never wider than the terminal. A line is built by one function (`line()`, `src/core/tui/line.ts`),
+The text is then cut to the width of its place. A character counts as two cells when Unicode gives it
+East Asian Width W or F (a table generated from `EastAsianWidth.txt`, Unicode 18.0.0, by
+`scripts/make-east-asian-width.ts`) or emoji presentation, and as one otherwise. That is the width a
+terminal that follows Unicode draws, so a line is as wide as the terminal; a terminal with other
+tables can still draw a character wider or narrower than counted. Automatic line wrapping (autowrap) is
+switched off while the screen is up, so such a line is cut at the edge and never pushes the lines
+below it down (which would have scrolled the top of the frame, the status bar included, away). A
+line is built by one function (`line()`, `src/core/tui/line.ts`),
 which is the only place colour is written: the colour codes are a fixed table of numbers (foreground
 colours, bold and inverse), text from the World is never part of an escape sequence, and with colour
 off (`--no-color`, `NO_COLOR`) a frame holds no escape byte at all. The only other control sequences the
-program writes are four constants in `src/tui/terminal.ts` (enter the alternate screen and hide the
-cursor, leave it and show the cursor, cursor home, clear), and `test/tui-sources.test.ts` fails if any other source file in the terminal mode mentions
+program writes are four constants in `src/tui/terminal.ts` (enter the alternate screen, hide the
+cursor and turn autowrap off; turn autowrap on, show the cursor and leave the screen; cursor home;
+clear), and `test/tui-sources.test.ts` fails if any other source file in the terminal mode mentions
 an escape byte. The terminal is put back (cursor shown, main screen, raw mode off) on `q`, on SIGINT,
 SIGTERM and SIGHUP, on an error and on exit (`test/tui-terminal.test.ts`). The mode opens no port and
 no network connection and reads the same files as `serve`; `test/tui-render.test.ts` renders a World
@@ -332,11 +352,23 @@ What the code does not do, so that nothing above is read as more than it is:
   leave them in a browser's command line (which every user can list) for as long as that process
   lives. That user then holds the session, and your own browser gets `403` ("this link was already
   used"), which you will see. Once your browser has used the link the code is worth nothing (it may
-  stay in the browser's history, spent), and the cookie never leaves the browser, is in no URL and is
-  not printed. So the window is the moment of opening, no longer the life of the run and of the
-  history; it is narrowed, not closed. With `--no-open` the link is on your terminal, and it is yours to use first. One browser
-  per run: another browser needs a restart for a new link. Other processes running as *you* can read
-  your browser's cookies or its memory and can do anything you can: they are out of scope.
+  stay in the browser's history, spent), and the cookie is in no URL and is not printed (it is sent
+  to other ports, see the next limit). So the window is the moment of opening, no longer the life of
+  the run and of the history; it is narrowed, not closed. With `--no-open` the link is on your
+  terminal, and it is yours to use first. One browser per run: another browser needs a restart for a
+  new link. Other processes running as *you* can read your browser's cookies or its memory and can
+  do anything you can: they are out of scope.
+- **The session cookie is sent to every server on `127.0.0.1`, not only to Cubiclark's port.**
+  Browsers scope a cookie by host name, not by port (RFC 6265 §8.5), and every
+  `http://127.0.0.1:<port>` origin is the same site for `SameSite`, so your browser sends
+  `cubiclark-<port>=<value>` with any request it makes to another port on `127.0.0.1`: a development
+  server you open, or a request a page served from `127.0.0.1` makes. If another local account runs
+  the server on such a port, it receives the cookie, and can then read `world.json` and the event
+  stream of this run until Cubiclark stops (it connects to the port directly, with a correct `Host`
+  and no `Origin`). It needs your browser to request a port that account listens on while Cubiclark
+  runs, and it gains what the page shows, nothing more: no file, no setting, no command. Serving the
+  page on a per-run host name (`<random>.localhost`) would keep the cookie to that name; that is on
+  the roadmap.
 - **A command's first word is filtered by shape, not verified.** A secret that does not look like
   one of the shapes the filter knows (over 40 characters, `=`, `:` or `@` in it, a well-known
   credential prefix) and is typed where a command goes would still be stored as the command's
@@ -361,7 +393,10 @@ What the code does not do, so that nothing above is read as more than it is:
 - **`cubiclark tui` cannot know what your terminal does with what it is given.** It writes only printable
   text and the colour codes above, but a terminal's own handling of very long lines, unusual fonts or
   characters whose width it computes differently is outside Cubiclark; `--ascii` limits the output to
-  printable ASCII.
+  printable ASCII. Widths are counted from Unicode 18.0.0's table, and characters whose width is
+  ambiguous, or that are emoji only in text presentation, count as one cell. On a terminal that draws
+  one wider, the end of that line is cut at the edge of the screen (autowrap is off), and the lines
+  below it stay where they are.
 
 ## Reporting a vulnerability
 

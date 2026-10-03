@@ -275,3 +275,40 @@ describe('drawP95', () => {
     expect(loop.drawP95()).toBe(1)
   })
 })
+
+// R2-5: a value the draw cannot handle may stop a frame, never the loop.
+describe('a draw that throws', () => {
+  test('is reported once, and the loop keeps running and draws again', () => {
+    const host = new FakeHost()
+    const errors: unknown[] = []
+    let calls = 0
+    const loop = new FrameLoop(
+      host,
+      () => {
+        calls++
+        if (calls <= 3) throw new TypeError(`bad value ${calls}`)
+      },
+      (error) => errors.push(error)
+    )
+    loop.start()
+    host.run(1, 60)
+    expect(calls).toBeGreaterThan(10) // it kept asking for frames after the first throw
+    expect(errors).toHaveLength(1) // and said so once, however many frames threw
+    expect((errors[0] as Error).message).toBe('bad value 1')
+    expect(loop.frames).toBe(calls - 3) // only the frames that were drawn are counted
+    expect(host.pending).toBe(1) // still scheduled
+  })
+
+  test('a loop with no error handler still survives a throwing draw', () => {
+    const host = new FakeHost()
+    let calls = 0
+    const loop = new FrameLoop(host, () => {
+      calls++
+      throw new Error('always')
+    })
+    loop.start()
+    host.run(1, 60)
+    expect(calls).toBeGreaterThan(10)
+    expect(host.pending).toBe(1)
+  })
+})

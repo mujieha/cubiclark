@@ -97,7 +97,7 @@ for (const { width, height, dpr } of MATRIX) {
   test.describe(`a ${width}x${height} window at ratio ${dpr}`, () => {
     test.use({ viewport: { width, height }, deviceScaleFactor: dpr })
 
-    test('the office fills its column, the art is a whole number of backing px per art px, and every word is at the display\'s resolution in a readable size', async ({ page }) => {
+    test('the office fills its column, the art is a whole number of backing px per art px, and every word is at the display\'s resolution in a readable size', { tag: '@pixels' }, async ({ page }) => {
       const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
       try {
         await pushWorld(page, await loadWorld('rooms'), 400)

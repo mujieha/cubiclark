@@ -180,7 +180,7 @@ test.describe('the keyboard, the mouse and the toggle', () => {
   })
 })
 
-test('the rooms, as one picture', async ({ page }) => {
+test('the rooms, as one picture', { tag: '@pixels' }, async ({ page }) => {
   // Compared with a pre-Morty baseline: Morty off.
   const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
   try {
@@ -210,7 +210,7 @@ async function pixelsOf(page: Page, hex: string): Promise<number> {
 
 test.describe('with Morty off the office is exactly as it was before him', () => {
   // The same baseline as 'the rooms, as one picture' above: a picture taken before Morty existed.
-  test('turned off in the page: no basket, no bowl, no dog; the same picture', async ({ page }) => {
+  test('turned off in the page: no basket, no bowl, no dog; the same picture', { tag: '@pixels' }, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('cubiclark.mascot', 'off'))
     const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT })
     try {
@@ -227,7 +227,7 @@ test.describe('with Morty off the office is exactly as it was before him', () =>
     }
   })
 
-  test('started with --no-mascot: no button, nothing of him in the page, the same picture', async ({ page }) => {
+  test('started with --no-mascot: no button, nothing of him in the page, the same picture', { tag: '@pixels' }, async ({ page }) => {
     const cli = await openWithFakeWorld(page, { clockAt: CLOCK_AT, mascot: false })
     try {
       await pushWorld(page, await loadWorld('rooms'), 400)
@@ -333,7 +333,7 @@ test.describe('the four empty screens', () => {
     ['empty-no-agents', 'no-agents'],
   ] as const
 
-  test('are four different rooms with four different messages', async ({ browser }) => {
+  test('are four different rooms with four different messages', { tag: '@pixels' }, async ({ browser }) => {
     test.setTimeout(60_000)
     const pictures = new Map<string, string>()
     const messages = new Set<string>()

@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'vitest'
 import { modelFamily } from '../src/core/office/roles.js'
 import { cellWidth } from '../src/core/tui/cells.js'
+import { WIDE_RANGES } from '../src/core/tui/east-asian-width.js'
 import { FAMILY_LETTERS, MORTY_WORDS, STATE_GLYPHS } from '../src/core/tui/glyphs.js'
 import { ALLOWED_SGR, stripSgr } from '../src/core/tui/line.js'
 import { layout } from '../src/core/office/layout.js'
@@ -272,6 +273,38 @@ describe('Morty in the frame', () => {
     expect(lines[frame.meta.office?.mortyLine as number]).toContain(`🐕 ${MORTY_WORDS.nap}`)
     const without = plain(render(world, { cols: 120, rows: 40 }, { morty: undefined })).join('\n')
     for (const word of Object.values(MORTY_WORDS)) expect(without).not.toContain(word)
+  })
+})
+
+// R2-4: a target of 40 Tangut characters (a legal file name) is two cells each in a terminal that follows
+// Unicode. Widths here are counted by the test's own rule over the generated table, not by cellWidth.
+describe('wide characters in a target (R2-4)', () => {
+  const wideCells = (text: string): number => {
+    let width = 0
+    for (const char of text) {
+      const cp = char.codePointAt(0) as number
+      width += WIDE_RANGES.some(([from, to]) => cp >= from && cp <= to) || /^\p{Emoji_Presentation}$/u.test(char) ? 2 : 1
+    }
+    return width
+  }
+
+  test.each([
+    { cols: 80, rows: 24 },
+    { cols: 120, rows: 40 },
+  ])('a 40-character Tangut target keeps every line within $cols×$rows', (size) => {
+    const world = fixture('all-states')
+    const target = String.fromCodePoint(0x17000).repeat(40)
+    let changed = 0
+    for (const agent of Object.values(world.agents)) {
+      if (agent.state === 'reading' || agent.state === 'editing' || agent.state === 'running') {
+        agent.currentTool = { name: 'Read', target }
+        changed += 1
+      }
+    }
+    expect(changed).toBeGreaterThan(0)
+    const frame = render(world, size)
+    expect(frame.lines.length).toBeLessThanOrEqual(size.rows)
+    for (const [i, l] of plain(frame).entries()) expect(wideCells(l), `line ${i}`).toBeLessThanOrEqual(size.cols)
   })
 })
 

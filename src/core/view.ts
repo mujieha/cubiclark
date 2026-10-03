@@ -225,9 +225,22 @@ function toRow(agent: Agent, world: World, depth: number, nowMs: number): AgentR
  * instead of rows, so both views always agree. `nowMs` drives the "since" column; pass
  * Date.parse(world.clock) to match the diagnostics line and the rest of the page. */
 export function agentRows(world: World, nowMs: number): AgentRow[] {
+  /** True when the agent's parent chain leads back to itself: it is then listed as a root (R2-3),
+   * so that every agent is listed once, whatever a crafted link did to the parent map. */
+  const inLoop = (agent: Agent): boolean => {
+    const seen = new Set<string>()
+    let current: Agent | undefined = agent
+    while (current?.parentId !== undefined && Object.hasOwn(world.agents, current.parentId) && !seen.has(current.id)) {
+      seen.add(current.id)
+      current = world.agents[current.parentId]
+      if (current === agent) return true
+    }
+    return false
+  }
+
   const children = new Map<string | undefined, Agent[]>()
   for (const agent of Object.values(world.agents)) {
-    const parentKey = agent.parentId && world.agents[agent.parentId] ? agent.parentId : undefined
+    const parentKey = agent.parentId && world.agents[agent.parentId] && !inLoop(agent) ? agent.parentId : undefined
     const siblings = children.get(parentKey) ?? []
     siblings.push(agent)
     children.set(parentKey, siblings)
@@ -235,8 +248,11 @@ export function agentRows(world: World, nowMs: number): AgentRow[] {
   for (const siblings of children.values()) siblings.sort((a, b) => a.id.localeCompare(b.id))
 
   const rows: AgentRow[] = []
+  const listed = new Set<string>()
   const visit = (parentKey: string | undefined, depth: number): void => {
     for (const agent of children.get(parentKey) ?? []) {
+      if (listed.has(agent.id)) continue
+      listed.add(agent.id)
       rows.push(toRow(agent, world, depth, nowMs))
       visit(agent.id, depth + 1)
     }

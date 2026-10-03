@@ -30,6 +30,7 @@
     "build": "tsc -p tsconfig.build.json && vite build",
     "fixtures": "tsx scripts/make-fixtures.ts",
     "fixtures:check": "tsx scripts/make-fixtures.ts --check",
+    "width-table": "tsx scripts/make-east-asian-width.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:firefox": "npm run build && playwright test --config playwright.firefox.config.ts",
     "test:hooks": "npm run build && vitest run --config vitest.hooks.config.ts",

@@ -1,6 +1,8 @@
 // Reading the custom-assets manifest: none, ok, and every way of being invalid, without a throw.
 
-import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants } from 'node:fs'
+import { chmod, mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -56,6 +58,20 @@ describe('loadAssets', () => {
     expect(loaded.status.status).toBe('invalid')
     expect(loaded.status.errors[0]).toBe('(file): not a regular file')
   })
+
+  // R2-10: a FIFO is refused before it is opened (open(2) would wait for a writer, for good).
+  test.skipIf(process.platform === 'win32')('a FIFO is invalid, and start-up does not hang', async () => {
+    const fifo = join(dir, 'manifest.json')
+    execFileSync('mkfifo', [fifo])
+    try {
+      const loaded = await loadAssets(fifo)
+      expect(loaded.status.status).toBe('invalid')
+      expect(loaded.status.errors[0]).toBe('(file): not a regular file')
+    } finally {
+      // a build that opens it first would be waiting for a writer: let it go, so the worker can end
+      await open(fifo, constants.O_WRONLY | constants.O_NONBLOCK).then((handle) => handle.close(), () => undefined)
+    }
+  }, 5000)
 
   test('broken JSON is one error starting "not JSON:"', async () => {
     const file = join(dir, 'broken.json')

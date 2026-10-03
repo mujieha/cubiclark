@@ -115,14 +115,21 @@ export function runInteractive(deps: InteractiveDeps): Promise<number> {
 
     proc.on('unhandledRejection', onRejection)
     proc.on('uncaughtException', onException)
-    session.start({
-      onKey: (key) => {
-        if (controller.key(key)) finish(0)
-        else scheduler.request()
-      },
-      onResize: () => scheduler.request(),
-      onSignal: (signal) => finish(SIGNAL_EXIT[signal]),
-    })
+    try {
+      session.start({
+        onKey: (key) => {
+          if (controller.key(key)) finish(0)
+          else scheduler.request()
+        },
+        onResize: () => scheduler.request(),
+        onSignal: (signal) => finish(SIGNAL_EXIT[signal]),
+      })
+    } catch (error) {
+      // The session has put the terminal back itself (R2-11); the run ends with the error's name only.
+      finish(1)
+      deps.stderr(`cubiclark: could not start the terminal (${error instanceof Error ? error.name : typeof error})\n`)
+      return
+    }
     started.unsubscribe = source.subscribe(() => scheduler.request())
     started.animation = timers.setInterval(() => {
       if (controller.animated) scheduler.request()

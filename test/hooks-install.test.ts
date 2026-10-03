@@ -426,6 +426,77 @@ describe('hooks off after the install record was lost', () => {
 })
 
 // S1-8: an executable goes only into a directory that this user alone can write.
+// R2-2: `off` removed `<state dir>/bin` recursively on every run, whatever was in it, and only
+// `--purge` refused the home directory.
+describe('hooks off and an unrelated file in bin/ (R2-2)', () => {
+  const collector = (): string => join(paths.stateDir, 'bin', 'hook', 'cubiclark-collector.js')
+
+  for (const purge of [false, true]) {
+    test(`off${purge ? ' --purge' : ''} removes what on placed, keeps an unrelated file, and removes only empty directories`, async () => {
+      await writeFixture('empty')
+      await hooksOn(paths, { tools: true, nowMs: NOW })
+      await writeFile(join(paths.stateDir, 'bin', 'my-script.sh'), 'echo mine')
+      await writeFile(join(paths.stateDir, 'bin', 'hook', 'notes.txt'), 'mine too')
+      await hooksOff(paths, { purge })
+      expect(await readFile(join(paths.stateDir, 'bin', 'my-script.sh'), 'utf8')).toBe('echo mine')
+      expect(await readFile(join(paths.stateDir, 'bin', 'hook', 'notes.txt'), 'utf8')).toBe('mine too')
+      expect(existsSync(collector())).toBe(false)
+      for (const [, to] of COLLECTOR_FILES) expect(existsSync(join(paths.stateDir, 'bin', to)), to).toBe(false)
+      expect(existsSync(join(paths.stateDir, 'bin', 'package.json'))).toBe(false)
+      expect(existsSync(join(paths.stateDir, 'bin', 'core'))).toBe(false) // emptied, so removed
+      expect(existsSync(join(paths.stateDir, 'install.json'))).toBe(false)
+    })
+  }
+
+  test('a bin/package.json that is not the one on writes stays', async () => {
+    await writeFixture('empty')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    await writeFile(join(paths.stateDir, 'bin', 'package.json'), '{"name":"mine"}')
+    await hooksOff(paths, { purge: false })
+    expect(await readFile(join(paths.stateDir, 'bin', 'package.json'), 'utf8')).toBe('{"name":"mine"}')
+  })
+
+  test('a bin that is a symlink to another directory is not followed', async () => {
+    await writeFixture('empty')
+    const elsewhere = join(root, 'elsewhere')
+    await mkdir(join(elsewhere, 'hook'), { recursive: true })
+    await writeFile(join(elsewhere, 'hook', 'cubiclark-collector.js'), 'not ours')
+    await mkdir(paths.stateDir, { recursive: true })
+    await symlink(elsewhere, join(paths.stateDir, 'bin'))
+    await hooksOff(paths, { purge: false })
+    expect(await readFile(join(elsewhere, 'hook', 'cubiclark-collector.js'), 'utf8')).toBe('not ours')
+  })
+
+  test('plain off refuses the home directory, a directory that contains it, and /, and changes nothing', async () => {
+    await writeFixture('empty')
+    await hooksOn(paths, { tools: true, nowMs: NOW })
+    const before = await readSettingsBytes()
+    const home = join(root, 'home')
+    await mkdir(join(home, 'bin'), { recursive: true })
+    await writeFile(join(home, 'bin', 'my-script.sh'), 'echo mine')
+    for (const stateDir of [home, root, '/']) {
+      await expect(hooksOff({ ...paths, stateDir, home }, { purge: false }), stateDir).rejects.toThrow(/refusing to remove hooks from/)
+    }
+    expect(await readSettingsBytes()).toEqual(before)
+    expect(await readFile(join(home, 'bin', 'my-script.sh'), 'utf8')).toBe('echo mine')
+  })
+
+  test('on refuses the home directory too, and writes nothing', async () => {
+    await writeFixture('empty')
+    const before = await readSettingsBytes()
+    const home = join(root, 'home')
+    await mkdir(home, { recursive: true })
+    await expect(hooksOn({ ...paths, stateDir: home, home }, { tools: true, nowMs: NOW })).rejects.toThrow(/refusing to install into/)
+    expect(await readSettingsBytes()).toEqual(before)
+    expect(existsSync(join(home, 'bin'))).toBe(false)
+  })
+
+  test('the file has no recursive removal left', async () => {
+    const source = await readFile(new URL('../src/server/hooks-install.ts', import.meta.url), 'utf8')
+    expect(/\brm\(.*recursive/.test(source), 'a recursive rm( in hooks-install.ts').toBe(false)
+  })
+})
+
 describe('hooks on and the state directory', () => {
   test('a state directory that group or others can write is refused, and nothing is installed', async () => {
     await writeFixture('empty')
