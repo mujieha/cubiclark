@@ -6,7 +6,10 @@ transcript source, the hooks collector, the commands that install and remove it,
 adapters, the panel, replay, themes and the custom-assets manifest) and what the code does about
 each threat. Each claim below names the test or the code that enforces it; what the code does not
 enforce is under [Known limits](#known-limits). A first security review (round 1) was done on
-phases 1 to 4; every finding was fixed with a test, or is a Known limit here.
+phases 1 to 4; every finding was fixed with a test, or is a Known limit here. A second round
+reviewed the round-1 fixes and everything added after them (Morty, the transcript file walker, the
+quiet office, the readable office and the terminal mode); each of its twelve findings was fixed with
+a test, or is a Known limit here (the session cookie reaching other ports on `127.0.0.1`).
 
 ## Threat model
 
@@ -407,5 +410,8 @@ What the code does not do, so that nothing above is read as more than it is:
 
 ## Reporting a vulnerability
 
-This repository is private for now. Once it is public, use GitHub's private vulnerability
-reporting on the repository instead of opening a public issue.
+Please do not open a public issue. Report a vulnerability privately through GitHub's private
+vulnerability reporting: on the repository's **Security** tab, choose **Report a vulnerability**
+(`https://github.com/mujieha/cubiclark/security/advisories/new`). It is switched on when the
+repository becomes public; while it is private, there is no reporting channel. There is no e-mail
+address for reports: GitHub's private vulnerability reporting is the only channel.
