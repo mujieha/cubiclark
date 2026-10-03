@@ -17,6 +17,8 @@ const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'R2-4', phrase: 'so a line is never wider than the terminal' },
   { finding: 'R2-6', phrase: 'the cookie never leaves the browser' },
   { finding: 'R2-7', phrase: 'so a long or hostile string cannot grow the page' },
+  { finding: 'R2-12', phrase: "the cookie's value and its name are compared" },
+  { finding: 'R2-12', phrase: 'and any other `ESC` plus one character' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -32,6 +34,9 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'R2-6', file: 'SECURITY', phrase: '`<random>.localhost`' },
   { finding: 'R2-6', file: 'README', phrase: 'the session cookie is sent to every server on `127.0.0.1`' },
   { finding: 'R2-7', file: 'SECURITY', phrase: 'at most 100 characters with no control character and no `/` or `\\`' },
+  { finding: 'R2-12', file: 'SECURITY', phrase: "The code and the cookie's value are compared with a timing-safe check" },
+  { finding: 'R2-12', file: 'SECURITY', phrase: '`ESC` followed by any character from `@` to `_`' },
+  { finding: 'R2-12', file: 'SECURITY', phrase: 'the character after it stays as text' },
 ]
 
 describe('documentation claims the code does not make (R2-2, R2-4, R2-6, R2-7, R2-12)', () => {

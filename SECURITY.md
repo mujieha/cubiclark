@@ -32,9 +32,9 @@ Anything running on the same machine can, in principle, try to reach a server bo
 - Every route (the page, `world.json`, `events`, `custom-assets.json`, `page-options.json` and the
   built assets) requires that cookie, and the event stream connects only with it; a request without it
   is `403`. `page-options.json` says only what the command line said, `--no-mascot` and `--idle-desks`,
-  never anything read from a transcript. The code, the cookie's value and its name are compared with a
-  timing-safe check; `test/http.test.ts` fails if a plain comparison returns, or a redirect on a
-  secret.
+  never anything read from a transcript. The code and the cookie's value are compared with a
+  timing-safe check (the cookie's name only carries the port and is no secret);
+  `test/http.test.ts` fails if a plain comparison returns, or a redirect on a secret.
 - The `Host` header must match `127.0.0.1:<port>` or `localhost:<port>` exactly; anything else is
   rejected with 403 before the code or the cookie is even looked at, so a DNS-rebinding attempt cannot
   reach either check at all.
@@ -309,10 +309,12 @@ string goes through one filter, `terminalText` (`src/core/tui/cells.ts`), before
 
 1. whole escape sequences are removed, not just their first byte: CSI (`ESC [` and the one-byte form),
    OSC, DCS, SOS, PM and APC strings (to their terminator, or to the end of the text when they have none),
-   and any other `ESC` plus one character;
+   and `ESC` followed by any character from `@` to `_` (`0x40`-`0x5F`);
 2. tabs and line breaks (and `U+0085`, `U+2028`, `U+2029`) become one space, so text cannot start a new
    line of the frame;
-3. every other C0 and C1 control character and DEL is removed;
+3. every other C0 and C1 control character and DEL is removed (so the `ESC` of any other sequence,
+   such as `ESC c`, goes, and the character after it stays as text: nothing reaches the terminal as a
+   control);
 4. the text is normalised, and invisible characters are removed: zero-width characters and joiners,
    bidirectional overrides, embeddings and isolates, the soft hyphen, the byte order mark, tag
    characters (category `Cf`), and combining marks and variation selectors; a lone surrogate becomes
