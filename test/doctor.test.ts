@@ -46,8 +46,8 @@ const EVENTS = ['SessionStart', 'PreToolUse']
 
 function report(overrides: Partial<DoctorReport> = {}): DoctorReport {
   return {
-    claude: { version: '2.1.285', verified: true },
-    hookEvents: { verifiedOn: '2.1.285', events: EVENTS },
+    claude: { version: '2.1.288', verified: true },
+    hookEvents: { verifiedOn: '2.1.288', events: EVENTS },
     transcripts: { status: 'live', reason: '5 transcript files, 5 read (/claude)' },
     hooks: { status: 'missing', reason: 'not installed: run `cubiclark hooks on`' },
     diagnostics: { unparsedLines: 0, unknownHookShapes: 0, unknownTypes: {}, unparsedBy: {}, versions: ['2.1.284'], sourceErrors: [] },
@@ -59,7 +59,7 @@ describe('formatDoctorReport', () => {
   test('live transcripts, hooks not installed', () => {
     expect(formatDoctorReport(report())).toBe(
       [
-        'Claude Code   2.1.285 — hook events verified against the hooks reference for this version',
+        'Claude Code   2.1.288 — hook events verified against the hooks reference for this version',
         'Hook events   SessionStart, PreToolUse',
         'transcripts   live      5 transcript files, 5 read (/claude)',
         'hooks         missing   not installed: run `cubiclark hooks on`',
@@ -76,7 +76,7 @@ describe('formatDoctorReport', () => {
         hooks: { status: 'failing', reason: 'the collector copy is missing (/s/bin/x.js); run `cubiclark hooks on` again' },
       })
     )
-    expect(text).toContain("Claude Code   9.9.9 — not verified; cubiclark's hook events were verified on 2.1.285")
+    expect(text).toContain("Claude Code   9.9.9 — not verified; cubiclark's hook events were verified on 2.1.288")
     expect(text).toContain('hooks         failing   the collector copy is missing')
   })
 
@@ -241,7 +241,7 @@ describe('runDoctor', () => {
     expect(r.transcripts.reason).toContain('5 transcript files, 5 read')
     expect(r.hooks.status).toBe('missing')
     expect(r.hooks.reason).toContain('not checked')
-    expect(r.claude).toEqual({ version: '2.1.285', verified: true })
+    expect(r.claude).toEqual({ version: '2.1.288', verified: true })
     expect(r.diagnostics.versions).toContain('2.1.284')
     expect(r.diagnostics.unparsedLines).toBe(0)
     expect(doctorExitCode(r)).toBe(0)
