@@ -119,10 +119,12 @@ export interface StoredLine {
   intr?: true
 }
 
-const ID_RE = /^[A-Za-z0-9_-]{1,128}$/
+// The matchers below are exported for normalise.ts, which applies them again when a line is read back (C5):
+// the whitelist binds the writer, and the reader does not know the writer was the collector.
+export const ID_RE = /^[A-Za-z0-9_-]{1,128}$/
 // Names (an agent type, a tool): an allowlist of characters, and the same 100-character cap as safeTarget (R3-3).
-const NAME_RE = /^[A-Za-z0-9_.:-]{1,100}$/
-const MODEL_RE = /^[A-Za-z0-9_.:[\]-]{1,100}$/
+export const NAME_RE = /^[A-Za-z0-9_.:-]{1,100}$/
+export const MODEL_RE = /^[A-Za-z0-9_.:[\]-]{1,100}$/
 const EVENT_NAME_RE = /^[A-Za-z]{1,40}$/
 const MAX_CWD = 1024
 
@@ -130,11 +132,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function matching(value: unknown, pattern: RegExp): string | undefined {
+export function matching(value: unknown, pattern: RegExp): string | undefined {
   return typeof value === 'string' && pattern.test(value) ? value : undefined
 }
 
-function oneOf<T extends string>(value: unknown, list: readonly T[]): T | undefined {
+export function oneOf<T extends string>(value: unknown, list: readonly T[]): T | undefined {
   return typeof value === 'string' ? list.find((item) => item === value) : undefined
 }
 
@@ -147,7 +149,7 @@ export function normaliseAgentId(raw: string): string {
   return raw.startsWith('agent-') ? raw.slice('agent-'.length) : raw
 }
 
-function safeCwd(value: unknown): string | undefined {
+export function safeCwd(value: unknown): string | undefined {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_CWD) return undefined
   const absolute = value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value)
   return absolute && !hasControlChar(value) ? value : undefined
