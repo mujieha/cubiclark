@@ -49,11 +49,14 @@ it was.
 
 **What `hooks off` does.** If `settings.json` is exactly what `hooks on` wrote, the original file
 comes back byte for byte. If something else has edited it since, only Cubiclark's entries are
-removed and every other edit is kept. The installed copy goes with it. Events already collected
-and the backups stay in `~/.cubiclark` unless you pass `--purge`, which also deletes the events
-files and the soft-off flag (and the directory, if that leaves it empty). `--purge` never deletes
-anything else in that directory: `config.json`, `assets/` and `backups/` stay (a backup may be the
-only copy of your settings from before Cubiclark), and it refuses `/` and your home directory.
+removed and every other edit is kept. The installed copy goes with it: from `bin/` it removes
+only the files `hooks on` placed there (and a directory only when that leaves it empty), so
+a script of yours in `~/.cubiclark/bin/` stays. Events already collected and the backups stay in
+`~/.cubiclark` unless you pass `--purge`, which also deletes the events files and the soft-off flag
+(and the directory, if that leaves it empty). `--purge` deletes nothing else in that directory:
+`config.json`, `assets/` and `backups/` stay (a backup may be the only copy of your settings from
+before Cubiclark). `hooks on`, `hooks off` and `hooks off --purge` all refuse `/`, your home
+directory and any directory that contains it, before changing anything.
 
 **After an upgrade, run `cubiclark hooks on` again**: it adds the entries a newer version needs
 (this phase added `PostModelSwitch`, so the model of a running session follows a model switch) and

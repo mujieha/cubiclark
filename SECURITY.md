@@ -180,10 +180,16 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
   lost) is never restored;
 - adds its entries once however many times it runs, and `hooks on` again after an upgrade adds the
   entries a newer version needs;
-- with `hooks off --purge` removes only the names Cubiclark writes (the events files, the soft-off
-  flag, `bin/`, `install.json`), keeps `config.json`, `assets/` and `backups/`, removes the
-  directory only if that leaves it empty, and refuses `/`, your home directory or a directory that
-  contains it before changing anything.
+- with `hooks off` (with or without `--purge`) removes from `bin/` only the files `hooks on` placed
+  there (the three collector files, and `bin/package.json` when it is still exactly what `on`
+  wrote), and then each directory `on` made only when it is empty: nothing is removed recursively, a
+  script or file of yours in `bin/` stays, and a `bin/` that is a symlink is not entered;
+- with `hooks off --purge` also removes the names Cubiclark writes outside `bin/` (the events files,
+  the soft-off flag), keeps `config.json`, `assets/` and `backups/`, and removes the state directory
+  only if that leaves it empty;
+- refuses, on `hooks on`, `hooks off` and `hooks off --purge` alike, a state directory that is `/`,
+  your home directory or one that contains it, before changing anything (a wrong `CUBICLARK_HOME`
+  cannot point it at your files).
 
 `test/hooks-install.test.ts` and `test/hooks/hooks-cli.test.ts` check each of these against
 fixture settings files in temp directories; no test ever touches the real `~/.claude`.
