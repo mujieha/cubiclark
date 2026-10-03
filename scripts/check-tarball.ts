@@ -14,6 +14,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:
 import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { localNames } from './local-names.js'
 
 /** The files that sit at the top of the package, beside dist/. */
 export const TOP_LEVEL_FILES: readonly string[] = ['LICENSE', 'README.md', 'SECURITY.md', 'CHANGELOG.md', 'package.json']
@@ -51,11 +52,12 @@ const FORBIDDEN: readonly { name: string; re: RegExp }[] = [
   { name: '/Users/', re: /\/Users\//i },
   { name: '\\Users\\', re: /\\{1,2}Users\\/i },
   { name: '/home/', re: /\/home\//i },
-  { name: 'nobody', re: /nobody/i },
   { name: 'mujieha', re: /mujieha/i },
   { name: 'rufornyi', re: /rufornyi/i },
   { name: 'uuid', re: /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i },
   { name: 'Claude-Session', re: /Claude-Session/i },
+  // this machine's account name, derived so that this file does not name it
+  ...localNames().map((word) => ({ name: word, re: new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })),
 ]
 
 /** The public repository's address: named in the documents and in package.json's URLs, nowhere else. */

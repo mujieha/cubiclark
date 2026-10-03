@@ -25,6 +25,12 @@ describe('CHANGELOG.md', () => {
     expect(at('### Known limits')).toBeGreaterThan(at('### Security'))
   })
 
+  test('names every security review round', () => {
+    for (const phrase of ['**Review round 1**', '**Review round 2**', '**Review round 3**', '**Cold review**']) {
+      expect(CHANGELOG, phrase).toContain(phrase)
+    }
+  })
+
   test('points to the Known limits and links the release', () => {
     expect(CHANGELOG).toContain('(README.md#known-limits)')
     expect(CHANGELOG).toContain('(SECURITY.md#known-limits)')
@@ -66,6 +72,8 @@ describe('SECURITY.md', () => {
       'security/advisories/new',
       'There is no e-mail address for reports',
       'A second round reviewed',
+      'A third round verified every round-2 fix',
+      'A cold second reviewer, told nothing of the earlier rounds',
     ]) {
       expect(SECURITY, phrase).toContain(phrase)
     }
