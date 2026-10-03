@@ -8,13 +8,18 @@
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export interface RunningCli {
+  /** The link the CLI printed: `/<one-time code>/`. It works once; a browser that opens it keeps a cookie. */
   url: string
   port: number
-  token: string
+  /** The one-time code in that link. */
+  code: string
+  /** `http://127.0.0.1:<port>`: the page's own origin once the link has been used. */
+  origin: string
   /** Everything the CLI wrote to stdout so far. */
   stdout: () => string
   stop: () => Promise<void>
@@ -96,15 +101,47 @@ export async function runCli(args: string[]): Promise<RunningCli> {
   }
 
   const parsed = new URL(url)
-  const token = parsed.pathname.split('/').filter(Boolean)[0] ?? ''
+  const code = parsed.pathname.split('/').filter(Boolean)[0] ?? ''
 
   return {
     url,
     port: Number(parsed.port),
-    token,
+    code,
+    origin: parsed.origin,
     stdout: () => output,
     stop: () => stopChild(child),
   }
+}
+
+/** One raw GET with the Host header the page would send, optionally with a Cookie; no redirect is followed. */
+export function rawGet(
+  cli: Pick<RunningCli, 'port'>,
+  path: string,
+  opts: { host?: string; cookie?: string; method?: string } = {}
+): Promise<{ status: number; location?: string; setCookie?: string[] }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      { hostname: '127.0.0.1', port: cli.port, path, method: opts.method ?? 'GET', headers: { Host: opts.host ?? `127.0.0.1:${cli.port}`, ...(opts.cookie ? { Cookie: opts.cookie } : {}) } },
+      (res) => {
+        res.resume()
+        res.on('end', () => {
+          const location = res.headers.location
+          const setCookie = res.headers['set-cookie']
+          resolve({ status: res.statusCode ?? 0, ...(location === undefined ? {} : { location }), ...(setCookie === undefined ? {} : { setCookie }) })
+        })
+      }
+    )
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+/** Uses the one-time link the way a browser would, once, and returns the `name=value` it must send back. */
+export async function login(cli: Pick<RunningCli, 'port' | 'code'>): Promise<string> {
+  const res = await rawGet(cli, `/${cli.code}/`)
+  const pair = res.setCookie?.[0]?.split(';')[0]
+  if (res.status !== 303 || pair === undefined) throw new Error(`the one-time link was not accepted: ${res.status}`)
+  return pair
 }
 
 /** Runs `then` with a started CLI; stops the CLI if `then` throws, and rethrows. */
