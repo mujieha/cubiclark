@@ -75,6 +75,8 @@ test.describe('the toggle', () => {
   test('the toggle is the first control, then Morty\'s, then the panel and view toggles', async ({ page }) => {
     const cli = await openWithFakeWorld(page)
     try {
+      // The header is built after the page has asked the server for its options: goto can return before.
+      await expect(page.locator('header button')).toHaveCount(4)
       const order = await page.evaluate(() => [...document.querySelectorAll('header button')].map((button) => button.id))
       expect(order).toEqual(['theme-toggle', 'mascot-toggle', 'hud-toggle', 'view-toggle'])
     } finally {
@@ -85,6 +87,7 @@ test.describe('the toggle', () => {
   test('started with --no-mascot there is no button for Morty, and the order is as it was before him', async ({ page }) => {
     const cli = await openWithFakeWorld(page, { mascot: false })
     try {
+      await expect(page.locator('header button')).toHaveCount(3)
       const order = await page.evaluate(() => [...document.querySelectorAll('header button')].map((button) => button.id))
       expect(order).toEqual(['theme-toggle', 'hud-toggle', 'view-toggle'])
     } finally {

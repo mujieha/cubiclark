@@ -6,6 +6,9 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: 'test/e2e',
   testMatch: ['office-parity.spec.ts', 'office-motion.spec.ts', 'office-behaviour.spec.ts'],
+  // The same leak check as the Chromium run (playwright.config.ts).
+  globalSetup: './test/e2e/global-setup.ts',
+  globalTeardown: './test/e2e/global-teardown.ts',
   timeout: 30_000,
   fullyParallel: false,
   reporter: 'list',

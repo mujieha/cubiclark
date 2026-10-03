@@ -5,6 +5,7 @@
 
 import { expect, test, type Page } from '@playwright/test'
 import { DAY_HELPER, S, saveDayEvidence, startDay } from './day.js'
+import { stopOnFailure } from './helpers.js'
 
 // the seven sessions and the builder's Explore helper, less s1 and s5: both ended long before the
 // day's end, past the 10 minutes a finished agent stays in view (src/core/visible.ts)
@@ -15,10 +16,13 @@ const segment = (page: Page, id: string) => page.locator(`#hud-status [data-segm
 
 async function openDay(page: Page): Promise<() => Promise<void>> {
   const cli = await startDay()
-  await page.goto(cli.url)
-  await expect(page.locator('button.office-agent')).toHaveCount(AGENTS)
-  await expect(segment(page, 'sources')).toContainText('claude agents')
-  return cli.stop
+  // These run before the caller's try: a failure here must stop the server itself.
+  return stopOnFailure(cli, async () => {
+    await page.goto(cli.url)
+    await expect(page.locator('button.office-agent')).toHaveCount(AGENTS)
+    await expect(segment(page, 'sources')).toContainText('claude agents')
+    return cli.stop
+  })
 }
 
 test('the status bar: sources, busy agents, permission waits, quota and diagnostics', async ({ page }) => {
