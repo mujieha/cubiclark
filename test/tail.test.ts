@@ -1,4 +1,6 @@
-import { appendFile, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants } from 'node:fs'
+import { appendFile, mkdir, mkdtemp, open as openFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -129,6 +131,29 @@ describe('LineTailer limits', () => {
     expect(result.lines).toEqual([])
     expect(result.error).toMatch(/not a regular file/)
   })
+
+  // C6: the path is a regular file when it is looked at and a FIFO when it is opened (a swap in between).
+  // The tailer opens without waiting for a writer and refuses what it opened by its own descriptor. The seam
+  // makes the swap, then opens as the tailer asked: a blocking open is refused here, so a build that waits
+  // for a writer fails the test instead of hanging the worker.
+  test.skipIf(process.platform === 'win32')('a file swapped for a FIFO after the stat is refused, and the open does not wait (C6)', async () => {
+    const file = join(dir, 'a.jsonl')
+    await writeFile(file, 'one\n', 'utf8')
+    let flagsSeen: unknown
+    const tailer = new LineTailer(file, {
+      open: async (path, flags) => {
+        flagsSeen = flags
+        await rm(path)
+        execFileSync('mkfifo', [path])
+        if (typeof flags !== 'number' || (flags & constants.O_NONBLOCK) === 0) throw Object.assign(new Error('would wait for a writer'), { code: 'EWAIT' })
+        return await openFile(path, flags)
+      },
+    })
+    const result = await tailer.poll()
+    expect(result.lines).toEqual([])
+    expect(result.error).toBe('not a regular file')
+    expect(flagsSeen).toBe(constants.O_RDONLY | constants.O_NONBLOCK)
+  }, 5000)
 
   test('a read that fails is an error result, not a throw', async () => {
     const file = join(dir, 'a.jsonl')

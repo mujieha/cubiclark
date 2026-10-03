@@ -8,6 +8,7 @@
 // `tooLong`, and skipped up to its newline instead of accumulating. A file that is not a regular
 // file, or a read that fails, is an error result, never a throw (S1-5).
 
+import { constants } from 'node:fs'
 import { open as openFile, stat } from 'node:fs/promises'
 import type { FileHandle } from 'node:fs/promises'
 import { StringDecoder } from 'node:string_decoder'
@@ -22,7 +23,7 @@ export interface TailerOptions {
   maxLineBytes?: number
   maxPollBytes?: number
   /** A seam for tests. */
-  open?: (path: string, flags: string) => Promise<FileHandle>
+  open?: (path: string, flags: number) => Promise<FileHandle>
 }
 
 export interface TailResult {
@@ -53,7 +54,7 @@ export class LineTailer {
   private readonly chunkBytes: number
   private readonly maxLineBytes: number
   private readonly maxPollBytes: number
-  private readonly openFile: (path: string, flags: string) => Promise<FileHandle>
+  private readonly openFile: (path: string, flags: number) => Promise<FileHandle>
 
   constructor(
     private readonly path: string,
@@ -96,15 +97,21 @@ export class LineTailer {
 
     if (size === this.offset) return result
 
+    // The stat above only decides whether there is anything to read. What is read is what this descriptor
+    // is: opened without waiting for a writer (a FIFO swapped in after the stat would block a thread and
+    // the whole pass behind it) and checked by its own fstat (C6).
     let handle: FileHandle
     try {
-      handle = await this.openFile(this.path, 'r')
+      handle = await this.openFile(this.path, constants.O_RDONLY | constants.O_NONBLOCK)
     } catch (err) {
       return { ...result, error: `cannot open: ${errorMessage(err)}` }
     }
     let readFailed = false
     try {
-      const buf = Buffer.alloc(Math.min(this.chunkBytes, size - this.offset))
+      const opened = await handle.stat()
+      if (!opened.isFile()) return { ...result, error: 'not a regular file' }
+      size = opened.size
+      const buf = Buffer.alloc(Math.min(this.chunkBytes, Math.max(0, size - this.offset)))
       let readThisPoll = 0
       while (this.offset < size && readThisPoll < this.maxPollBytes) {
         const length = Math.min(buf.length, size - this.offset, this.maxPollBytes - readThisPoll)
