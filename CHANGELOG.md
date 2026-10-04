@@ -4,6 +4,13 @@ All notable changes to Cubiclark are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-10-04
+
+### Changed
+
+- The package's home page is [cubiclark.mujieha.com](https://cubiclark.mujieha.com/), the page about
+  Cubiclark, and the README links it. Nothing in the program changed.
+
 ## [0.1.0] - 2026-10-04
 
 The first release: a local view of live Claude Code agents and their states.
@@ -58,4 +65,5 @@ The first release: a local view of live Claude Code agents and their states.
 Read [Known limits](README.md#known-limits) in the README and in [SECURITY.md](SECURITY.md#known-limits)
 before relying on any of the above; [Platforms](README.md#platforms) says where it has been tested.
 
+[0.1.1]: https://github.com/mujieha/cubiclark/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mujieha/cubiclark/releases/tag/v0.1.0

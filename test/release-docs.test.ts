@@ -19,7 +19,9 @@ describe('CHANGELOG.md', () => {
 
   test('has the 0.1.0 entry, dated, with its three sections in order', () => {
     const at = (needle: string): number => CHANGELOG.indexOf(needle)
+    expect(CHANGELOG).toMatch(/\n## \[0\.1\.1\] - \d{4}-\d{2}-\d{2}\n/)
     expect(CHANGELOG).toMatch(/\n## \[0\.1\.0\] - \d{4}-\d{2}-\d{2}\n/)
+    expect(at('## [0.1.1]')).toBeLessThan(at('## [0.1.0]'))
     expect(at('### Added')).toBeGreaterThan(at('## [0.1.0]'))
     expect(at('### Security')).toBeGreaterThan(at('### Added'))
     expect(at('### Known limits')).toBeGreaterThan(at('### Security'))
@@ -35,6 +37,7 @@ describe('CHANGELOG.md', () => {
     expect(CHANGELOG).toContain('(README.md#known-limits)')
     expect(CHANGELOG).toContain('(SECURITY.md#known-limits)')
     expect(CHANGELOG).toContain('[0.1.0]: https://github.com/mujieha/cubiclark/releases/tag/v0.1.0')
+    expect(CHANGELOG).toContain('[0.1.1]: https://github.com/mujieha/cubiclark/releases/tag/v0.1.1')
   })
 })
 
