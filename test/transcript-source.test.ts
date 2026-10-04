@@ -17,6 +17,10 @@ afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
 
+// A transcript's own time is only read when it is an ISO instant (R4-3).
+const t0 = '2026-01-15T10:00:00.000Z'
+const t1 = '2026-01-15T10:00:01.000Z'
+
 function record(sessionId: string, cwd: string, ts: string, extra: Record<string, unknown>): string {
   return JSON.stringify({ uuid: `u-${ts}`, timestamp: ts, sessionId, cwd, version: '2.1.284', ...extra })
 }
@@ -102,7 +106,7 @@ describe('TranscriptSource', () => {
   test('the initial scan emits events for a file that already has content', async () => {
     const sessionFile = join(dir, 'projects', '-tmp-demo', '00000000-0000-4000-8000-000000000001.jsonl')
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine('00000000-0000-4000-8000-000000000001', '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine('00000000-0000-4000-8000-000000000001', '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -125,7 +129,7 @@ describe('TranscriptSource', () => {
     const sid = '00000000-0000-4000-8000-000000000002'
     const sessionFile = join(dir, 'projects', '-tmp-demo', `${sid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -139,7 +143,7 @@ describe('TranscriptSource', () => {
     })
     await source.start()
 
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n' + promptLine(sid, '/tmp/demo', 't1') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n' + promptLine(sid, '/tmp/demo', t1) + '\n', 'utf8')
     await waitFor(() => events.filter((e) => e.t === 'prompt').length >= 2)
 
     source.stop()
@@ -151,7 +155,7 @@ describe('TranscriptSource', () => {
     const aid = 'fx000000000000e1'
     const parentFile = join(dir, 'projects', '-tmp-demo', `${parentSid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(parentFile, promptLine(parentSid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(parentFile, promptLine(parentSid, '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -170,7 +174,7 @@ describe('TranscriptSource', () => {
     await mkdir(subagentsDir, { recursive: true })
     await writeFile(
       join(subagentsDir, `agent-${aid}.jsonl`),
-      promptLine(aid, '/tmp/demo', 't1') + '\n',
+      promptLine(aid, '/tmp/demo', t1) + '\n',
       'utf8'
     )
     await writeFile(
@@ -274,7 +278,7 @@ describe('TranscriptSource', () => {
     const sid = '00000000-0000-4000-8000-000000000004'
     const sessionFile = join(dir, 'projects', '-tmp-demo', `${sid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n', 'utf8')
     const old = new Date('2020-01-01T00:00:00.000Z')
     await utimes(sessionFile, old, old)
 

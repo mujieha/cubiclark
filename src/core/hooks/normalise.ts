@@ -3,6 +3,7 @@
 // The only state is the set of subagents seen starting, needed because SubagentStop also fires
 // for Claude Code's own internal agents (prompt suggestions, /btw) and those must not appear.
 
+import { isIsoInstant } from '../iso.js'
 import { isSafeKey } from '../keys.js'
 import type { AgentEvent, HookSeenEvent } from '../types.js'
 import { safeTarget } from '../transcript/tools.js'
@@ -33,7 +34,7 @@ export function initialHookNormState(): HookNormState {
 export interface HookLineResult {
   events: AgentEvent[]
   state: HookNormState
-  /** Not JSON, wrong version, or missing its timestamp or event name. */
+  /** Not JSON, wrong version, or missing its event name or an ISO timestamp. */
   unparsed: boolean
   /** Parsed, but not something this build can turn into events (malformed input, an unknown
    * event, or a required field missing). */
@@ -64,7 +65,9 @@ export function normaliseHookLine(line: string, state: HookNormState): HookLineR
   const str = (key: string): string | undefined => (typeof record[key] === 'string' ? (record[key] as string) : undefined)
   const ts = str('ts')
   const e = str('e')
-  if (record.v !== 1 || ts === undefined || e === undefined || Number.isNaN(Date.parse(ts))) {
+  // The time is kept as it is read, so it is only an ISO instant (R4-3): Date.parse alone accepts a
+  // parenthesised comment of any length, and the line cap is 4 MiB.
+  if (record.v !== 1 || ts === undefined || e === undefined || !isIsoInstant(ts)) {
     return result(state, [], { unparsed: true })
   }
 
