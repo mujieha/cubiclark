@@ -24,6 +24,7 @@ import {
   withoutCollector,
 } from '../core/hooks/settings.js'
 import { TOOL_HOOK_EVENTS, type HookEventName } from '../core/hooks/whitelist.js'
+import { isIsoInstant } from '../core/iso.js'
 import { printableLines } from '../core/printable.js'
 import type { HooksInspection } from '../core/types.js'
 import { openRegular, readRegularText, type OpenFile } from './open-regular.js'
@@ -471,7 +472,7 @@ async function lastEventTime(eventsFile: string, size: number, openFile?: OpenFi
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const ts = (JSON.parse(lines[i] as string) as { ts?: unknown }).ts
-        if (typeof ts === 'string') return ts
+        if (typeof ts === 'string' && isIsoInstant(ts)) return ts
       } catch {
         // a damaged line: look at the one before it
       }

@@ -303,6 +303,15 @@ describe('pause, resume and inspect', () => {
     expect(i.eventsBytes).toBeGreaterThan(0)
   })
 
+  test('inspect: a last line whose time is not an ISO instant is skipped, as the reader skips it (R4-3)', async () => {
+    await mkdir(paths.stateDir, { recursive: true })
+    const good = JSON.stringify({ v: 1, ts: '2026-01-15T10:00:05.000Z', e: 'Stop' })
+    const probe = JSON.stringify({ v: 1, ts: `Oct 3 2026 10:00:00 GMT (${'x'.repeat(2000)})`, e: 'Stop' })
+    await writeFile(join(paths.stateDir, 'events.jsonl'), `${good}\n${probe}\n`)
+    const i = await inspectHooks(paths.configDir, paths.stateDir)
+    expect(i.lastEventTs).toBe('2026-01-15T10:00:05.000Z')
+  })
+
   // R4-4, like the C6 tests of the tailer and the quota reader: the path is a regular file when it is looked at
   // and a FIFO when it is opened (a swap in between). inspect runs every 2 s under `serve` and `tui`. The seam
   // makes the swap, then opens as asked: a blocking open is refused here, so a build that waits for a writer
