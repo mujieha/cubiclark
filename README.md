@@ -27,6 +27,9 @@ npx cubiclark                # run it once
 npm install -g cubiclark     # or install it, then run `cubiclark`
 ```
 
+The page about it, with the same video and the install command, is
+[cubiclark.mujieha.com](https://cubiclark.mujieha.com/).
+
 `cubiclark` prints one link, `cubiclark listening http://127.0.0.1:<port>/<code>/`, and opens it in
 your browser (see *Opening the page* below). `cubiclark tui` shows the same agents as text in the
 terminal instead (see *In the terminal*).
