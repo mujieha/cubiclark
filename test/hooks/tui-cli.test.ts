@@ -3,7 +3,7 @@
 // it is never the interactive screen: it prints frames and exits. Never the real ~/.claude or ~/.cubiclark.
 
 import { spawnSync } from 'node:child_process'
-import { cp, mkdtemp, rm } from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -115,10 +115,11 @@ describe('the installed command (dist/bin.js) and the colour variables', () => {
     return spawnSync(process.execPath, [BIN, ...args], { encoding: 'utf8', timeout: 30_000, env: cleanEnv(extra) })
   }
 
-  test('runs the same program', () => {
+  test('runs the same program', async () => {
     const result = bin(['--version'])
     expect(result.status).toBe(0)
-    expect(result.stdout.trim()).toBe('0.1.0')
+    const pkg = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }
+    expect(result.stdout.trim()).toBe(pkg.version)
   })
 
   test('NO_COLOR and FORCE_COLOR both set: no Node warning on stderr, and NO_COLOR wins', () => {
