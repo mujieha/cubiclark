@@ -39,18 +39,19 @@ The first release: a local view of live Claude Code agents and their states.
 
 - **The one-time link.** The address Cubiclark prints works once: the browser trades it for an
   `HttpOnly`, `SameSite=Strict` session cookie, and every route needs that cookie.
-- **The collector's whitelist.** The collector stores event names, ids, a reduced target and a few
-  enum values; never prompt text, tool input or output, error text or assistant text.
+- **The collector's whitelist.** The collector stores event names, ids, a reduced target, a few
+  enum values and the session's working directory; never prompt text, tool input or output, error text or assistant text.
 - **The sanitised terminal.** Every string from a transcript, a task folder or a configuration file
   goes through one filter before `cubiclark tui` draws it, and colour comes only from a fixed table.
 - **Review round 1**: phases 1 to 4; every finding was fixed with a test, or is a Known limit in
   `SECURITY.md`.
 - **Review round 2**: the round-1 fixes and everything added after them; each finding was fixed with
   a test, or is a Known limit in `SECURITY.md`.
-- **Review round 3**: the round-2 fixes, verified; four more items, each fixed with a test.
-- **Cold review**: a second reviewer, told nothing of the earlier rounds, reviewed the whole tree; each
-  finding was fixed with a test, or is a step before the repository is public (the self-hosted CI
-  runner is removed).
+- **Review round 3**: the round-2 fixes, verified; four more items, each fixed with a test. One edge
+  stays and is in `SECURITY.md`: a maintainer's own push to a Dependabot branch runs as the maintainer.
+- **Cold review**: a second reviewer, who was not given the earlier reviews, reviewed the whole tree; each
+  finding was fixed with a test, closed by a recorded decision, or is a step before the repository is
+  public (the self-hosted CI runner will be removed from the repository before it becomes public).
 
 ### Known limits
 
