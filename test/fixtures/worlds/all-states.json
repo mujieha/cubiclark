@@ -1,0 +1,370 @@
+{
+  "agents": {
+    "00000000-0000-4000-8000-0000000a0001": {
+      "id": "00000000-0000-4000-8000-0000000a0001",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0002": {
+      "id": "00000000-0000-4000-8000-0000000a0002",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0003": {
+      "id": "00000000-0000-4000-8000-0000000a0003",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0004": {
+      "id": "00000000-0000-4000-8000-0000000a0004",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0005": {
+      "id": "00000000-0000-4000-8000-0000000a0005",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0006": {
+      "id": "00000000-0000-4000-8000-0000000a0006",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0007": {
+      "id": "00000000-0000-4000-8000-0000000a0007",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "browsing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "WebFetch",
+        "target": "example.com"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0008": {
+      "id": "00000000-0000-4000-8000-0000000a0008",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "delegating",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0009": {
+      "id": "00000000-0000-4000-8000-0000000a0009",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_permission",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000a": {
+      "id": "00000000-0000-4000-8000-0000000a000a",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000b": {
+      "id": "00000000-0000-4000-8000-0000000a000b",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "compacting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000c": {
+      "id": "00000000-0000-4000-8000-0000000a000c",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "stuck",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000d": {
+      "id": "00000000-0000-4000-8000-0000000a000d",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "rate_limited",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000e": {
+      "id": "00000000-0000-4000-8000-0000000a000e",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "failed",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": [],
+      "error": {
+        "kind": "other",
+        "message": "API Error: invalid request: missing required field"
+      }
+    },
+    "00000000-0000-4000-8000-0000000a000f": {
+      "id": "00000000-0000-4000-8000-0000000a000f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0010": {
+      "id": "00000000-0000-4000-8000-0000000a0010",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b001": {
+      "id": "fx00000000000b001",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0008",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    }
+  },
+  "tasks": {},
+  "log": [],
+  "diagnostics": {
+    "unparsedLines": 0,
+    "unknownHookShapes": 0,
+    "sourceErrors": [],
+    "unknownTypes": {},
+    "versions": [],
+    "unparsedBy": {}
+  },
+  "sources": {
+    "transcripts": {
+      "status": "live",
+      "root": "/fixture/claude/projects",
+      "files": 5,
+      "inWindow": 5,
+      "windowHours": 12
+    },
+    "hooks": {
+      "status": "live",
+      "events": 42,
+      "lastEventTs": "2026-01-15T10:30:00.000Z"
+    }
+  },
+  "clock": "2026-01-15T10:30:00.000Z",
+  "quota": {
+    "p5h": 100,
+    "p7d": 40,
+    "resets5h": "2026-01-15T11:12:00.000Z"
+  }
+}

@@ -1,0 +1,1060 @@
+{
+  "agents": {
+    "00000000-0000-4000-8000-0000000a0001": {
+      "id": "00000000-0000-4000-8000-0000000a0001",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0002": {
+      "id": "00000000-0000-4000-8000-0000000a0002",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0003": {
+      "id": "00000000-0000-4000-8000-0000000a0003",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0004": {
+      "id": "00000000-0000-4000-8000-0000000a0004",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0005": {
+      "id": "00000000-0000-4000-8000-0000000a0005",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0006": {
+      "id": "00000000-0000-4000-8000-0000000a0006",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0007": {
+      "id": "00000000-0000-4000-8000-0000000a0007",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "browsing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "WebFetch",
+        "target": "example.com"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0008": {
+      "id": "00000000-0000-4000-8000-0000000a0008",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "delegating",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0009": {
+      "id": "00000000-0000-4000-8000-0000000a0009",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_permission",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000a": {
+      "id": "00000000-0000-4000-8000-0000000a000a",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000b": {
+      "id": "00000000-0000-4000-8000-0000000a000b",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "orchestrator",
+      "state": "compacting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000c": {
+      "id": "00000000-0000-4000-8000-0000000a000c",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "planner",
+      "state": "stuck",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000d": {
+      "id": "00000000-0000-4000-8000-0000000a000d",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "reviewer",
+      "state": "rate_limited",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000e": {
+      "id": "00000000-0000-4000-8000-0000000a000e",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "failed",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": [],
+      "error": {
+        "kind": "other",
+        "message": "API Error: invalid request: missing required field"
+      }
+    },
+    "00000000-0000-4000-8000-0000000a000f": {
+      "id": "00000000-0000-4000-8000-0000000a000f",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0010": {
+      "id": "00000000-0000-4000-8000-0000000a0010",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0011": {
+      "id": "00000000-0000-4000-8000-0000000a0011",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0012": {
+      "id": "00000000-0000-4000-8000-0000000a0012",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0013": {
+      "id": "00000000-0000-4000-8000-0000000a0013",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0014": {
+      "id": "00000000-0000-4000-8000-0000000a0014",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0015": {
+      "id": "00000000-0000-4000-8000-0000000a0015",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "browsing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "WebFetch",
+        "target": "example.com"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0016": {
+      "id": "00000000-0000-4000-8000-0000000a0016",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "delegating",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0017": {
+      "id": "00000000-0000-4000-8000-0000000a0017",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "waiting_permission",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0018": {
+      "id": "00000000-0000-4000-8000-0000000a0018",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0019": {
+      "id": "00000000-0000-4000-8000-0000000a0019",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "compacting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001a": {
+      "id": "00000000-0000-4000-8000-0000000a001a",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "builder",
+      "state": "stuck",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001b": {
+      "id": "00000000-0000-4000-8000-0000000a001b",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "rate_limited",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001c": {
+      "id": "00000000-0000-4000-8000-0000000a001c",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "failed",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": [],
+      "error": {
+        "kind": "other",
+        "message": "API Error: invalid request: missing required field"
+      }
+    },
+    "00000000-0000-4000-8000-0000000a001d": {
+      "id": "00000000-0000-4000-8000-0000000a001d",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-fable-5-1",
+      "role": "builder",
+      "state": "starting",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001e": {
+      "id": "00000000-0000-4000-8000-0000000a001e",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "other-model",
+      "role": "builder",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b001": {
+      "id": "fx00000000000b001",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0001",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b002": {
+      "id": "fx00000000000b002",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0001",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b003": {
+      "id": "fx00000000000b003",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0002",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b004": {
+      "id": "fx00000000000b004",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0002",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b005": {
+      "id": "fx00000000000b005",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0003",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b006": {
+      "id": "fx00000000000b006",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0003",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b007": {
+      "id": "fx00000000000b007",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0004",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b008": {
+      "id": "fx00000000000b008",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0004",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b009": {
+      "id": "fx00000000000b009",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0005",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00a": {
+      "id": "fx00000000000b00a",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0005",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00b": {
+      "id": "fx00000000000b00b",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00c": {
+      "id": "fx00000000000b00c",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00d": {
+      "id": "fx00000000000b00d",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0008",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00e": {
+      "id": "fx00000000000b00e",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0009",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00f": {
+      "id": "fx00000000000b00f",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a000a",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a001f": {
+      "id": "00000000-0000-4000-8000-0000000a001f",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:20:00.000Z",
+      "lastActivity": "2026-01-15T10:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0020": {
+      "id": "00000000-0000-4000-8000-0000000a0020",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:19:00.000Z",
+      "lastActivity": "2026-01-15T10:19:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0021": {
+      "id": "00000000-0000-4000-8000-0000000a0021",
+      "kind": "session",
+      "project": "blog",
+      "cwd": "blog",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:18:00.000Z",
+      "lastActivity": "2026-01-15T10:18:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0022": {
+      "id": "00000000-0000-4000-8000-0000000a0022",
+      "kind": "session",
+      "project": "api",
+      "cwd": "api",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:17:00.000Z",
+      "lastActivity": "2026-01-15T10:17:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0023": {
+      "id": "00000000-0000-4000-8000-0000000a0023",
+      "kind": "session",
+      "project": "docs",
+      "cwd": "docs",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:16:00.000Z",
+      "lastActivity": "2026-01-15T10:16:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    }
+  },
+  "tasks": {},
+  "log": [],
+  "diagnostics": {
+    "unparsedLines": 0,
+    "unknownHookShapes": 0,
+    "sourceErrors": [],
+    "unknownTypes": {},
+    "versions": [],
+    "unparsedBy": {}
+  },
+  "sources": {
+    "transcripts": {
+      "status": "live",
+      "root": "/fixture/claude/projects",
+      "files": 5,
+      "inWindow": 5,
+      "windowHours": 12
+    },
+    "hooks": {
+      "status": "live",
+      "events": 42,
+      "lastEventTs": "2026-01-15T10:30:00.000Z"
+    }
+  },
+  "clock": "2026-01-15T10:30:00.000Z",
+  "quota": {
+    "p5h": 100,
+    "p7d": 40,
+    "resets5h": "2026-01-15T11:12:00.000Z"
+  }
+}

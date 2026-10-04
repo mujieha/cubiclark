@@ -1,0 +1,462 @@
+{
+  "agents": {
+    "00000000-0000-4000-8000-0000000a0001": {
+      "id": "00000000-0000-4000-8000-0000000a0001",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "orchestrator",
+      "state": "waiting_user",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0002": {
+      "id": "00000000-0000-4000-8000-0000000a0002",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0003": {
+      "id": "00000000-0000-4000-8000-0000000a0003",
+      "kind": "background",
+      "parentId": "00000000-0000-4000-8000-0000000a0002",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-sonnet-5-5",
+      "state": "running",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Bash",
+        "target": "npm"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0004": {
+      "id": "00000000-0000-4000-8000-0000000a0004",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-opus-5-5",
+      "role": "planner",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0005": {
+      "id": "00000000-0000-4000-8000-0000000a0005",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "taskId": "task-plan",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0006": {
+      "id": "00000000-0000-4000-8000-0000000a0006",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "editing",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Edit",
+        "target": "app.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0007": {
+      "id": "00000000-0000-4000-8000-0000000a0007",
+      "kind": "session",
+      "project": "shop",
+      "cwd": "shop",
+      "model": "claude-haiku-4-5-20251001",
+      "role": "builder",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b001": {
+      "id": "fx00000000000b001",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "label": "code-reviewer",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b002": {
+      "id": "fx00000000000b002",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b003": {
+      "id": "fx00000000000b003",
+      "kind": "subagent",
+      "parentId": "fx00000000000b002",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "reading",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Read",
+        "target": "index.ts"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0008": {
+      "id": "00000000-0000-4000-8000-0000000a0008",
+      "kind": "teammate",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b005": {
+      "id": "fx00000000000b005",
+      "kind": "subagent",
+      "parentId": "fx00000000000b063",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b006": {
+      "id": "fx00000000000b006",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0006",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "planner",
+      "label": "Plan",
+      "state": "thinking",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b007": {
+      "id": "fx00000000000b007",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b008": {
+      "id": "fx00000000000b008",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b009": {
+      "id": "fx00000000000b009",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00a": {
+      "id": "fx00000000000b00a",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "fx00000000000b00b": {
+      "id": "fx00000000000b00b",
+      "kind": "subagent",
+      "parentId": "00000000-0000-4000-8000-0000000a0007",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "explorer",
+      "label": "Explore",
+      "state": "searching",
+      "stateSince": "2026-01-15T10:28:00.000Z",
+      "lastActivity": "2026-01-15T10:29:55.000Z",
+      "currentTool": {
+        "name": "Grep",
+        "target": "TODO"
+      },
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a0009": {
+      "id": "00000000-0000-4000-8000-0000000a0009",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "finished",
+      "stateSince": "2026-01-15T10:20:00.000Z",
+      "lastActivity": "2026-01-15T10:20:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    },
+    "00000000-0000-4000-8000-0000000a000a": {
+      "id": "00000000-0000-4000-8000-0000000a000a",
+      "kind": "session",
+      "project": "demo",
+      "cwd": "demo",
+      "model": "claude-sonnet-5-5",
+      "role": "builder",
+      "state": "ended",
+      "stateSince": "2026-01-15T10:10:00.000Z",
+      "lastActivity": "2026-01-15T10:10:00.000Z",
+      "counters": {
+        "prompts": 1,
+        "tools": 3,
+        "compactions": 0,
+        "subagents": 0
+      },
+      "openTools": []
+    }
+  },
+  "tasks": {
+    "task-plan": {
+      "id": "task-plan",
+      "phase": "planning",
+      "timeline": []
+    }
+  },
+  "log": [],
+  "diagnostics": {
+    "unparsedLines": 0,
+    "unknownHookShapes": 0,
+    "sourceErrors": [],
+    "unknownTypes": {},
+    "versions": [],
+    "unparsedBy": {}
+  },
+  "sources": {
+    "transcripts": {
+      "status": "live",
+      "root": "/fixture/claude/projects",
+      "files": 5,
+      "inWindow": 5,
+      "windowHours": 12
+    },
+    "hooks": {
+      "status": "live",
+      "events": 42,
+      "lastEventTs": "2026-01-15T10:30:00.000Z"
+    }
+  },
+  "clock": "2026-01-15T10:30:00.000Z",
+  "quota": {
+    "p5h": 100,
+    "p7d": 40,
+    "resets5h": "2026-01-15T11:12:00.000Z"
+  }
+}

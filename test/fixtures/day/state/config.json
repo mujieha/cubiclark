@@ -1,0 +1,17 @@
+{
+  "adapters": {
+    "task-folders": {
+      "roots": [
+        "../tasks"
+      ],
+      "orchestratorCwd": "/home/user/projects/hq"
+    },
+    "quota-samples": {
+      "file": "quota.jsonl"
+    },
+    "claude-agents": {
+      "enabled": true,
+      "bin": "../../bin/claude"
+    }
+  }
+}

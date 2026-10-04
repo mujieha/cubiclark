@@ -1,0 +1,28 @@
+{
+  "agents": {},
+  "tasks": {},
+  "log": [],
+  "diagnostics": {
+    "unparsedLines": 0,
+    "unknownHookShapes": 0,
+    "sourceErrors": [],
+    "unknownTypes": {},
+    "versions": [],
+    "unparsedBy": {}
+  },
+  "sources": {
+    "transcripts": {
+      "status": "unreadable",
+      "root": "/fixture/claude/projects",
+      "error": "permission denied",
+      "files": 0,
+      "inWindow": 0,
+      "windowHours": 12
+    },
+    "hooks": {
+      "status": "not_installed",
+      "events": 0
+    }
+  },
+  "clock": "2026-01-15T10:30:00.000Z"
+}

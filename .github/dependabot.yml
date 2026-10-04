@@ -1,0 +1,20 @@
+# Updates are proposed weekly, as one pull request per ecosystem, into develop (R2-8). The actions are
+# pinned by SHA, and the dev dependencies by exact version: nothing else would propose their updates.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    groups:
+      dev-dependencies:
+        patterns: ['*']
