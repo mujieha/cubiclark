@@ -60,8 +60,10 @@ const FORBIDDEN: readonly { name: string; re: RegExp }[] = [
   ...localNames().map((word) => ({ name: word, re: new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') })),
 ]
 
-/** The public repository's address: named in the documents and in package.json's URLs, nowhere else. */
+/** The public repository's address and the page about the app: named in the documents and in package.json's
+ * URLs, nowhere else. */
 const PUBLIC_REPO = 'github.com/mujieha/cubiclark'
+const PUBLIC_SITE = 'cubiclark.mujieha.com'
 const DOCUMENTS: readonly string[] = ['README.md', 'SECURITY.md', 'CHANGELOG.md']
 const PACKAGE_URL_KEYS: readonly string[] = ['repository', 'homepage', 'bugs']
 const COPYRIGHT_LINE = /^Copyright \(c\) \d{4} \S.*$/
@@ -90,7 +92,7 @@ export function scanText(file: string, text: string): Hit[] {
       .map((line) => (COPYRIGHT_LINE.test(line) ? '' : line))
       .join('\n')
   } else if (DOCUMENTS.includes(file)) {
-    body = text.split(PUBLIC_REPO).join('github.com/OWNER/cubiclark')
+    body = text.split(PUBLIC_REPO).join('github.com/OWNER/cubiclark').split(PUBLIC_SITE).join('cubiclark.example.com')
   }
 
   const hits: Hit[] = []

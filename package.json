@@ -1,6 +1,6 @@
 {
   "name": "cubiclark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A local view of live Claude Code agents and their states.",
   "license": "MIT",
@@ -8,7 +8,7 @@
     "type": "git",
     "url": "git+https://github.com/mujieha/cubiclark.git"
   },
-  "homepage": "https://github.com/mujieha/cubiclark#readme",
+  "homepage": "https://cubiclark.mujieha.com/",
   "bugs": {
     "url": "https://github.com/mujieha/cubiclark/issues"
   },

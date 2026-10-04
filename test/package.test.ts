@@ -23,7 +23,7 @@ describe('package.json', () => {
   test('names the repository, the home page and the issue tracker', async () => {
     const pkg = await packageJson()
     expect(pkg.repository).toEqual({ type: 'git', url: 'git+https://github.com/mujieha/cubiclark.git' })
-    expect(pkg.homepage).toBe('https://github.com/mujieha/cubiclark#readme')
+    expect(pkg.homepage).toBe('https://cubiclark.mujieha.com/')
     expect(pkg.bugs).toEqual({ url: 'https://github.com/mujieha/cubiclark/issues' })
   })
 
@@ -38,7 +38,7 @@ describe('package.json', () => {
   test('is publishable, at the version the command prints', async () => {
     const pkg = await packageJson()
     expect(pkg.private, '"private": true would make npm refuse to publish').toBeUndefined()
-    expect(pkg.version).toBe('0.1.0')
+    expect(pkg.version).toBe('0.1.1')
     expect(HELP_TEXT.startsWith(`cubiclark ${pkg.version}\n`)).toBe(true)
   })
 

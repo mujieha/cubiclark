@@ -69,7 +69,12 @@ describe('scanText', () => {
     for (const file of ['README.md', 'SECURITY.md', 'CHANGELOG.md']) {
       expect(scanText(file, `see https://${REPO}/issues`), file).toEqual([])
     }
+    for (const file of ['README.md', 'SECURITY.md', 'CHANGELOG.md']) {
+      expect(scanText(file, 'the page: https://cubiclark.mujieha.com/'), file).toEqual([])
+    }
     expect(scanText('README.md', 'see https://mujieha.com/apps')).toHaveLength(1)
+    expect(scanText('README.md', 'see https://other.mujieha.com/')).toHaveLength(1)
+    expect(scanText('dist/a.js', 'https://cubiclark.mujieha.com/')).toHaveLength(1)
     expect(scanText('README.md', 'see https://github.com/mujieha/other')).toHaveLength(1)
   })
 
@@ -81,7 +86,7 @@ describe('scanText', () => {
   test('package.json may name the repository, the home page and the issue tracker, and nothing else', () => {
     const urls = {
       repository: { type: 'git', url: `git+https://${REPO}.git` },
-      homepage: `https://${REPO}#readme`,
+      homepage: 'https://cubiclark.mujieha.com/',
       bugs: { url: `https://${REPO}/issues` },
     }
     expect(scanText('package.json', JSON.stringify({ name: 'cubiclark', ...urls }, null, 2))).toEqual([])
