@@ -1,8 +1,9 @@
 // hooks on/off against fixture settings files in temp dirs. Nothing here touches the real
 // ~/.claude or ~/.cubiclark: configDir, stateDir and distDir are all under one mkdtemp dir.
 
-import { existsSync } from 'node:fs'
-import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants, existsSync } from 'node:fs'
+import { chmod, lstat, mkdir, mkdtemp, open as openFile, readFile, readdir, rm, stat, symlink, writeFile, type FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -301,6 +302,50 @@ describe('pause, resume and inspect', () => {
     expect(i.lastEventTs).toBe('2026-01-15T10:00:05.000Z')
     expect(i.eventsBytes).toBeGreaterThan(0)
   })
+
+  test('inspect: a last line whose time is not an ISO instant is skipped, as the reader skips it (R4-3)', async () => {
+    await mkdir(paths.stateDir, { recursive: true })
+    const good = JSON.stringify({ v: 1, ts: '2026-01-15T10:00:05.000Z', e: 'Stop' })
+    const probe = JSON.stringify({ v: 1, ts: `Oct 3 2026 10:00:00 GMT (${'x'.repeat(2000)})`, e: 'Stop' })
+    await writeFile(join(paths.stateDir, 'events.jsonl'), `${good}\n${probe}\n`)
+    const i = await inspectHooks(paths.configDir, paths.stateDir)
+    expect(i.lastEventTs).toBe('2026-01-15T10:00:05.000Z')
+  })
+
+  // R4-4, like the C6 tests of the tailer and the quota reader: the path is a regular file when it is looked at
+  // and a FIFO when it is opened (a swap in between). inspect runs every 2 s under `serve` and `tui`. The seam
+  // makes the swap, then opens as asked: a blocking open is refused here, so a build that waits for a writer
+  // fails the test instead of hanging the worker.
+  function swapForFifo(target: string, flagsSeen: unknown[]): (path: string, flags: number) => Promise<FileHandle> {
+    return async (path, flags) => {
+      if (path !== target) return await openFile(path, flags)
+      flagsSeen.push(flags)
+      await rm(path)
+      execFileSync('mkfifo', [path])
+      if ((flags & constants.O_NONBLOCK) === 0) throw Object.assign(new Error('would wait for a writer'), { code: 'EWAIT' })
+      return await openFile(path, flags)
+    }
+  }
+
+  test.skipIf(process.platform === 'win32')('inspect: settings.json swapped for a FIFO is refused, and the open does not wait (R4-4)', async () => {
+    await writeFixture('canonical')
+    const flagsSeen: unknown[] = []
+    const i = await inspectHooks(paths.configDir, paths.stateDir, swapForFifo(settingsPath, flagsSeen))
+    expect(i.settingsState).toBe('unparseable')
+    expect(i.parseError).toBe('cannot read: not a regular file')
+    expect(flagsSeen).toEqual([constants.O_RDONLY | constants.O_NONBLOCK])
+  }, 5000)
+
+  test.skipIf(process.platform === 'win32')('inspect: the events file swapped for a FIFO after the stat is refused, and the open does not wait (R4-4)', async () => {
+    await mkdir(paths.stateDir, { recursive: true })
+    const eventsFile = join(paths.stateDir, 'events.jsonl')
+    await writeFile(eventsFile, `${JSON.stringify({ v: 1, ts: '2026-01-15T10:00:05.000Z', e: 'Stop' })}\n`)
+    const flagsSeen: unknown[] = []
+    const i = await inspectHooks(paths.configDir, paths.stateDir, swapForFifo(eventsFile, flagsSeen))
+    expect(i.eventsBytes).toBeGreaterThan(0)
+    expect(i.lastEventTs).toBeUndefined()
+    expect(flagsSeen).toEqual([constants.O_RDONLY | constants.O_NONBLOCK])
+  }, 5000)
 
   test('formatHooksStatus names the event count and whether it is paused', async () => {
     await writeFixture('canonical')

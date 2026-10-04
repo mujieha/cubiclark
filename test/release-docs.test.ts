@@ -73,9 +73,64 @@ describe('SECURITY.md', () => {
       'There is no e-mail address for reports',
       'A second round reviewed',
       'A third round verified every round-2 fix',
-      'A cold second reviewer, told nothing of the earlier rounds',
+      'A cold second reviewer, who was not given the earlier reviews,',
     ]) {
       expect(SECURITY, phrase).toContain(phrase)
     }
+  })
+})
+
+// The cold reviewer's re-check (D2) and the fourth round (R4-5, R4-6) found sentences that said more than was
+// true. Each correction is pinned here, so the old words cannot come back.
+describe('the review paragraph and the CHANGELOG say what the reviews did (D2, R4-5, R4-6)', () => {
+  const DOCS = [
+    ['SECURITY.md', SECURITY],
+    ['CHANGELOG.md', collapse(CHANGELOG)],
+  ] as const
+
+  test.each(DOCS)('%s: the second reviewer "was not given the earlier reviews"', (_name, text) => {
+    expect(text).not.toContain('told nothing of the earlier rounds')
+    expect(text).toContain('who was not given the earlier reviews')
+  })
+
+  test.each(DOCS)('%s: the runner "will be removed", it has not been yet', (_name, text) => {
+    expect(text).not.toContain('is removed from the repository before it becomes public')
+    expect(text).not.toContain('runner is removed)')
+    expect(text).toContain('will be removed from the repository before it becomes public')
+  })
+
+  test('SECURITY.md names the finding closed by a decision, not by a test', () => {
+    expect(SECURITY).toContain(
+      'were fixed with a test each, except one closed by a recorded decision (a prepublish build and tarball check instead of a prepack step)'
+    )
+  })
+
+  test('CHANGELOG.md says a cold-review finding was fixed, decided, or is a step before the switch', () => {
+    expect(collapse(CHANGELOG)).toContain('each finding was fixed with a test, closed by a recorded decision, or is a step before the repository is public')
+  })
+
+  test('the CHANGELOG whitelist bullet names the working directory, as SECURITY.md does', () => {
+    expect(collapse(CHANGELOG)).toContain("a few enum values and the session's working directory")
+    expect(SECURITY).toContain('The working directory is the one full absolute path the collector keeps')
+  })
+
+  test('the `cwd` is kept in full for the orchestrator match only, not for `claude agents`', () => {
+    expect(SECURITY).not.toContain('and to a `claude agents` entry by it')
+    expect(SECURITY).toContain("matches a session to an orchestrator's task folders by it (the `orchestratorCwds` match in `src/core/adapters/apply.ts`)")
+  })
+
+  test("a maintainer's push to a Dependabot branch is named in both documents", () => {
+    expect(SECURITY).toContain("A maintainer's own push to a Dependabot branch runs as the maintainer.")
+    expect(collapse(CHANGELOG)).toContain(
+      "One edge stays and is in `SECURITY.md`: a maintainer's own push to a Dependabot branch runs as the maintainer."
+    )
+  })
+
+  test('the events-file section says the time of a line is checked, and as what', () => {
+    expect(SECURITY).toContain('every field of a line that is read is checked again, the time included, which must be an ISO instant')
+  })
+
+  test('the file readers named in SECURITY.md are all the ones that open with O_NONBLOCK', () => {
+    expect(SECURITY).toContain("the read of a subagent's sidecar file and the two reads of the hooks status")
   })
 })

@@ -5,7 +5,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { parseLine, parseTranscript, initialParseState, recordTypeName } from '../src/core/transcript/parse.js'
+import { parseLine, parseTranscript, initialParseState, recordTimestamp, recordTypeName } from '../src/core/transcript/parse.js'
 import { reduce } from '../src/core/reducer.js'
 import { emptyWorld, mergeUnparsedBy, MAX_UNPARSED_TYPE_NAMES } from '../src/core/world.js'
 import type { UnparsedBreakdown } from '../src/core/types.js'
@@ -34,6 +34,25 @@ describe('parseLine labels every unparsed line with a reason and a type name', (
   test('no string type', () => {
     expect(one('{"timestamp":"' + TS + '"}')).toMatchObject({ unparsed: true, reason: 'no_type', recordType: '(none)' })
     expect(one('{"type":5}')).toMatchObject({ unparsed: true, reason: 'no_type' })
+  })
+  test('a timestamp that is not an ISO instant is no timestamp (R4-3): the round-4 probe gives no event and is counted', () => {
+    const probe = `Oct 3 2026 10:00:00 GMT (${'x'.repeat(2000)})`
+    expect(Number.isNaN(Date.parse(probe))).toBe(false)
+    const prompt = (timestamp: unknown) => JSON.stringify({ type: 'user', timestamp, cwd: '/a/demo', message: { role: 'user', content: 'x' } })
+    expect(one(prompt(probe))).toMatchObject({ events: [], unparsed: true, reason: 'no_timestamp', recordType: 'user' })
+    const good = one(prompt(TS))
+    expect(good.unparsed).toBe(false)
+    expect(good.events.length).toBeGreaterThan(0)
+    for (const event of good.events) expect(event.ts).toBe(TS)
+  })
+  test('a numeric timestamp still becomes an ISO instant, and one that cannot be written as one is none', () => {
+    expect(recordTimestamp(1768471200)).toBe('2026-01-15T10:00:00.000Z')
+    expect(recordTimestamp(1768471200000)).toBe('2026-01-15T10:00:00.000Z')
+    expect(recordTimestamp(8.6e15)).toBeUndefined()
+    expect(recordTimestamp(-1e15)).toBeUndefined()
+    expect(recordTimestamp('2026-01-15T10:00:00Z')).toBe('2026-01-15T10:00:00Z')
+    expect(recordTimestamp('')).toBeUndefined()
+    expect(recordTimestamp('2026-13-45T99:99:99.000Z')).toBeUndefined()
   })
   test('no timestamp names the type', () => {
     expect(one('{"type":"user"}')).toMatchObject({ unparsed: true, reason: 'no_timestamp', recordType: 'user' })

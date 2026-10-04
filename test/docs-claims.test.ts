@@ -25,6 +25,10 @@ const OVERCLAIMS: readonly { finding: string; phrase: string }[] = [
   { finding: 'C3', phrase: 'File paths are never shown in full' },
   { finding: 'C3', phrase: 'File paths are shown as basenames only; there is no `--full-paths` flag yet' },
   { finding: 'C8', phrase: 'a value from a fixed enum, or a reduced target (a file' },
+  // The fourth round and the cold re-check: the time of a line, the reason for `cwd`, the readers.
+  { finding: 'R4-3', phrase: 'every field of a line that is read is checked again with the collector\'s own matchers' },
+  { finding: 'R4-5', phrase: 'a session to its task folder and to a `claude agents` entry by it' },
+  { finding: 'R4-4', phrase: 'The tailer and the quota reader open a file with `O_NONBLOCK`' },
 ]
 
 /** Phrases that must appear: what the code does, said as it does it. */
@@ -57,7 +61,8 @@ const STATEMENTS: readonly { finding: string; file: 'README' | 'SECURITY'; phras
   { finding: 'C3', file: 'SECURITY', phrase: 'the reason is built from reduced paths and `publicWorld` reduces it again' },
   { finding: 'C3', file: 'README', phrase: 'The folders the sources read (the transcripts folder, the events file) are named with your home directory as `~`' },
   { finding: 'C4', file: 'SECURITY', phrase: 'A name, which becomes an agent\'s label, is kept only if it passes the label rule above' },
-  { finding: 'C5', file: 'SECURITY', phrase: 'every field of a line that is read is checked again with the collector\'s own matchers' },
+  { finding: 'C5', file: 'SECURITY', phrase: 'is checked again, the time included, which must be an ISO instant, with the collector\'s own matchers' },
+  { finding: 'R4-3', file: 'SECURITY', phrase: 'every field of a line that is read is checked again, the time included, which must be an ISO instant' },
   { finding: 'C7', file: 'SECURITY', phrase: 'the hook source first reads what was appended to the old file after its last poll' },
   { finding: 'C7', file: 'README', phrase: 'the lines appended to the old one after the last poll are read before the new file is followed' },
   { finding: 'C8', file: 'SECURITY', phrase: 'The working directory is the one full absolute path the collector keeps' },

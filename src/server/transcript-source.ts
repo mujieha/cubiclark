@@ -13,13 +13,14 @@
 // names, and an event outside `projects/` starts nothing.
 
 import { watch as fsWatch, type Dirent } from 'node:fs'
-import { readFile, readdir, stat } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import { bump } from '../core/keys.js'
 import type { AgentEvent, TranscriptSourceStatus, UnparsedBreakdown } from '../core/types.js'
 import { parseSubagentMeta } from '../core/transcript/meta.js'
 import { classifyPath } from '../core/transcript/paths.js'
 import { type ParseCtx, type ParseState, initialParseState, parseLine } from '../core/transcript/parse.js'
+import { NOT_REGULAR, TOO_LARGE, readRegularText, type OpenFile } from './open-regular.js'
 import { LineTailer } from './tail.js'
 
 /** A directory listing, injectable so a test can slow it down or record what was listed. */
@@ -49,6 +50,8 @@ export interface TranscriptSourceOptions {
   readdir?: ReaddirFn
   /** Default: `fs.watch(root, { recursive: true })`. */
   watchFn?: WatchFn
+  /** A seam for tests: how a subagent's sidecar is opened. Default: the file system's own open. */
+  open?: OpenFile
 }
 
 /** What the source has spent walking, for `doctor` (kept out of getStatus(): that value goes into
@@ -404,14 +407,16 @@ export class TranscriptSource {
   private async readMeta(absPath: string, parentId: string, agentId: string): Promise<void> {
     let text: string
     try {
-      const info = await stat(absPath)
-      if (!info.isFile() || info.size > MAX_META_BYTES) {
-        this.emitDiagnostic(`${this.label(absPath)}: not a small regular file, skipped`)
-        return
-      }
-      text = await readFile(absPath, 'utf8')
+      // One descriptor, opened without waiting for a writer and judged by its own fstat (R4-4): a FIFO
+      // swapped in for the sidecar is refused instead of blocking a thread.
+      text = await readRegularText(absPath, MAX_META_BYTES, this.opts.open)
     } catch (err) {
-      this.emitDiagnostic(`cannot read ${this.label(absPath)}: ${errorCode(err)}`)
+      const code = errorCode(err)
+      this.emitDiagnostic(
+        code === NOT_REGULAR || code === TOO_LARGE
+          ? `${this.label(absPath)}: not a small regular file, skipped`
+          : `cannot read ${this.label(absPath)}: ${code}`
+      )
       return
     }
     const result = parseSubagentMeta(text)

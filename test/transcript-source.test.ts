@@ -1,4 +1,6 @@
-import { appendFile, mkdir, mkdtemp, readdir, rm, symlink, utimes, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { constants } from 'node:fs'
+import { appendFile, mkdir, mkdtemp, open as openFile, readdir, rm, symlink, utimes, writeFile, type FileHandle } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -16,6 +18,10 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
+
+// A transcript's own time is only read when it is an ISO instant (R4-3).
+const t0 = '2026-01-15T10:00:00.000Z'
+const t1 = '2026-01-15T10:00:01.000Z'
 
 function record(sessionId: string, cwd: string, ts: string, extra: Record<string, unknown>): string {
   return JSON.stringify({ uuid: `u-${ts}`, timestamp: ts, sessionId, cwd, version: '2.1.284', ...extra })
@@ -102,7 +108,7 @@ describe('TranscriptSource', () => {
   test('the initial scan emits events for a file that already has content', async () => {
     const sessionFile = join(dir, 'projects', '-tmp-demo', '00000000-0000-4000-8000-000000000001.jsonl')
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine('00000000-0000-4000-8000-000000000001', '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine('00000000-0000-4000-8000-000000000001', '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -125,7 +131,7 @@ describe('TranscriptSource', () => {
     const sid = '00000000-0000-4000-8000-000000000002'
     const sessionFile = join(dir, 'projects', '-tmp-demo', `${sid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -139,7 +145,7 @@ describe('TranscriptSource', () => {
     })
     await source.start()
 
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n' + promptLine(sid, '/tmp/demo', 't1') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n' + promptLine(sid, '/tmp/demo', t1) + '\n', 'utf8')
     await waitFor(() => events.filter((e) => e.t === 'prompt').length >= 2)
 
     source.stop()
@@ -151,7 +157,7 @@ describe('TranscriptSource', () => {
     const aid = 'fx000000000000e1'
     const parentFile = join(dir, 'projects', '-tmp-demo', `${parentSid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(parentFile, promptLine(parentSid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(parentFile, promptLine(parentSid, '/tmp/demo', t0) + '\n', 'utf8')
 
     const { events, onEvents } = collector()
     const source = new TranscriptSource({
@@ -170,7 +176,7 @@ describe('TranscriptSource', () => {
     await mkdir(subagentsDir, { recursive: true })
     await writeFile(
       join(subagentsDir, `agent-${aid}.jsonl`),
-      promptLine(aid, '/tmp/demo', 't1') + '\n',
+      promptLine(aid, '/tmp/demo', t1) + '\n',
       'utf8'
     )
     await writeFile(
@@ -221,6 +227,51 @@ describe('TranscriptSource', () => {
 
     const link = events.find((e) => e.t === 'subagent_link')
     expect(link?.ts).toBe(contentTs)
+  })
+
+  // R4-4, like the C6 tests of the tailer: the sidecar is a regular file when it is listed and a FIFO when it
+  // is opened (a swap in between). The seam makes the swap, then opens as asked: a blocking open is refused
+  // here, so a build that waits for a writer fails the test instead of hanging the worker.
+  async function sidecarSource(open: (path: string, flags: number) => Promise<FileHandle>, sid: string, aid: string) {
+    const subagentsDir = join(dir, 'projects', '-tmp-demo', sid, 'subagents')
+    await mkdir(subagentsDir, { recursive: true })
+    await writeFile(join(dir, 'projects', '-tmp-demo', `${sid}.jsonl`), promptLine(sid, '/tmp/demo', t0) + '\n', 'utf8')
+    await writeFile(join(subagentsDir, `agent-${aid}.jsonl`), promptLine(aid, '/tmp/demo', t0) + '\n', 'utf8')
+    const meta = join(subagentsDir, `agent-${aid}.meta.json`)
+    await writeFile(meta, JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000003' }), 'utf8')
+    const { events, onEvents } = collector()
+    const source = new TranscriptSource({ root: dir, sinceMs: null, windowHours: null, watch: false, pollMs: 10_000, onEvents, nowMs: () => Date.now(), open })
+    return { events, source, meta }
+  }
+
+  test.skipIf(process.platform === 'win32')('a sidecar swapped for a FIFO after the listing is refused, and the open does not wait (R4-4)', async () => {
+    const flagsSeen: unknown[] = []
+    const swapped = { path: '' }
+    const open = async (path: string, flags: number): Promise<FileHandle> => {
+      flagsSeen.push(flags)
+      await rm(path)
+      execFileSync('mkfifo', [path])
+      if ((flags & constants.O_NONBLOCK) === 0) throw Object.assign(new Error('would wait for a writer'), { code: 'EWAIT' })
+      swapped.path = path
+      return await openFile(path, flags)
+    }
+    const { events, source, meta } = await sidecarSource(open, '00000000-0000-4000-8000-000000000007', 'fx000000000000e3')
+    await source.start()
+    source.stop()
+
+    expect(swapped.path).toBe(meta)
+    expect(flagsSeen).toEqual([constants.O_RDONLY | constants.O_NONBLOCK])
+    expect(events.some((e) => e.t === 'subagent_link')).toBe(false)
+    expect(events.some((e) => e.t === 'diagnostics' && e.sourceError?.includes('not a small regular file'))).toBe(true)
+  }, 5000)
+
+  test('a sidecar over the cap is skipped, and one under it still links the subagent', async () => {
+    const { events, source, meta } = await sidecarSource(openFile, '00000000-0000-4000-8000-000000000008', 'fx000000000000e4')
+    await writeFile(meta, JSON.stringify({ agentType: 'Explore', toolUseId: 'toolu_fx000004', pad: 'x'.repeat(70 * 1024) }), 'utf8')
+    await source.start()
+    source.stop()
+    expect(events.some((e) => e.t === 'subagent_link')).toBe(false)
+    expect(events.some((e) => e.t === 'diagnostics' && e.sourceError?.includes('not a small regular file'))).toBe(true)
   })
 
   // A folder that does not exist is a first run (Claude Code has never run here), not a failure.
@@ -274,7 +325,7 @@ describe('TranscriptSource', () => {
     const sid = '00000000-0000-4000-8000-000000000004'
     const sessionFile = join(dir, 'projects', '-tmp-demo', `${sid}.jsonl`)
     await mkdir(join(dir, 'projects', '-tmp-demo'), { recursive: true })
-    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', 't0') + '\n', 'utf8')
+    await writeFile(sessionFile, promptLine(sid, '/tmp/demo', t0) + '\n', 'utf8')
     const old = new Date('2020-01-01T00:00:00.000Z')
     await utimes(sessionFile, old, old)
 

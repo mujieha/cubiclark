@@ -12,12 +12,13 @@ quiet office, the readable office and the terminal mode); each of its twelve fin
 a test, or is a Known limit here (the session cookie reaching other ports on `127.0.0.1`). A third
 round verified every round-2 fix and added four items (the CI design for a public repository, the
 check of the installed `bin/package.json`, the control-character rule's range, Dependabot's runs), each
-fixed with a test. A cold second reviewer, told nothing of the earlier rounds, then reviewed the whole
+fixed with a test. A cold second reviewer, who was not given the earlier reviews, then reviewed the whole
 tree: its code and documentation findings (an always absolute state directory, no home path in the hooks
 status, the label rule for `claude agents` names, stored hook lines re-checked on read, how the tailer
 and the quota reader open a file, the events file's rotation, the wording here) were fixed with a test
-each, and its one operational finding, the self-hosted CI runner, is removed from the repository before
-it becomes public.
+each, except one closed by a recorded decision (a prepublish build and tarball check instead of a
+prepack step), and its one operational finding, the self-hosted CI runner, will be removed from the
+repository before it becomes public.
 
 ## Threat model
 
@@ -114,10 +115,12 @@ list, so it 404s the same as any other unknown path.
   1 MiB and at most 8 MiB per poll (it polls again while there is more), so a first read of a huge
   file is many small ones. A line longer than 4 MiB is dropped up to its newline, counted as an
   unparsed line with the reason `too_long`, and never held in memory
-  (`test/tail.test.ts`, `test/transcript-source.test.ts`). The tailer and the quota reader open a
-  file with `O_NONBLOCK` and check what they opened by `fstat` on that descriptor, so a file swapped
-  for a FIFO after it was looked at is refused, not waited for (`test/tail.test.ts`,
-  `test/quota.test.ts`).
+  (`test/tail.test.ts`, `test/transcript-source.test.ts`). The tailer, the quota reader, the read of a
+  subagent's sidecar file and the two reads of the hooks status (`settings.json` and the end of the
+  events file, which `serve` and `tui` repeat every 2 seconds) open a file with `O_NONBLOCK` and check what they opened by `fstat` on that
+  descriptor, so a file swapped for a FIFO after it was looked at is refused, not waited for
+  (`test/tail.test.ts`, `test/quota.test.ts`, `test/open-regular.test.ts`, `test/transcript-source.test.ts`,
+  `test/hooks-install.test.ts`).
 - When the collector rotates the events file (`events.jsonl` renamed to `events.1.jsonl` at 5 MB), the
   hook source first reads what was appended to the old file after its last poll, from the offset
   it had reached, and then follows the new file. It does so only when `events.1.jsonl` is the same
@@ -156,9 +159,9 @@ payload, including prompts, tool inputs and tool outputs. It stores none of that
   that is not a JSON object as `_malformed`.
 - **The working directory is the one full absolute path the collector keeps** (`cwd`: absolute, at
   most 1024 characters, no control character). Everything else it stores about a place is a
-  basename, a verb or a host. It is kept in full because the server matches a session to its task
-  folder and to a `claude agents` entry by it, and a basename cannot tell two projects of the same
-  name apart. It names your user name and your project directories, so `events.jsonl` (mode 0600, in
+  basename, a verb or a host. It is kept in full because the server matches a session to an
+  orchestrator's task folders by it (the `orchestratorCwds` match in `src/core/adapters/apply.ts`), and
+  a basename cannot tell two projects of the same name apart. It names your user name and your project directories, so `events.jsonl` (mode 0600, in
   a 0700 directory) is private data: do not share it. The page and `world.json` carry only its
   basename (`test/whitelist.test.ts`, `test/view.test.ts`).
 - **The secrets test.** `test/whitelist.test.ts` and `test/hooks/collector.test.ts` push payloads
@@ -253,8 +256,8 @@ fixture settings files in temp directories; no test ever touches the real `~/.cl
 this build knows, is counted (`unparsed`, `unknown hook shapes`) and never reaches the page as
 content, and the page still renders every string with `textContent`. The collector's whitelist binds
 the writer, and the reader cannot know the collector wrote the file, so every field of a line that
-is read is checked again with the collector's own matchers (the same functions, exported from
-`whitelist.ts`): a target with a path separator or a control character, a model or a tool name that
+is read is checked again, the time included, which must be an ISO instant, with the collector's own
+matchers (the same functions, exported from `whitelist.ts`): a target with a path separator or a control character, a model or a tool name that
 is not a plain name, a working directory that is not an absolute path of at most 1024 characters,
 or a value outside a fixed list is dropped, as the collector would have dropped it, and an id that
 is not a plain id makes the line an unknown shape (`test/hook-normalise-reread.test.ts`). The file
@@ -447,6 +450,10 @@ What the code does not do, so that nothing above is read as more than it is:
 - **A relative path with a slash inside (`projects/demo`) in a task folder's text is kept as
   written**; only absolute Unix and Windows paths are reduced (it names no directory outside the
   task).
+- **A maintainer's own push to a Dependabot branch runs as the maintainer.** CI keeps Dependabot's pull
+  requests off the self-hosted Mac by the actor, so a push to such a branch by a maintainer (or a manual
+  run on it) is not that actor and runs on the Mac, with the new dependency's install scripts, for as
+  long as the repository is private. Once it is public the Mac job is selected for no run.
 - **A manifest and a configuration file are read once, at start.** A change needs a restart.
 - **A file's whole history is read on a first start**, in bounded pieces (memory stays bounded, the
   time it takes does not): a very large transcript is read in many polls.

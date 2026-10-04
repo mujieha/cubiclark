@@ -4,6 +4,7 @@
 // whole-file convenience the tests use; the transcript source (step 6) calls parseLine directly,
 // one appended line at a time, carrying the returned ParseState forward itself.
 
+import { isIsoInstant } from '../iso.js'
 import type { AgentEvent, AgentKind, UnparsedBreakdown, UnparsedReason } from '../types.js'
 import { TRANSCRIPT_GUESSES } from './guesses.js'
 import { fromAgentName, fromAssistant, fromPermissionMode, fromSystem, fromUser, IGNORED_TYPES } from './records.js'
@@ -67,14 +68,17 @@ export function versionName(version: string): string {
   return VERSION_NAME.test(version) ? version : '(invalid)'
 }
 
-/** A record's own timestamp as ISO: a string, or a number (epoch seconds below 1e12, else ms).
- * Anything else, including a date that does not exist, is "no timestamp". */
+/** A record's own timestamp as ISO: a string that is already an ISO instant (R4-3: Date.parse alone would
+ * let a parenthesised comment of any length through), or a number (epoch seconds below 1e12, else ms).
+ * Anything else, including a date that does not exist or one outside the years 0000-9999, is "no timestamp". */
 export function recordTimestamp(value: unknown): string | undefined {
-  if (typeof value === 'string') return value.length > 0 ? value : undefined
+  if (typeof value === 'string') return isIsoInstant(value) ? value : undefined
   if (typeof value !== 'number' || !Number.isFinite(value)) return undefined
   const ms = value >= 1e12 ? value : value * 1000
   const date = new Date(ms)
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+  if (Number.isNaN(date.getTime())) return undefined
+  const iso = date.toISOString()
+  return isIsoInstant(iso) ? iso : undefined
 }
 
 function unparsedLine(

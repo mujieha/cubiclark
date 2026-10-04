@@ -9,7 +9,7 @@
 
 import { createHash, randomBytes } from 'node:crypto'
 import { constants } from 'node:fs'
-import { copyFile, lstat, mkdir, open, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
+import { copyFile, lstat, mkdir, readFile, realpath, rename, rm, rmdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import {
@@ -24,8 +24,10 @@ import {
   withoutCollector,
 } from '../core/hooks/settings.js'
 import { TOOL_HOOK_EVENTS, type HookEventName } from '../core/hooks/whitelist.js'
+import { isIsoInstant } from '../core/iso.js'
 import { printableLines } from '../core/printable.js'
 import type { HooksInspection } from '../core/types.js'
+import { openRegular, readRegularText, type OpenFile } from './open-regular.js'
 
 /** [path relative to dist/, path relative to <stateDir>/bin/]. The collector's whole import graph. */
 export const COLLECTOR_FILES: readonly (readonly [from: string, to: string])[] = [
@@ -453,20 +455,24 @@ async function exists(path: string): Promise<boolean> {
 }
 
 /** The `ts` of the last complete line in the last 4 KiB of the events file. */
-async function lastEventTime(eventsFile: string, size: number): Promise<string | undefined> {
-  const length = Math.min(size, 4096)
-  if (length === 0) return undefined
-  const handle = await open(eventsFile, 'r')
+async function lastEventTime(eventsFile: string, size: number, openFile?: OpenFile): Promise<string | undefined> {
+  if (Math.min(size, 4096) === 0) return undefined
+  // Opened without waiting for a writer and judged by its own fstat (R4-4): this runs every 2 s under
+  // `serve` and `tui`, and a FIFO swapped in after the caller's stat must not block a thread. The size is the
+  // descriptor's, so a file that grew or shrank since the stat is still read at its own end.
+  const { handle, size: opened } = await openRegular(eventsFile, openFile)
   try {
+    const length = Math.min(opened, 4096)
+    if (length === 0) return undefined
     const buffer = Buffer.alloc(length)
-    await handle.read(buffer, 0, length, size - length)
+    await handle.read(buffer, 0, length, opened - length)
     const lines = buffer.toString('utf8').split('\n')
     lines.pop() // after the last newline: empty, or a line still being written
-    if (size > length) lines.shift() // began mid-line
+    if (opened > length) lines.shift() // began mid-line
     for (let i = lines.length - 1; i >= 0; i--) {
       try {
         const ts = (JSON.parse(lines[i] as string) as { ts?: unknown }).ts
-        if (typeof ts === 'string') return ts
+        if (typeof ts === 'string' && isIsoInstant(ts)) return ts
       } catch {
         // a damaged line: look at the one before it
       }
@@ -477,7 +483,8 @@ async function lastEventTime(eventsFile: string, size: number): Promise<string |
   return undefined
 }
 
-export async function inspectHooks(configDir: string, stateDir: string): Promise<HooksInspection> {
+/** `openFile` is a seam for tests: how settings.json and the events file are opened. */
+export async function inspectHooks(configDir: string, stateDir: string, openFile?: OpenFile): Promise<HooksInspection> {
   const settingsPath = join(configDir, 'settings.json')
   const eventsFile = join(stateDir, 'events.jsonl')
   const inspection: HooksInspection = {
@@ -492,7 +499,8 @@ export async function inspectHooks(configDir: string, stateDir: string): Promise
 
   let text: string | undefined
   try {
-    text = await readFile(settingsPath, 'utf8')
+    // Opened without waiting for a writer and judged by its own fstat (R4-4), like the events file below.
+    text = await readRegularText(settingsPath, undefined, openFile)
   } catch (err) {
     if (!isNotFound(err)) {
       return { ...inspection, settingsState: 'unparseable', parseError: `cannot read: ${describe(err)}` }
@@ -522,7 +530,7 @@ export async function inspectHooks(configDir: string, stateDir: string): Promise
   try {
     const { size } = await stat(eventsFile)
     inspection.eventsBytes = size
-    inspection.lastEventTs = await lastEventTime(eventsFile, size)
+    inspection.lastEventTs = await lastEventTime(eventsFile, size, openFile)
   } catch {
     // no events yet
   }

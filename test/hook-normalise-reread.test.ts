@@ -5,7 +5,11 @@
 
 import { describe, expect, test } from 'vitest'
 import { initialHookNormState, normaliseHookLine } from '../src/core/hooks/normalise.js'
+import { reduce } from '../src/core/reducer.js'
+import { initialParseState, parseLine } from '../src/core/transcript/parse.js'
 import type { AgentEvent } from '../src/core/types.js'
+import { publicWorld } from '../src/core/view.js'
+import { emptyWorld } from '../src/core/world.js'
 
 const TS = '2026-01-15T10:00:00.000Z'
 const BIDI = String.fromCodePoint(0x202e)
@@ -81,6 +85,53 @@ describe('a stored line is checked again on read (C5)', () => {
     expect(events({ e: 'SubagentStart', sid: 's1', aid: 'a1', at: 'Explore' })[1]).toMatchObject({ t: 'subagent_link', agentType: 'Explore' })
     expect(normaliseHookLine(line({ e: 'Stop', sid: 'a b' }), initialHookNormState()).unknownShape).toBe(true)
     expect(normaliseHookLine(line({ e: 'Stop', sid: 's1', aid: `a${BIDI}` }), initialHookNormState()).unknownShape).toBe(true)
+  })
+
+  test('the time is only an ISO instant (R4-3): the round-4 probe is not a line, an ISO one is', () => {
+    const probe = `Oct 3 2026 10:00:00 GMT (${`/home/alice/${'x'.repeat(1987)}${BIDI}`})`
+    expect(probe.length).toBeGreaterThan(2000)
+    expect(Number.isNaN(Date.parse(probe))).toBe(false)
+    const bad = normaliseHookLine(JSON.stringify({ v: 1, ts: probe, e: 'UserPromptSubmit', sid: 's1' }), initialHookNormState())
+    expect(bad).toMatchObject({ events: [], unparsed: true })
+
+    const good = normaliseHookLine(JSON.stringify({ v: 1, ts: TS, e: 'UserPromptSubmit', sid: 's1' }), initialHookNormState())
+    expect(good.unparsed).toBe(false)
+    expect(good.events).toHaveLength(2)
+    for (const event of good.events) expect(event.ts).toBe(TS)
+  })
+
+  test('nothing of the probe reaches the world the page and the terminal are drawn from', () => {
+    const probe = `Oct 3 2026 10:00:00 GMT (/home/alice/${'x'.repeat(2000)}${BIDI})`
+    const hookLine = JSON.stringify({ v: 1, ts: probe, e: 'UserPromptSubmit', sid: 's1', cwd: '/home/user/projects/demo' })
+    const transcriptLine = JSON.stringify({ type: 'user', timestamp: probe, cwd: '/home/user/projects/demo', message: { role: 'user', content: 'x' } })
+    const fromHook = normaliseHookLine(hookLine, initialHookNormState()).events
+    const fromTranscript = parseLine(transcriptLine, { agentId: 's1', kind: 'session' }, initialParseState()).events
+    expect([...fromHook, ...fromTranscript]).toEqual([])
+
+    const good = normaliseHookLine(line({ e: 'UserPromptSubmit', sid: 's1' }), initialHookNormState()).events
+    const world = good.reduce(reduce, emptyWorld(TS, '/home/user/.claude/projects'))
+    const text = JSON.stringify(publicWorld(world))
+    expect(text).not.toContain('Oct 3 2026')
+    expect(text).not.toContain('/home/alice')
+    for (const match of text.matchAll(/"(?:ts|at|since|lastEventAt)":"([^"]*)"/g)) expect(match[1]?.length).toBeLessThanOrEqual(24)
+  })
+
+  test.each([
+    ['2026-01-15T10:00:00Z', true],
+    ['2026-01-15T10:00:00.5Z', true],
+    ['2026-01-15T10:00:00.123Z', true],
+    ['2026-01-15T10:00:00.1234Z', false],
+    ['2026-01-15T10:00:00+02:00', false],
+    ['2026-01-15 10:00:00Z', false],
+    ['2026-01-15T10:00:00.000Z ', false],
+    ['2026-01-15T10:00:00.000Z\n', false],
+    ['2026-13-45T99:99:99.000Z', false],
+    ['+010000-01-15T10:00:00.000Z', false],
+    ['1768471200000', false],
+  ])('the time %j is %s', (ts, accepted) => {
+    const r = normaliseHookLine(JSON.stringify({ v: 1, ts, e: 'UserPromptSubmit', sid: 's1' }), initialHookNormState())
+    expect(r.unparsed).toBe(!accepted)
+    expect(r.events.length > 0).toBe(accepted)
   })
 
   test('a session source and an end reason outside the fixed lists fall back as the collector would', () => {
