@@ -17,9 +17,9 @@ describe('CHANGELOG.md', () => {
     expect(CHANGELOG).toContain('https://keepachangelog.com/en/1.1.0/')
   })
 
-  test('has the 0.1.0 entry, its date left for the release day, with its three sections in order', () => {
+  test('has the 0.1.0 entry, dated, with its three sections in order', () => {
     const at = (needle: string): number => CHANGELOG.indexOf(needle)
-    expect(at('## [0.1.0] - YYYY-MM-DD')).toBeGreaterThan(0)
+    expect(CHANGELOG).toMatch(/\n## \[0\.1\.0\] - \d{4}-\d{2}-\d{2}\n/)
     expect(at('### Added')).toBeGreaterThan(at('## [0.1.0]'))
     expect(at('### Security')).toBeGreaterThan(at('### Added'))
     expect(at('### Known limits')).toBeGreaterThan(at('### Security'))
